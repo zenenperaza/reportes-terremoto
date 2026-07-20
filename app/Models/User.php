@@ -4,13 +4,20 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, SoftDeletes;
+
+    public const ROLE_LABELS = [
+        'reporter' => 'Registrador',
+        'coordinator' => 'Coordinador',
+        'admin' => 'Administrador',
+    ];
 
     /**
      * The attributes that are mass assignable.
@@ -55,5 +62,16 @@ class User extends Authenticatable
     public function isCoordinator(): bool
     {
         return in_array($this->role, ['coordinator', 'admin'], true);
+    }
+
+    public function isAdministrator(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    /** @return array<string, string> */
+    public static function roleLabels(): array
+    {
+        return self::ROLE_LABELS;
     }
 }

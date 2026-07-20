@@ -25,7 +25,7 @@ php artisan serve
 
 Abra `http://127.0.0.1:8000`, cree la primera cuenta y registre una actividad.
 
-La aplicación queda configurada de forma aislada con SQLite local (`database/database.sqlite`). Esto evita utilizar una conexión MySQL definida por otras aplicaciones en el equipo. Para desplegar en otro motor, establezca `UNICEF_DB_CONNECTION` y configure los parámetros del motor elegido antes de ejecutar migraciones.
+La aplicación queda configurada para MySQL local en la base `registros`. Los parámetros se encuentran en `.env` (`UNICEF_DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME` y `DB_PASSWORD`). Para desplegarla en otro entorno, actualice esos valores antes de ejecutar migraciones.
 
 ## Roles de coordinación
 

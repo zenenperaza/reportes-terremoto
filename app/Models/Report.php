@@ -27,12 +27,13 @@ class Report extends Model
         ];
     }
 
-    public function user() { return $this->belongsTo(User::class); }
+    public function user() { return $this->belongsTo(User::class)->withTrashed(); }
     public function state() { return $this->belongsTo(State::class); }
     public function municipality() { return $this->belongsTo(Municipality::class); }
     public function parish() { return $this->belongsTo(Parish::class); }
     public function sector() { return $this->belongsTo(Sector::class); }
     public function activity() { return $this->belongsTo(Activity::class); }
+    public function beneficiaries() { return $this->hasMany(Beneficiary::class)->orderBy('id'); }
     public function evidences() { return $this->hasMany(Evidence::class)->orderBy('slot'); }
-    public function reviewer() { return $this->belongsTo(User::class, 'reviewed_by'); }
+    public function reviewer() { return $this->belongsTo(User::class, 'reviewed_by')->withTrashed(); }
 }

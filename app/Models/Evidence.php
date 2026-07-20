@@ -9,6 +9,8 @@ class Evidence extends Model
 {
     use HasFactory;
 
+    protected $table = 'evidences';
+
     protected $fillable = ['report_id', 'slot', 'original_name', 'path', 'mime_type', 'size'];
 
     public function report()

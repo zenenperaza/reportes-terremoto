@@ -9,7 +9,7 @@ class PromoteCoordinator extends Command
 {
     protected $signature = 'reports:make-coordinator {email : Correo de la cuenta a promover} {--admin : Otorga el rol de administrador}';
 
-    protected $description = 'Promueve una cuenta registrada para revisar reportes de respuesta.';
+    protected $description = 'Promueve una cuenta registrada para revisar registros de respuesta.';
 
     public function handle(): int
     {

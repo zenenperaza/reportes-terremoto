@@ -1,17 +1,17 @@
 @extends('layouts.app')
 
-@section('title', 'Reportes | Respuesta UNICEF')
+@section('title', 'Registros | Respuesta UNICEF')
 
 @section('content')
 <section class="page-heading">
     <div>
         <p class="eyebrow">{{ $isCoordinator ? 'Consolidado de respuesta' : 'Historial personal' }}</p>
-        <h1>Reportes de actividades</h1>
+        <h1>Registros de actividades</h1>
         <p class="muted">Filtre por ubicación, fecha o estado para localizar rápidamente un registro.</p>
     </div>
     <div class="heading-actions">
         @if ($isCoordinator)<a class="button button-secondary" href="{{ route('reports.export', request()->query()) }}">Exportar CSV</a>@endif
-        <a class="button button-primary" href="{{ route('reports.create') }}">+ Nuevo reporte</a>
+        <a class="button button-primary" href="{{ route('reports.create') }}">+ Nuevo registro</a>
     </div>
 </section>
 
@@ -22,7 +22,7 @@
         </label>
         <label>Desde<input type="date" name="from" value="{{ $filters['from'] ?? '' }}"></label>
         <label>Hasta<input type="date" name="to" value="{{ $filters['to'] ?? '' }}"></label>
-        <label>Estado del reporte
+        <label>Estado del registro
             <select name="status"><option value="">Todos</option><option value="submitted" @selected(($filters['status'] ?? '') === 'submitted')>Enviado</option><option value="reviewed" @selected(($filters['status'] ?? '') === 'reviewed')>Revisado</option></select>
         </label>
         <button class="button button-secondary" type="submit">Aplicar filtros</button>
@@ -31,10 +31,10 @@
 
 <section class="content-card">
     @if ($reports->isEmpty())
-        <div class="empty-state"><p>No hay reportes que coincidan con los filtros.</p></div>
+        <div class="empty-state"><p>No hay registros que coincidan con los filtros.</p></div>
     @else
         <div class="table-wrap"><table>
-            <thead><tr><th>Fecha</th>@if($isCoordinator)<th>Reportado por</th>@endif<th>Ubicación</th><th>Actividad</th><th>Beneficiarios</th><th>Estado</th><th></th></tr></thead>
+            <thead><tr><th>Fecha</th>@if($isCoordinator)<th>Registrado por</th>@endif<th>Ubicación</th><th>Actividad</th><th>Beneficiarios</th><th>Estado</th><th></th></tr></thead>
             <tbody>@foreach($reports as $report)
                 <tr>
                     <td>{{ $report->report_date->format('d/m/Y') }}</td>

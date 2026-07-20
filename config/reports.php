@@ -75,4 +75,19 @@ return [
             ],
         ],
     ],
+
+    'beneficiary_options' => [
+        'sexes' => ['Hombre', 'Mujer', 'Mujer Trans', 'Hombre Trans', 'Persona no Binaria', 'Otro', 'Prefiere no especificar'],
+        'disabilities' => [
+            'Ninguna', 'Discapacidad Física o Motora', 'Discapacidad Sensorial (auditiva y visual)',
+            'Discapacidad Auditiva', 'Discapacidad Visual', 'Discapacidad Intelectual', 'Discapacidad Psíquica',
+        ],
+        'ethnicities' => [
+            'Ninguna', 'Akawayo', 'Añu', 'Banova o Kurripako', 'Barí', 'Chaima', 'Gayón', 'Hoti', 'Japrería',
+            'Jirajara', 'Jivi', 'Kariña', 'Maki', 'Mapoyo', 'Panare', 'Pemón', 'Piapoko o Wenaiwika', 'Puinave',
+            'Pumé', 'Sáliba', 'Sanema', 'Sapé', 'Urak', 'Waike', 'Waikerí', 'Wanuikua', 'Waraos', 'Wayúu',
+            'Wottuja-Piaroa', 'Yabarana', 'Yanowamö', 'Yekuana', 'Yukpa', 'Otra Etnia',
+        ],
+        'pregnant_lactating' => ['No', 'Sí', 'N/A'],
+    ],
 ];

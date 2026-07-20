@@ -1,0 +1,4 @@
+/* El atributo HTML hidden debe prevalecer sobre la cuadrícula base. */
+.breakdown-grid[hidden] {
+    display: none !important;
+}

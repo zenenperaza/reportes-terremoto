@@ -8,11 +8,11 @@ use App\Models\Parish;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class StoreReportRequest extends FormRequest
+class StoreBeneficiaryEntryRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user() !== null;
     }
 
     public function rules(): array
@@ -20,6 +20,7 @@ class StoreReportRequest extends FormRequest
         $beneficiaryOptions = config('reports.beneficiary_options');
 
         return [
+            'report_id' => ['nullable', 'integer', 'exists:reports,id'],
             'report_date' => ['required', 'date', 'before_or_equal:today'],
             'reporter_first_name' => ['required', 'string', 'max:100'],
             'reporter_last_name' => ['required', 'string', 'max:100'],
@@ -40,22 +41,21 @@ class StoreReportRequest extends FormRequest
             'sector_id' => ['required', 'integer', 'exists:sectors,id'],
             'activity_id' => ['required', 'integer', 'exists:activities,id'],
             'activity_details' => ['nullable', 'string', 'max:5000'],
-
-            'beneficiaries' => ['required', 'array', 'min:1', 'max:1000'],
-            'beneficiaries.*.full_name' => ['required', 'string', 'max:150'],
-            'beneficiaries.*.age' => ['required', 'integer', 'min:0', 'max:120'],
-            'beneficiaries.*.sex' => ['required', Rule::in($beneficiaryOptions['sexes'])],
-            'beneficiaries.*.national_id' => ['nullable', 'string', 'max:30'],
-            'beneficiaries.*.phone' => ['nullable', 'string', 'max:30'],
-            'beneficiaries.*.disability' => ['required', Rule::in($beneficiaryOptions['disabilities'])],
-            'beneficiaries.*.ethnicity' => ['required', Rule::in($beneficiaryOptions['ethnicities'])],
-            'beneficiaries.*.pregnant_lactating' => ['required', Rule::in($beneficiaryOptions['pregnant_lactating'])],
-            'beneficiaries.*.is_recurrent' => ['required', 'boolean'],
-
             'qualitative_notes' => ['nullable', 'string', 'max:5000'],
             'evidence_1' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx,xlsx', 'max:10240'],
             'evidence_2' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx,xlsx', 'max:10240'],
             'evidence_3' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx,xlsx', 'max:10240'],
+
+            'beneficiary' => ['required', 'array'],
+            'beneficiary.full_name' => ['required', 'string', 'max:150'],
+            'beneficiary.age' => ['required', 'integer', 'min:0', 'max:120'],
+            'beneficiary.sex' => ['required', Rule::in($beneficiaryOptions['sexes'])],
+            'beneficiary.national_id' => ['nullable', 'string', 'max:30'],
+            'beneficiary.phone' => ['nullable', 'string', 'max:30'],
+            'beneficiary.disability' => ['required', Rule::in($beneficiaryOptions['disabilities'])],
+            'beneficiary.ethnicity' => ['required', Rule::in($beneficiaryOptions['ethnicities'])],
+            'beneficiary.pregnant_lactating' => ['required', Rule::in($beneficiaryOptions['pregnant_lactating'])],
+            'beneficiary.is_recurrent' => ['required', 'boolean'],
         ];
     }
 
@@ -77,19 +77,5 @@ class StoreReportRequest extends FormRequest
                 $validator->errors()->add('activity_id', 'La actividad no corresponde al sector seleccionado.');
             }
         });
-    }
-
-    public function attributes(): array
-    {
-        return [
-            'report_date' => 'fecha del registro',
-            'state_id' => 'estado',
-            'municipality_id' => 'municipio',
-            'parish_id' => 'parroquia',
-            'activity_id' => 'actividad a reportar',
-            'beneficiaries' => 'beneficiarios',
-            'beneficiaries.*.full_name' => 'nombre y apellido del beneficiario',
-            'beneficiaries.*.national_id' => 'cédula del beneficiario',
-        ];
     }
 }

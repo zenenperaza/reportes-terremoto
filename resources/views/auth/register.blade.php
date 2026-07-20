@@ -7,7 +7,7 @@
     <div class="auth-card">
         <p class="eyebrow">Primer acceso</p>
         <h1>Cree su cuenta</h1>
-        <p class="muted">La cuenta identifica a la persona que remite cada reporte.</p>
+        <p class="muted">La cuenta identifica a la persona que realiza cada registro.</p>
         <form method="post" action="{{ route('register.store') }}" class="stack-form">
             @csrf
             <label>Nombre completo
