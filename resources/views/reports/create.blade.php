@@ -26,7 +26,7 @@
     <section class="form-section">
         <div class="section-heading"><span>2</span><div><h2>Quién implementa</h2><p>Estos datos se conservan para cada beneficiario del mismo registro.</p></div></div>
         <div class="form-grid three-cols">
-            <label>Fecha de registro *<input type="date" name="report_date" value="{{ old('report_date', today()->format('Y-m-d')) }}" max="{{ today()->format('Y-m-d') }}" required></label>
+            <label>Fecha de atencion *<input type="date" name="report_date" value="{{ old('report_date', today()->format('Y-m-d')) }}" max="{{ today()->format('Y-m-d') }}" required></label>
             <label>Nombre *<input type="text" name="reporter_first_name" value="{{ old('reporter_first_name', $nameParts[0] ?? '') }}" required></label>
             <label>Apellido *<input type="text" name="reporter_last_name" value="{{ old('reporter_last_name', $nameParts[1] ?? '') }}" required></label>
             <label>Correo electrónico *<input type="email" name="reporter_email" value="{{ old('reporter_email', $user->email) }}" required></label>

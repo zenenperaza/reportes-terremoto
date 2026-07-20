@@ -8,6 +8,7 @@ use App\Models\Report;
 use App\Models\Sector;
 use App\Models\State;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -16,31 +17,21 @@ class BeneficiaryReportController extends Controller
 {
     public function index(Request $request): View
     {
-        $filters = $request->validate([
-            'from' => ['nullable', 'date'],
-            'to' => ['nullable', 'date', 'after_or_equal:from'],
-            'state_id' => ['nullable', 'integer', 'exists:states,id'],
-            'municipality_id' => ['nullable', 'integer', 'exists:municipalities,id'],
-            'parish_id' => ['nullable', 'integer', 'exists:parishes,id'],
-            'installation_type' => ['nullable', Rule::in(config('reports.installation_types'))],
-            'place_name' => ['nullable', 'string', 'max:200'],
-            'sector_id' => ['nullable', 'integer', 'exists:sectors,id'],
-            'activity_id' => ['nullable', 'integer', 'exists:activities,id'],
-            'is_recurrent' => ['nullable', Rule::in(['0', '1', 0, 1])],
-        ]);
+        $filters = $this->validatedFilters($request);
+        $isRecurrent = $this->booleanFilter($filters, 'is_recurrent');
+        $reported = $this->booleanFilter($filters, 'reported');
 
-        $reports = $this->applyReportFilters($this->visibleReports($request), $filters)
-            ->when(array_key_exists('is_recurrent', $filters) && $filters['is_recurrent'] !== null, fn (Builder $query) => $query->whereHas('beneficiaries', fn (Builder $beneficiaries) => $beneficiaries->where('is_recurrent', (bool) $filters['is_recurrent'])));
-        $beneficiaries = Beneficiary::query()
-            ->whereHas('report', function (Builder $query) use ($request, $filters): void {
-                if (! $request->user()->isCoordinator()) {
-                    $query->where('user_id', $request->user()->id);
-                }
+        $reports = $this->applyReportFilters($this->visibleReports($request), $filters);
+        if ($isRecurrent !== null) {
+            $reports->whereHas('beneficiaries', fn (Builder $beneficiaries) => $beneficiaries->where('is_recurrent', $isRecurrent));
+        }
+        if ($reported !== null) {
+            $reports->whereHas('beneficiaries', fn (Builder $beneficiaries) => $beneficiaries->where('reported', $reported));
+        }
 
-                $this->applyReportFilters($query, $filters);
-            })
-            ->when(array_key_exists('is_recurrent', $filters) && $filters['is_recurrent'] !== null, fn (Builder $query) => $query->where('is_recurrent', (bool) $filters['is_recurrent']))
-            ->get(['age', 'sex', 'disability', 'ethnicity', 'pregnant_lactating']);
+        $beneficiaryQuery = $this->filteredBeneficiaries($request, $filters);
+        $pendingBeneficiaryCount = (clone $beneficiaryQuery)->where('reported', false)->count();
+        $beneficiaries = $beneficiaryQuery->get(['age', 'sex', 'disability', 'ethnicity', 'pregnant_lactating']);
 
         $selectedState = State::find($filters['state_id'] ?? null);
         $selectedMunicipality = Municipality::find($filters['municipality_id'] ?? null);
@@ -50,6 +41,7 @@ class BeneficiaryReportController extends Controller
             'filters' => $filters,
             'summary' => $this->summary($beneficiaries),
             'reportCount' => $reports->count(),
+            'pendingBeneficiaryCount' => $pendingBeneficiaryCount,
             'states' => State::orderBy('name')->get(['id', 'name']),
             'municipalities' => $selectedState ? $selectedState->municipalities()->orderBy('name')->get(['id', 'name']) : collect(),
             'parishes' => $selectedMunicipality ? $selectedMunicipality->parishes()->orderBy('name')->get(['id', 'name']) : collect(),
@@ -59,6 +51,21 @@ class BeneficiaryReportController extends Controller
             'places' => $this->visibleReports($request)->whereNotNull('place_name')->distinct()->orderBy('place_name')->pluck('place_name'),
             'isConsolidated' => $request->user()->isCoordinator(),
         ]);
+    }
+
+    public function markAsReported(Request $request): RedirectResponse
+    {
+        $filters = $this->validatedFilters($request);
+        $updated = $this->filteredBeneficiaries($request, $filters)
+            ->where('reported', false)
+            ->update(['reported' => true, 'reported_at' => today()->toDateString()]);
+
+        $query = array_filter($filters, static fn (mixed $value): bool => $value !== null && $value !== '');
+        $message = $updated === 1
+            ? '1 beneficiario fue actualizado como reportado.'
+            : "{$updated} beneficiarios fueron actualizados como reportados.";
+
+        return redirect()->route('beneficiaries.summary', $query)->with('success', $message);
     }
 
     /** @param array<string, mixed> $filters */
@@ -85,6 +92,59 @@ class BeneficiaryReportController extends Controller
         }
 
         return $query;
+    }
+
+    /** @return array<string, mixed> */
+    private function validatedFilters(Request $request): array
+    {
+        return $request->validate([
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+            'state_id' => ['nullable', 'integer', 'exists:states,id'],
+            'municipality_id' => ['nullable', 'integer', 'exists:municipalities,id'],
+            'parish_id' => ['nullable', 'integer', 'exists:parishes,id'],
+            'installation_type' => ['nullable', Rule::in(config('reports.installation_types'))],
+            'place_name' => ['nullable', 'string', 'max:200'],
+            'sector_id' => ['nullable', 'integer', 'exists:sectors,id'],
+            'activity_id' => ['nullable', 'integer', 'exists:activities,id'],
+            'is_recurrent' => ['nullable', Rule::in(['0', '1', 0, 1])],
+            'reported' => ['nullable', Rule::in(['0', '1', 0, 1])],
+        ]);
+    }
+
+    /** @param array<string, mixed> $filters */
+    private function filteredBeneficiaries(Request $request, array $filters): Builder
+    {
+        $beneficiaries = Beneficiary::query()
+            ->whereHas('report', function (Builder $query) use ($request, $filters): void {
+                if (! $request->user()->isCoordinator()) {
+                    $query->where('user_id', $request->user()->id);
+                }
+
+                $this->applyReportFilters($query, $filters);
+            });
+
+        $isRecurrent = $this->booleanFilter($filters, 'is_recurrent');
+        if ($isRecurrent !== null) {
+            $beneficiaries->where('is_recurrent', $isRecurrent);
+        }
+
+        $reported = $this->booleanFilter($filters, 'reported');
+        if ($reported !== null) {
+            $beneficiaries->where('reported', $reported);
+        }
+
+        return $beneficiaries;
+    }
+
+    /** @param array<string, mixed> $filters */
+    private function booleanFilter(array $filters, string $field): ?bool
+    {
+        if (! array_key_exists($field, $filters) || $filters[$field] === null || $filters[$field] === '') {
+            return null;
+        }
+
+        return (bool) $filters[$field];
     }
 
     /** @param \Illuminate\Support\Collection<int, Beneficiary> $beneficiaries */

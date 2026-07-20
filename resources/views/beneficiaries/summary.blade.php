@@ -43,6 +43,9 @@
         <label>Recurrente
             <select name="is_recurrent"><option value="">Todos</option><option value="1" @selected(($filters['is_recurrent'] ?? '') === '1')>Sí</option><option value="0" @selected(($filters['is_recurrent'] ?? '') === '0')>No</option></select>
         </label>
+        <label>Estado del registro
+            <select name="reported"><option value="">Todos</option><option value="1" @selected(($filters['reported'] ?? '') === '1')>Sí</option><option value="0" @selected(($filters['reported'] ?? '') === '0')>No</option></select>
+        </label>
         <div class="filter-actions">
             <button class="button button-primary" type="submit">Generar informe</button>
             <a class="button button-secondary" href="{{ route('beneficiaries.summary') }}">Limpiar</a>
@@ -73,6 +76,17 @@
             <tr><td>Mujeres embarazadas o en lactancia</td><td>{{ number_format($summary['pregnancy']) }}</td></tr>
         </tfoot>
     </table></div>
+    @if($pendingBeneficiaryCount > 0)
+        <form method="post" action="{{ route('beneficiaries.mark-reported') }}" class="form-actions" onsubmit="return confirm('¿Actualizar a Reportado los {{ number_format($pendingBeneficiaryCount) }} beneficiarios que coinciden con los filtros actuales?');">
+            @csrf
+            @foreach($filters as $name => $value)
+                @if($value !== null && $value !== '')<input type="hidden" name="{{ $name }}" value="{{ $value }}">@endif
+            @endforeach
+            <button class="button button-primary" type="submit">Actualizar a Reportado</button>
+        </form>
+    @else
+        <p class="muted">No hay beneficiarios pendientes de actualizar con los filtros actuales.</p>
+    @endif
 </section>
 
 <script>

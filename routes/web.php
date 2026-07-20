@@ -37,6 +37,7 @@ Route::middleware('auth')->group(function (): void {
     Route::put('/beneficiarios/{beneficiary}', [ReportController::class, 'updateBeneficiary'])->name('beneficiaries.update');
     Route::delete('/beneficiarios/{beneficiary}', [ReportController::class, 'destroyBeneficiary'])->name('beneficiaries.destroy');
     Route::get('/informe-beneficiarios', [BeneficiaryReportController::class, 'index'])->name('beneficiaries.summary');
+    Route::post('/informe-beneficiarios/marcar-reportados', [BeneficiaryReportController::class, 'markAsReported'])->name('beneficiaries.mark-reported');
 
     Route::get('/reportes/exportar', [ReportController::class, 'export'])->name('reports.export');
     Route::get('/reportes', [ReportController::class, 'index'])->name('reports.index');

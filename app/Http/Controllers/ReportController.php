@@ -27,7 +27,9 @@ class ReportController extends Controller
     {
         $reports = $this->filteredReports($request)
             ->with(['user', 'state', 'municipality', 'parish', 'sector', 'activity'])
-            ->latest('report_date')->latest('id')
+            ->withCount('beneficiaries')
+            ->withCount(['beneficiaries as unreported_beneficiaries_count' => fn (Builder $query) => $query->where('reported', false)])
+            ->latest('created_at')->latest('id')
             ->paginate(15)
             ->withQueryString();
 
@@ -35,7 +37,7 @@ class ReportController extends Controller
             'reports' => $reports,
             'states' => State::orderBy('name')->get(['id', 'name']),
             'isCoordinator' => $request->user()->isCoordinator(),
-            'filters' => $request->only(['state_id', 'status', 'from', 'to']),
+            'filters' => $request->only(['state_id', 'reported', 'from', 'to']),
         ]);
     }
 
@@ -241,7 +243,7 @@ class ReportController extends Controller
             fputcsv($out, [
                 'ID registro', 'Fecha', 'Organización', 'Estado', 'Municipio', 'Parroquia', 'Sector', 'Actividad',
                 'Nombre y apellido', 'Edad', 'Sexo', 'Cédula', 'Teléfono', 'Discapacidad', 'Indígena',
-                'Embarazada o lactante', 'Recurrente', 'Estado del registro',
+                'Embarazada o lactante', 'Recurrente', 'Reportado', 'Fecha de reporte', 'Estado de revisión',
             ]);
 
             foreach ($reports as $report) {
@@ -253,7 +255,9 @@ class ReportController extends Controller
                         $report->sector->name, $report->activity->title, $beneficiary?->full_name,
                         $beneficiary?->age, $beneficiary?->sex, $beneficiary?->national_id, $beneficiary?->phone,
                         $beneficiary?->disability, $beneficiary?->ethnicity, $beneficiary?->pregnant_lactating,
-                        $beneficiary ? ($beneficiary->is_recurrent ? 'Sí' : 'No') : null, $report->status,
+                        $beneficiary ? ($beneficiary->is_recurrent ? 'Sí' : 'No') : null,
+                        $beneficiary ? ($beneficiary->reported ? 'Sí' : 'No') : null,
+                        $beneficiary?->reported_at?->format('Y-m-d'), $report->status,
                     ]);
                 }
             }
@@ -268,9 +272,17 @@ class ReportController extends Controller
             $query->where('user_id', $request->user()->id);
         }
 
+        $reported = $request->input('reported');
+        if ($reported === '1') {
+            $query->whereHas('beneficiaries')
+                ->whereDoesntHave('beneficiaries', fn (Builder $beneficiaries) => $beneficiaries->where('reported', false));
+        }
+        if ($reported === '0') {
+            $query->whereHas('beneficiaries', fn (Builder $beneficiaries) => $beneficiaries->where('reported', false));
+        }
+
         return $query
             ->when($request->integer('state_id'), fn (Builder $query, int $stateId) => $query->where('state_id', $stateId))
-            ->when($request->input('status'), fn (Builder $query, string $status) => $query->where('status', $status))
             ->when($request->input('from'), fn (Builder $query, string $from) => $query->whereDate('report_date', '>=', $from))
             ->when($request->input('to'), fn (Builder $query, string $to) => $query->whereDate('report_date', '<=', $to));
     }

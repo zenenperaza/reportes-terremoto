@@ -23,7 +23,7 @@
         <label>Desde<input type="date" name="from" value="{{ $filters['from'] ?? '' }}"></label>
         <label>Hasta<input type="date" name="to" value="{{ $filters['to'] ?? '' }}"></label>
         <label>Estado del registro
-            <select name="status"><option value="">Todos</option><option value="submitted" @selected(($filters['status'] ?? '') === 'submitted')>Enviado</option><option value="reviewed" @selected(($filters['status'] ?? '') === 'reviewed')>Revisado</option></select>
+            <select name="reported"><option value="">Todos</option><option value="1" @selected(($filters['reported'] ?? '') === '1')>Sí</option><option value="0" @selected(($filters['reported'] ?? '') === '0')>No</option></select>
         </label>
         <button class="button button-secondary" type="submit">Aplicar filtros</button>
     </form>
@@ -34,7 +34,7 @@
         <div class="empty-state"><p>No hay registros que coincidan con los filtros.</p></div>
     @else
         <div class="table-wrap"><table>
-            <thead><tr><th>Fecha</th>@if($isCoordinator)<th>Registrado por</th>@endif<th>Ubicación</th><th>Actividad</th><th>Beneficiarios</th><th>Estado</th><th></th></tr></thead>
+            <thead><tr><th>Fecha</th>@if($isCoordinator)<th>Registrado por</th>@endif<th>Ubicación</th><th>Actividad</th><th>Beneficiarios</th><th>Reportado</th><th></th></tr></thead>
             <tbody>@foreach($reports as $report)
                 <tr>
                     <td>{{ $report->report_date->format('d/m/Y') }}</td>
@@ -42,7 +42,8 @@
                     <td>{{ $report->state->name }}<br><small>{{ $report->municipality->name }}, {{ $report->parish->name }}</small></td>
                     <td>{{ $report->sector->name }}<br><small>{{ \Illuminate\Support\Str::limit($report->activity->title, 72) }}</small></td>
                     <td>{{ number_format($report->total_beneficiaries) }}</td>
-                    <td><span class="status status-{{ $report->status }}">{{ $report->status === 'reviewed' ? 'Revisado' : 'Enviado' }}</span></td>
+                    @php($isReported = $report->beneficiaries_count > 0 && $report->unreported_beneficiaries_count === 0)
+                    <td><span class="status status-{{ $isReported ? 'reviewed' : 'submitted' }}">{{ $isReported ? 'Sí' : 'No' }}</span>@if(! $isReported && $report->beneficiaries_count > $report->unreported_beneficiaries_count)<br><small>{{ $report->beneficiaries_count - $report->unreported_beneficiaries_count }} de {{ $report->beneficiaries_count }} beneficiarios reportados</small>@endif</td>
                     <td><a href="{{ route('reports.show', $report) }}">Ver</a></td>
                 </tr>
             @endforeach</tbody>

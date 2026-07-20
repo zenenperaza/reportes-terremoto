@@ -203,6 +203,37 @@ class ReportWorkflowTest extends TestCase
         $this->assertDatabaseHas('reports', ['place_name' => 'Comunidad El Manantial', 'total_beneficiaries' => 1]);
     }
 
+    public function test_user_can_mark_filtered_beneficiaries_as_reported_without_affecting_other_users(): void
+    {
+        $owner = User::factory()->create(['role' => 'reporter']);
+        $otherUser = User::factory()->create(['role' => 'reporter']);
+        $state = State::create(['code' => 'VE01', 'name' => 'Distrito Capital']);
+        $municipality = Municipality::create(['state_id' => $state->id, 'code' => 'VE0101', 'name' => 'Libertador']);
+        $parish = Parish::create(['municipality_id' => $municipality->id, 'code' => 'VE010101', 'name' => 'Altagracia']);
+        $sector = Sector::create(['name' => 'Protección', 'slug' => 'proteccion', 'sort_order' => 1]);
+        $activity = Activity::create(['sector_id' => $sector->id, 'code' => 'TEST-01', 'title' => 'Actividad de prueba', 'sort_order' => 1]);
+        $ownReport = $this->makeReport($owner, $state, $municipality, $parish, $sector, $activity, 'Lugar de Ana');
+        $otherReport = $this->makeReport($otherUser, $state, $municipality, $parish, $sector, $activity, 'Lugar de otra persona');
+        $ownBeneficiary = $ownReport->beneficiaries()->create(['full_name' => 'Ana Niño', 'age' => 10, 'sex' => 'Mujer', 'is_recurrent' => false]);
+        $otherBeneficiary = $otherReport->beneficiaries()->create(['full_name' => 'Otra Niña', 'age' => 8, 'sex' => 'Mujer', 'is_recurrent' => false]);
+
+        $this->actingAs($owner)->get('/informe-beneficiarios?reported=0')
+            ->assertOk()
+            ->assertSee('Actualizar a Reportado');
+
+        $this->actingAs($owner)->post('/informe-beneficiarios/marcar-reportados', ['reported' => '0'])
+            ->assertRedirect()
+            ->assertSessionHas('success', '1 beneficiario fue actualizado como reportado.');
+
+        $this->assertDatabaseHas('beneficiaries', ['id' => $ownBeneficiary->id, 'reported' => true, 'reported_at' => today()->toDateString()]);
+        $this->assertDatabaseHas('beneficiaries', ['id' => $otherBeneficiary->id, 'reported' => false, 'reported_at' => null]);
+
+        $this->actingAs($owner)->get('/reportes?reported=1')
+            ->assertOk()
+            ->assertSee(route('reports.show', $ownReport))
+            ->assertDontSee(route('reports.show', $otherReport));
+    }
+
     private function makeReport(User $user, State $state, Municipality $municipality, Parish $parish, Sector $sector, Activity $activity, string $placeName): Report
     {
         return Report::create([

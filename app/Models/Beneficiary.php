@@ -16,7 +16,11 @@ class Beneficiary extends Model
 
     protected function casts(): array
     {
-        return ['is_recurrent' => 'boolean'];
+        return [
+            'is_recurrent' => 'boolean',
+            'reported' => 'boolean',
+            'reported_at' => 'date',
+        ];
     }
 
     public function report()
