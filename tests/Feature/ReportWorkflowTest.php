@@ -76,7 +76,7 @@ class ReportWorkflowTest extends TestCase
         $this->assertDatabaseHas('evidences', ['original_name' => 'evidencia.pdf', 'slot' => 1]);
         Storage::disk('local')->assertExists(Evidence::firstOrFail()->path);
         $this->get($response->headers->get('Location'))->assertOk()->assertSee('Actividad de prueba')->assertSee('Carla Rojas');
-        $this->get('/panel')->assertOk()->assertSee('Mis actividades reportadas');
+        $this->get('/panel')->assertOk()->assertSee('Mis actividades registradas');
     }
 
     public function test_administrator_can_create_update_and_delete_users(): void
@@ -142,9 +142,9 @@ class ReportWorkflowTest extends TestCase
         $this->actingAs($owner)->get("/reportes/{$otherReport->id}")->assertForbidden();
         $this->actingAs($administrator)->get('/reportes')->assertOk()->assertSee($owner->name)->assertSee($otherUser->name);
 
-        $this->actingAs($owner)->get('/informe-beneficiarios')->assertOk()->assertSee('1 reporte coincide');
-        $this->actingAs($administrator)->get('/informe-beneficiarios')->assertOk()->assertSee('2 reportes coinciden');
-        $this->actingAs($administrator)->get('/informe-beneficiarios?is_recurrent=1')->assertOk()->assertSee('1 reporte coincide');
+        $this->actingAs($owner)->get('/informe-beneficiarios')->assertOk()->assertSee('1 registro coincide');
+        $this->actingAs($administrator)->get('/informe-beneficiarios')->assertOk()->assertSee('2 registros coinciden');
+        $this->actingAs($administrator)->get('/informe-beneficiarios?is_recurrent=1')->assertOk()->assertSee('1 registro coincide');
 
         $this->actingAs($owner)->getJson("/beneficiarios/verificar-recurrencia?activity_id={$activity->id}&national_id=V123")
             ->assertOk()

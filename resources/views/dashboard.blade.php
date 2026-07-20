@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Panel | Respuesta UNICEF')
+@section('title', 'Panel | Respuesta ASONACOP')
 
 @section('content')
 <section class="page-heading">

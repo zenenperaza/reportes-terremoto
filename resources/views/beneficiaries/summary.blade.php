@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Informe de beneficiarios | Respuesta UNICEF')
+@section('title', 'Informe de beneficiarios | Respuesta ASONACOP')
 
 @section('content')
 <section class="page-heading compact-heading">

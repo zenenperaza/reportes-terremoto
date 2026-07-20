@@ -52,9 +52,9 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             'beneficiary.sex' => ['required', Rule::in($beneficiaryOptions['sexes'])],
             'beneficiary.national_id' => ['nullable', 'string', 'max:30'],
             'beneficiary.phone' => ['nullable', 'string', 'max:30'],
-            'beneficiary.disability' => ['required', Rule::in($beneficiaryOptions['disabilities'])],
-            'beneficiary.ethnicity' => ['required', Rule::in($beneficiaryOptions['ethnicities'])],
-            'beneficiary.pregnant_lactating' => ['required', Rule::in($beneficiaryOptions['pregnant_lactating'])],
+            'beneficiary.disability' => ['nullable', Rule::in($beneficiaryOptions['disabilities'])],
+            'beneficiary.ethnicity' => ['nullable', Rule::in($beneficiaryOptions['ethnicities'])],
+            'beneficiary.pregnant_lactating' => ['nullable', Rule::in($beneficiaryOptions['pregnant_lactating'])],
             'beneficiary.is_recurrent' => ['required', 'boolean'],
         ];
     }

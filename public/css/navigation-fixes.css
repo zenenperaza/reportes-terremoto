@@ -1,0 +1,13 @@
+.main-nav a.button-small {
+    color: var(--navy);
+    background: #fff;
+    border-color: #fff;
+    white-space: nowrap;
+}
+
+.main-nav a.button-small:hover,
+.main-nav a.button-small:focus-visible {
+    color: #fff;
+    background: #057bb4;
+    border-color: #057bb4;
+}

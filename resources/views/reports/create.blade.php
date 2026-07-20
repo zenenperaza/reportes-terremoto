@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Nuevo registro | Respuesta UNICEF')
+@section('title', 'Nuevo registro | Respuesta ASONACOP')
 
 @section('content')
 @php($nameParts = preg_split('/\s+/', trim($user->name), 2))
@@ -15,21 +15,30 @@
 <form enctype="multipart/form-data" class="report-form" id="report-form" data-beneficiary-url="{{ route('beneficiaries.store') }}" novalidate>
     @csrf
     <section class="form-section">
-        <div class="section-heading"><span>1</span><div><h2>Quién implementa</h2><p>Estos datos se conservan para cada beneficiario del mismo registro.</p></div></div>
+        <div class="section-heading"><span>1</span><div><h2>Actividad</h2><p>Si cambia cualquiera de estos encabezados, el próximo beneficiario iniciará un nuevo registro.</p></div></div>
+        <div class="form-grid two-cols">
+            <label>Sector programático *<select name="sector_id" id="sector_id" required><option value="">Seleccione el sector principal</option>@foreach($sectors as $sector)<option value="{{ $sector->id }}" @selected((string) $selectedSectorId === (string) $sector->id)>{{ $sector->name }}</option>@endforeach</select></label>
+            <label>Actividad a reportar *<select name="activity_id" id="activity_id" required><option value="">Seleccione primero el sector</option>@foreach($activities as $activity)<option value="{{ $activity->id }}" @selected(old('activity_id') == $activity->id)>{{ $activity->title }}</option>@endforeach</select></label>
+            <label class="span-two">Detalles adicionales de la actividad<textarea name="activity_details" rows="4" maxlength="5000" placeholder="Cantidades entregadas, temas de capacitación, logros o detalles relevantes.">{{ old('activity_details') }}</textarea></label>
+        </div>
+    </section>
+
+    <section class="form-section">
+        <div class="section-heading"><span>2</span><div><h2>Quién implementa</h2><p>Estos datos se conservan para cada beneficiario del mismo registro.</p></div></div>
         <div class="form-grid three-cols">
             <label>Fecha de registro *<input type="date" name="report_date" value="{{ old('report_date', today()->format('Y-m-d')) }}" max="{{ today()->format('Y-m-d') }}" required></label>
             <label>Nombre *<input type="text" name="reporter_first_name" value="{{ old('reporter_first_name', $nameParts[0] ?? '') }}" required></label>
             <label>Apellido *<input type="text" name="reporter_last_name" value="{{ old('reporter_last_name', $nameParts[1] ?? '') }}" required></label>
             <label>Correo electrónico *<input type="email" name="reporter_email" value="{{ old('reporter_email', $user->email) }}" required></label>
             <label>Organización implementadora *
-                <select name="organization" id="organization" required><option value="">Seleccione una organización</option>@foreach($organizations as $organization)<option value="{{ $organization }}" @selected(old('organization') === $organization)>{{ $organization }}</option>@endforeach</select>
+                <select name="organization" id="organization" required><option value="">Seleccione una organización</option>@foreach($organizations as $organization)<option value="{{ $organization }}" @selected(old('organization', 'ASONACOP') === $organization)>{{ $organization }}</option>@endforeach</select>
             </label>
             <label id="other-organization-field" hidden>Especifique otra organización<input type="text" name="other_organization" value="{{ old('other_organization') }}"></label>
         </div>
     </section>
 
     <section class="form-section">
-        <div class="section-heading"><span>2</span><div><h2>Ubicación</h2><p>La información se mantiene mientras agregue beneficiarios a este registro.</p></div></div>
+        <div class="section-heading"><span>3</span><div><h2>Ubicación</h2><p>La información se mantiene mientras agregue beneficiarios a este registro.</p></div></div>
         <div class="form-grid three-cols">
             <label>Estado *<select name="state_id" id="state_id" required><option value="">Seleccione el estado</option>@foreach($states as $state)<option value="{{ $state->id }}" @selected(old('state_id') == $state->id)>{{ $state->name }}</option>@endforeach</select></label>
             <label>Municipio *<select name="municipality_id" id="municipality_id" required><option value="">Seleccione primero el estado</option>@foreach($municipalities as $municipality)<option value="{{ $municipality->id }}" @selected(old('municipality_id') == $municipality->id)>{{ $municipality->name }}</option>@endforeach</select></label>
@@ -37,16 +46,7 @@
             <label>Tipo de instalación / ubicación *<select name="installation_type" required><option value="">Seleccione una opción</option>@foreach($installationTypes as $type)<option value="{{ $type }}" @selected(old('installation_type') === $type)>{{ $type }}</option>@endforeach</select></label>
             <label class="span-two">Nombre específico del lugar *<input type="text" name="place_name" maxlength="200" placeholder="Ej. Escuela Simón Bolívar o Comunidad El Carmen" value="{{ old('place_name') }}" required></label>
         </div>
-        <details class="gps-details"><summary>Agregar coordenadas GPS</summary><div class="form-grid four-cols"><label>Latitud<input type="number" step="0.0000001" min="-90" max="90" name="latitude" value="{{ old('latitude') }}"></label><label>Longitud<input type="number" step="0.0000001" min="-180" max="180" name="longitude" value="{{ old('longitude') }}"></label><label>Altitud (m)<input type="number" step="0.01" name="altitude" value="{{ old('altitude') }}"></label><label>Precisión (m)<input type="number" step="0.01" min="0" name="gps_accuracy" value="{{ old('gps_accuracy') }}"></label></div></details>
-    </section>
-
-    <section class="form-section">
-        <div class="section-heading"><span>3</span><div><h2>Actividad</h2><p>Si cambia cualquiera de estos encabezados, el próximo beneficiario iniciará un nuevo registro.</p></div></div>
-        <div class="form-grid two-cols">
-            <label>Sector programático *<select name="sector_id" id="sector_id" required><option value="">Seleccione el sector principal</option>@foreach($sectors as $sector)<option value="{{ $sector->id }}" @selected(old('sector_id') == $sector->id)>{{ $sector->name }}</option>@endforeach</select></label>
-            <label>Actividad a reportar *<select name="activity_id" id="activity_id" required><option value="">Seleccione primero el sector</option>@foreach($activities as $activity)<option value="{{ $activity->id }}" @selected(old('activity_id') == $activity->id)>{{ $activity->title }}</option>@endforeach</select></label>
-            <label class="span-two">Detalles adicionales de la actividad<textarea name="activity_details" rows="4" maxlength="5000" placeholder="Cantidades entregadas, temas de capacitación, logros o detalles relevantes.">{{ old('activity_details') }}</textarea></label>
-        </div>
+        <details class="gps-details"><summary>Agregar coordenadas GPS</summary><div class="gps-location-actions"><button class="button button-secondary" type="button" id="gps-locate">Usar mi ubicación actual</button><p class="gps-location-status" id="gps-location-status" role="status" aria-live="polite"></p></div><p class="gps-location-help">El navegador solicitará permiso para acceder a la ubicación. También puede escribir las coordenadas manualmente.</p><div class="form-grid four-cols"><label>Latitud<input type="number" step="0.0000001" min="-90" max="90" name="latitude" value="{{ old('latitude') }}"></label><label>Longitud<input type="number" step="0.0000001" min="-180" max="180" name="longitude" value="{{ old('longitude') }}"></label><label>Altitud (m)<input type="number" step="0.01" name="altitude" value="{{ old('altitude') }}"></label><label>Precisión (m)<input type="number" step="0.01" min="0" name="gps_accuracy" value="{{ old('gps_accuracy') }}"></label></div></details>
     </section>
 
     <section class="form-section">
@@ -59,11 +59,11 @@
                 <label>Sexo *<select id="beneficiary_sex"><option value="">Seleccione</option>@foreach($beneficiaryOptions['sexes'] as $option)<option value="{{ $option }}">{{ $option }}</option>@endforeach</select></label>
                 <label>Cédula<input type="text" id="beneficiary_national_id" maxlength="30" inputmode="numeric"></label>
                 <label>Teléfono<input type="text" id="beneficiary_phone" maxlength="30" inputmode="tel"></label>
-                <label>Discapacidad *<select id="beneficiary_disability"><option value="">Seleccione</option>@foreach($beneficiaryOptions['disabilities'] as $option)<option value="{{ $option }}">{{ $option }}</option>@endforeach</select></label>
-                <label>Indígena / etnia *<select id="beneficiary_ethnicity"><option value="">Seleccione</option>@foreach($beneficiaryOptions['ethnicities'] as $option)<option value="{{ $option }}">{{ $option }}</option>@endforeach</select></label>
-                <label>Embarazada o lactante *<select id="beneficiary_pregnant_lactating"><option value="">Seleccione</option>@foreach($beneficiaryOptions['pregnant_lactating'] as $option)<option value="{{ $option }}">{{ $option }}</option>@endforeach</select></label>
-                <label>Recurrente *<select id="beneficiary_is_recurrent"><option value="">Seleccione</option><option value="0">No</option><option value="1">Sí</option></select></label>
+                <label>Discapacidad<select id="beneficiary_disability"><option value="">No especificada</option>@foreach($beneficiaryOptions['disabilities'] as $option)<option value="{{ $option }}">{{ $option }}</option>@endforeach</select></label>
+                <label>Indígena / etnia<select id="beneficiary_ethnicity"><option value="">No especificada</option>@foreach($beneficiaryOptions['ethnicities'] as $option)<option value="{{ $option }}">{{ $option }}</option>@endforeach</select></label>
+                <label id="beneficiary-pregnant-lactating-field">Embarazada o lactante<select id="beneficiary_pregnant_lactating"><option value="">No especificado</option>@foreach($beneficiaryOptions['pregnant_lactating'] as $option)<option value="{{ $option }}">{{ $option }}</option>@endforeach</select></label>
             </div>
+            <div class="beneficiary-recurrence-field"><label>Recurrente *<select id="beneficiary_is_recurrent"><option value="0" selected>No</option><option value="1">Sí</option></select></label><p class="muted">Indique esta condición de forma independiente, considerando la alerta de posibles coincidencias.</p></div>
             <div class="beneficiary-entry-actions"><p id="beneficiary-entry-error" class="field-error" hidden></p><p id="beneficiary-entry-success" class="field-success" hidden></p><button class="button button-secondary" type="button" id="save-beneficiary">Guardar beneficiario</button><button class="button button-ghost" type="button" id="cancel-beneficiary-edit" hidden>Cancelar edición</button></div>
         </fieldset>
 
@@ -74,13 +74,13 @@
         </div>
     </section>
 
-    <section class="form-section">
-        <div class="section-heading"><span>5</span><div><h2>Grupos con necesidades específicas</h2><p>Se calculan automáticamente cada vez que guarda, edita o elimina un beneficiario.</p></div></div>
+    <section class="form-section" hidden>
+        <div class="section-heading"><span>3</span><div><h2>Grupos con necesidades específicas</h2><p>Se calculan automáticamente cada vez que guarda, edita o elimina un beneficiario.</p></div></div>
         <div class="beneficiary-summary"><div><span>Personas con discapacidad</span><strong id="summary-disability">0</strong></div><div><span>Población indígena</span><strong id="summary-ethnicity">0</strong></div><div><span>Embarazadas o en lactancia</span><strong id="summary-pregnancy">0</strong></div><div><span>Beneficiarios recurrentes</span><strong id="summary-recurrent">0</strong></div></div>
     </section>
 
-    <section class="form-section">
-        <div class="section-heading"><span>6</span><div><h2>Información adicional</h2><p>Las notas y evidencias se guardan junto al próximo beneficiario.</p></div></div>
+    <section class="form-section" hidden>
+        <div class="section-heading"><span>4</span><div><h2>Información adicional</h2><p>Las notas y evidencias se guardan junto al próximo beneficiario.</p></div></div>
         <div class="form-grid two-cols"><label class="span-two">Detalle cualitativo / notas de campo<textarea name="qualitative_notes" rows="5" maxlength="5000" placeholder="Describa brevemente logros, desafíos u observaciones relevantes.">{{ old('qualitative_notes') }}</textarea></label><label>Medio de verificación 1<input type="file" name="evidence_1" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xlsx"><small>PDF, imagen, Word o Excel; máximo 10 MB.</small></label><label>Medio de verificación 2 (opcional)<input type="file" name="evidence_2" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xlsx"><small>Máximo 10 MB.</small></label><label>Medio de verificación 3 (opcional)<input type="file" name="evidence_3" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xlsx"><small>Máximo 10 MB.</small></label></div>
     </section>
     <div class="form-actions"><a class="button button-ghost" href="{{ route('dashboard') }}">Cancelar</a><a class="button button-secondary" id="current-report-link" href="#" hidden>Ver registro guardado</a></div>
@@ -95,8 +95,30 @@ state.addEventListener('change', async () => { setOptions(municipality, [], 'Car
 municipality.addEventListener('change', async () => { setOptions(parish, [], 'Cargando parroquias'); if (municipality.value) await loadOptions(parish, `/ubicaciones/municipios/${municipality.value}/parroquias`, 'Seleccione la parroquia'); });
 sector.addEventListener('change', async () => { setOptions(activity, [], 'Cargando actividades'); if (sector.value) await loadOptions(activity, `/sectores/${sector.value}/actividades`, 'Seleccione la actividad'); });
 
+const gpsLocateButton = select('gps-locate'), gpsLocationStatus = select('gps-location-status');
+const setGpsLocationStatus = message => { gpsLocationStatus.textContent = message; };
+const formatGpsValue = (value, decimals) => Number(value).toFixed(decimals);
+gpsLocateButton.addEventListener('click', () => {
+    if (!navigator.geolocation) { setGpsLocationStatus('Este navegador no permite obtener la ubicación. Ingrese las coordenadas manualmente.'); return; }
+    gpsLocateButton.disabled = true; setGpsLocationStatus('Buscando su ubicación actual…');
+    navigator.geolocation.getCurrentPosition(position => {
+        const coordinates = position.coords;
+        form.elements.latitude.value = formatGpsValue(coordinates.latitude, 7);
+        form.elements.longitude.value = formatGpsValue(coordinates.longitude, 7);
+        form.elements.gps_accuracy.value = formatGpsValue(coordinates.accuracy, 2);
+        form.elements.altitude.value = coordinates.altitude === null ? '' : formatGpsValue(coordinates.altitude, 2);
+        gpsLocateButton.disabled = false;
+        setGpsLocationStatus(coordinates.altitude === null ? 'Ubicación agregada. Su dispositivo no proporcionó la altitud.' : 'Ubicación agregada correctamente.');
+    }, error => {
+        const messages = {1: 'Permiso de ubicación denegado. Puede permitirlo en el navegador o escribir las coordenadas manualmente.', 2: 'No fue posible determinar la ubicación. Intente nuevamente o ingrese las coordenadas manualmente.', 3: 'La ubicación tardó demasiado. Intente nuevamente o ingrese las coordenadas manualmente.'};
+        gpsLocateButton.disabled = false; setGpsLocationStatus(messages[error.code] || 'No fue posible obtener la ubicación.');
+    }, {enableHighAccuracy: true, timeout: 15000, maximumAge: 0});
+});
+
 const beneficiaryFields = ['full_name', 'age', 'sex', 'national_id', 'phone', 'disability', 'ethnicity', 'pregnant_lactating', 'is_recurrent'];
 const beneficiaryInputs = Object.fromEntries(beneficiaryFields.map(field => [field, select(`beneficiary_${field}`)]));
+const pregnantLactatingField = select('beneficiary-pregnant-lactating-field');
+const syncPregnantLactatingField = () => { const isMan = beneficiaryInputs.sex.value === 'Hombre'; pregnantLactatingField.hidden = isMan; if (isMan) beneficiaryInputs.pregnant_lactating.value = ''; };
 const entryError = select('beneficiary-entry-error'), entrySuccess = select('beneficiary-entry-success'), beneficiaryList = select('beneficiary-list'), beneficiaryEmpty = select('beneficiary-empty'), beneficiaryTable = select('beneficiary-table-wrap'), saveButton = select('save-beneficiary');
 const headerFields = ['report_date', 'reporter_first_name', 'reporter_last_name', 'reporter_email', 'organization', 'other_organization', 'state_id', 'municipality_id', 'parish_id', 'installation_type', 'place_name', 'sector_id', 'activity_id'];
 let beneficiaries = [], activeReportId = null, activeHeaderSignature = null, beneficiaryEditId = null, isSaving = false;
@@ -105,7 +127,7 @@ const inputValue = field => beneficiaryInputs[field].value.trim();
 const beneficiaryRecord = () => Object.fromEntries(beneficiaryFields.map(field => [field, inputValue(field)]));
 const headerSignature = () => JSON.stringify(Object.fromEntries(headerFields.map(field => [field, form.elements[field]?.value.trim() || ''])));
 const setMessage = (element, message = '') => { element.textContent = message; element.hidden = !message; };
-const clearBeneficiaryEntry = () => { beneficiaryFields.forEach(field => beneficiaryInputs[field].value = ''); beneficiaryEditId = null; select('beneficiary-entry-title').textContent = 'Registrar beneficiario'; saveButton.textContent = 'Guardar beneficiario'; select('cancel-beneficiary-edit').hidden = true; recurrenceWarning.hidden = true; };
+const clearBeneficiaryEntry = () => { beneficiaryFields.forEach(field => beneficiaryInputs[field].value = ''); beneficiaryInputs.is_recurrent.value = '0'; syncPregnantLactatingField(); beneficiaryEditId = null; select('beneficiary-entry-title').textContent = 'Registrar beneficiario'; saveButton.textContent = 'Guardar beneficiario'; select('cancel-beneficiary-edit').hidden = true; recurrenceWarning.hidden = true; };
 const requiredHeaderFields = [['report_date', 'fecha de registro'], ['reporter_first_name', 'nombre de quien registra'], ['reporter_last_name', 'apellido de quien registra'], ['reporter_email', 'correo electrónico'], ['organization', 'organización'], ['state_id', 'estado'], ['municipality_id', 'municipio'], ['parish_id', 'parroquia'], ['installation_type', 'tipo de instalación'], ['place_name', 'nombre del lugar'], ['sector_id', 'sector programático'], ['activity_id', 'actividad a reportar']];
 const ensureReportContext = () => {
     const missing = requiredHeaderFields.find(([field]) => !form.elements[field].value.trim());
@@ -113,7 +135,7 @@ const ensureReportContext = () => {
     setMessage(entryError, `Antes de guardar, complete ${missing[1]}.`); form.elements[missing[0]].focus(); return false;
 };
 const beneficiaryValidationMessage = beneficiary => {
-    const labels = {full_name: 'nombre y apellido', age: 'edad', sex: 'sexo', disability: 'discapacidad', ethnicity: 'indígena / etnia', pregnant_lactating: 'embarazada o lactante', is_recurrent: 'recurrente'};
+    const labels = {full_name: 'nombre y apellido', age: 'edad', sex: 'sexo', is_recurrent: 'recurrente'};
     const missing = Object.keys(labels).filter(field => beneficiary[field] === '');
     const errors = missing.length ? [`Complete los campos obligatorios: ${missing.map(field => labels[field]).join(', ')}.`] : [];
     if (beneficiary.age !== '' && (!Number.isInteger(Number(beneficiary.age)) || Number(beneficiary.age) < 0 || Number(beneficiary.age) > 120)) errors.push('Indique una edad válida entre 0 y 120 años.');
@@ -124,9 +146,9 @@ function renderBeneficiaries() {
     beneficiaryList.replaceChildren();
     beneficiaries.forEach((beneficiary, index) => {
         const row = document.createElement('tr');
-        [beneficiary.full_name, beneficiary.age, beneficiary.sex, beneficiary.national_id || '—', beneficiary.phone || '—', beneficiary.disability, beneficiary.ethnicity, beneficiary.pregnant_lactating, beneficiary.is_recurrent ? 'Sí' : 'No'].forEach(value => { const cell = document.createElement('td'); cell.textContent = value; row.appendChild(cell); });
+        [beneficiary.full_name, beneficiary.age, beneficiary.sex, beneficiary.national_id || '—', beneficiary.phone || '—', beneficiary.disability || 'No especificada', beneficiary.ethnicity || 'No especificada', beneficiary.pregnant_lactating || 'No especificado', beneficiary.is_recurrent ? 'Sí' : 'No'].forEach(value => { const cell = document.createElement('td'); cell.textContent = value; row.appendChild(cell); });
         const actions = document.createElement('td');
-        const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'table-action'; edit.textContent = 'Editar'; edit.addEventListener('click', () => { beneficiaryFields.forEach(field => beneficiaryInputs[field].value = String(beneficiary[field] ?? '')); beneficiaryEditId = beneficiary.id; select('beneficiary-entry-title').textContent = `Editar beneficiario ${index + 1}`; saveButton.textContent = 'Actualizar beneficiario'; select('cancel-beneficiary-edit').hidden = false; select('beneficiary_full_name').focus(); });
+        const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'table-action'; edit.textContent = 'Editar'; edit.addEventListener('click', () => { beneficiaryFields.forEach(field => beneficiaryInputs[field].value = field === 'is_recurrent' ? (beneficiary[field] ? '1' : '0') : String(beneficiary[field] ?? '')); syncPregnantLactatingField(); beneficiaryEditId = beneficiary.id; select('beneficiary-entry-title').textContent = `Editar beneficiario ${index + 1}`; saveButton.textContent = 'Actualizar beneficiario'; select('cancel-beneficiary-edit').hidden = false; select('beneficiary_full_name').focus(); });
         const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'table-action danger-action'; remove.textContent = 'Eliminar'; remove.addEventListener('click', () => removeBeneficiary(beneficiary));
         actions.append(edit, remove); row.appendChild(actions); beneficiaryList.appendChild(row);
     });
@@ -142,7 +164,7 @@ const checkPossibleRecurrence = async () => {
     try {
         const response = await fetch(`{{ route('beneficiaries.recurrence') }}?${params.toString()}`, {headers: {'Accept': 'application/json'}}), result = await response.json();
         if (currentCheck !== recurrenceCheck) return;
-        if (result.matches > 0) { recurrenceWarning.textContent = `Aviso: se encontró ${result.matches} coincidencia(s) para esta actividad por ${result.matched_by || 'los datos ingresados'}. Esto no cambia la respuesta: seleccione Sí o No según su criterio.`; recurrenceWarning.hidden = false; } else recurrenceWarning.hidden = true;
+        if (result.matches > 0) { recurrenceWarning.textContent = `Aviso: se encontró ${result.matches} coincidencia(s) para esta actividad por nombre, edad, sexo, ubicación y actividad. A continuación indique si es un Beneficiario Recurrente.`; recurrenceWarning.hidden = false; } else recurrenceWarning.hidden = true;
     } catch (_) { recurrenceWarning.hidden = true; }
 };
 const responseMessage = async response => { const payload = await response.json().catch(() => ({})); if (response.ok) return payload; const errors = payload.errors ? Object.values(payload.errors).flat()[0] : null; throw new Error(errors || payload.message || 'No se pudo guardar la información.'); };
@@ -181,7 +203,7 @@ async function removeBeneficiary(beneficiary) {
     } catch (error) { setMessage(entryError, error.message); }
 }
 saveButton.addEventListener('click', saveBeneficiary); select('cancel-beneficiary-edit').addEventListener('click', clearBeneficiaryEntry); form.addEventListener('submit', event => event.preventDefault());
-['full_name', 'national_id'].forEach(field => beneficiaryInputs[field].addEventListener('blur', checkPossibleRecurrence)); ['age', 'sex'].forEach(field => beneficiaryInputs[field].addEventListener('change', checkPossibleRecurrence)); beneficiaryInputs.is_recurrent.addEventListener('focus', checkPossibleRecurrence);
-const organization = select('organization'), otherOrganization = select('other-organization-field'); const syncOrganization = () => { const visible = organization.value === 'Otro Socio Implementador'; otherOrganization.hidden = !visible; otherOrganization.querySelector('input').required = visible; }; organization.addEventListener('change', syncOrganization); syncOrganization(); renderBeneficiaries();
+['full_name', 'national_id'].forEach(field => beneficiaryInputs[field].addEventListener('blur', checkPossibleRecurrence)); beneficiaryInputs.age.addEventListener('change', checkPossibleRecurrence); beneficiaryInputs.sex.addEventListener('change', () => { syncPregnantLactatingField(); checkPossibleRecurrence(); }); beneficiaryInputs.is_recurrent.addEventListener('focus', checkPossibleRecurrence);
+const organization = select('organization'), otherOrganization = select('other-organization-field'); const syncOrganization = () => { const visible = organization.value === 'Otro Socio Implementador'; otherOrganization.hidden = !visible; otherOrganization.querySelector('input').required = visible; }; organization.addEventListener('change', syncOrganization); syncOrganization(); syncPregnantLactatingField(); renderBeneficiaries();
 </script>
 @endsection

@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Registro #'.$report->id.' | Respuesta UNICEF')
+@section('title', 'Registro #'.$report->id.' | Respuesta ASONACOP')
 
 @section('content')
 <section class="page-heading detail-heading">

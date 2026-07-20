@@ -43,13 +43,18 @@ class ReportController extends Controller
     {
         $state = State::find(old('state_id'));
         $municipality = Municipality::find(old('municipality_id'));
-        $sector = Sector::find(old('sector_id'));
+        $selectedSectorId = old('sector_id', Sector::where('slug', 'proteccion-ninez')->value('id'));
+        $sector = Sector::find($selectedSectorId);
 
         return view('reports.create', [
             'states' => State::orderBy('name')->get(['id', 'name']),
             'municipalities' => $state ? $state->municipalities()->orderBy('name')->get(['id', 'name']) : collect(),
             'parishes' => $municipality ? $municipality->parishes()->orderBy('name')->get(['id', 'name']) : collect(),
-            'sectors' => Sector::orderBy('sort_order')->get(['id', 'name']),
+            'sectors' => Sector::query()
+                ->orderByRaw('CASE WHEN slug = ? THEN 0 ELSE 1 END', ['proteccion-ninez'])
+                ->orderBy('sort_order')
+                ->get(['id', 'name']),
+            'selectedSectorId' => $selectedSectorId,
             'activities' => $sector ? $sector->activities()->where('active', true)->orderBy('sort_order')->get(['id', 'title']) : collect(),
             'organizations' => config('reports.organizations'),
             'installationTypes' => config('reports.installation_types'),
@@ -253,7 +258,7 @@ class ReportController extends Controller
                 }
             }
             fclose($out);
-        }, 'registro-respuesta-unicef-'.now()->format('Ymd-His').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        }, 'registro-respuesta-asonacop-'.now()->format('Ymd-His').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     private function filteredReports(Request $request): Builder
@@ -381,8 +386,8 @@ class ReportController extends Controller
         return [
             'total' => $total,
             'recurrence_status' => $recurrent === $total ? 'recurrente' : ($recurrent === 0 ? 'no_recurrente' : 'mixto'),
-            'people_with_disabilities' => collect($beneficiaries)->where('disability', '!=', 'Ninguna')->count(),
-            'indigenous_people' => collect($beneficiaries)->where('ethnicity', '!=', 'Ninguna')->count(),
+            'people_with_disabilities' => collect($beneficiaries)->filter(fn (array $beneficiary) => filled($beneficiary['disability'] ?? null) && $beneficiary['disability'] !== 'Ninguna')->count(),
+            'indigenous_people' => collect($beneficiaries)->filter(fn (array $beneficiary) => filled($beneficiary['ethnicity'] ?? null) && $beneficiary['ethnicity'] !== 'Ninguna')->count(),
             'pregnant_or_lactating_women' => collect($beneficiaries)->where('pregnant_lactating', 'Sí')->count(),
             'breakdown' => [
                 'source' => 'individual',

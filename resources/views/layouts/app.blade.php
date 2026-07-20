@@ -4,12 +4,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Respuesta UNICEF Venezuela')</title>
+    <title>@yield('title', 'Respuesta ASONACOP Venezuela')</title>
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/navigation-fixes.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/geolocation.css') }}">
     <link rel="stylesheet" href="{{ asset('css/report-form-fixes.css') }}">
     <link rel="stylesheet" href="{{ asset('css/beneficiary-records.css') }}">
     <link rel="stylesheet" href="{{ asset('css/recurrence-alert.css') }}">
     <link rel="stylesheet" href="{{ asset('css/beneficiary-immediate.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/beneficiary-entry.css') }}">
     <link rel="stylesheet" href="{{ asset('css/user-management.css') }}">
     <link rel="stylesheet" href="{{ asset('css/beneficiary-summary.css') }}">
 </head>
@@ -17,7 +20,7 @@
     <header class="site-header">
         <div class="header-inner">
             <a class="brand" href="{{ auth()->check() ? route('dashboard') : route('login') }}">
-                <span class="brand-mark">unicef</span>
+                <span class="brand-mark">ASONACOP</span>
                 <span>Respuesta al terremoto<br><strong>Venezuela</strong></span>
             </a>
             @auth

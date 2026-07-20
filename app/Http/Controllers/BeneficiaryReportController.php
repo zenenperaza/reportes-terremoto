@@ -110,8 +110,8 @@ class BeneficiaryReportController extends Controller
             'women_60_plus' => $count('Mujer', 60, null),
             'men_60_plus' => $count('Hombre', 60, null),
             'total' => $beneficiaries->count(),
-            'disability' => $beneficiaries->where('disability', '!=', 'Ninguna')->count(),
-            'ethnicity' => $beneficiaries->where('ethnicity', '!=', 'Ninguna')->count(),
+            'disability' => $beneficiaries->filter(fn (Beneficiary $beneficiary) => filled($beneficiary->disability) && $beneficiary->disability !== 'Ninguna')->count(),
+            'ethnicity' => $beneficiaries->filter(fn (Beneficiary $beneficiary) => filled($beneficiary->ethnicity) && $beneficiary->ethnicity !== 'Ninguna')->count(),
             'pregnancy' => $beneficiaries->where('pregnant_lactating', 'Sí')->count(),
         ];
     }

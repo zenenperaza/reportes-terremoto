@@ -23,9 +23,9 @@ class UpdateBeneficiaryRequest extends FormRequest
             'sex' => ['required', Rule::in($beneficiaryOptions['sexes'])],
             'national_id' => ['nullable', 'string', 'max:30'],
             'phone' => ['nullable', 'string', 'max:30'],
-            'disability' => ['required', Rule::in($beneficiaryOptions['disabilities'])],
-            'ethnicity' => ['required', Rule::in($beneficiaryOptions['ethnicities'])],
-            'pregnant_lactating' => ['required', Rule::in($beneficiaryOptions['pregnant_lactating'])],
+            'disability' => ['nullable', Rule::in($beneficiaryOptions['disabilities'])],
+            'ethnicity' => ['nullable', Rule::in($beneficiaryOptions['ethnicities'])],
+            'pregnant_lactating' => ['nullable', Rule::in($beneficiaryOptions['pregnant_lactating'])],
             'is_recurrent' => ['required', 'boolean'],
         ];
     }

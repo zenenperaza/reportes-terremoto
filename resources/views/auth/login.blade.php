@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Ingresar | Respuesta UNICEF')
+@section('title', 'Ingresar | Respuesta ASONACOP')
 
 @section('content')
 <section class="auth-shell">
