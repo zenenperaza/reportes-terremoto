@@ -44,7 +44,7 @@
             <label>Municipio *<select name="municipality_id" id="municipality_id" required><option value="">Seleccione primero el estado</option>@foreach($municipalities as $municipality)<option value="{{ $municipality->id }}" @selected(old('municipality_id') == $municipality->id)>{{ $municipality->name }}</option>@endforeach</select></label>
             <label>Parroquia *<select name="parish_id" id="parish_id" required><option value="">Seleccione primero el municipio</option>@foreach($parishes as $parish)<option value="{{ $parish->id }}" @selected(old('parish_id') == $parish->id)>{{ $parish->name }}</option>@endforeach</select></label>
             <label>Tipo de instalación / ubicación *<select name="installation_type" required><option value="">Seleccione una opción</option>@foreach($installationTypes as $type)<option value="{{ $type }}" @selected(old('installation_type') === $type)>{{ $type }}</option>@endforeach</select></label>
-            <label class="span-two">Nombre específico del lugar *<input type="text" name="place_name" maxlength="200" placeholder="Ej. Escuela Simón Bolívar o Comunidad El Carmen" value="{{ old('place_name') }}" required></label>
+            <label class="span-two">Nombre específico del lugar *<input type="text" name="place_name" id="place_name" list="place-name-suggestions" autocomplete="off" maxlength="200" placeholder="Ej. Escuela Simón Bolívar o Comunidad El Carmen" value="{{ old('place_name') }}" required><datalist id="place-name-suggestions"></datalist><small>Escriba para ver lugares registrados anteriormente.</small></label>
         </div>
         <details class="gps-details"><summary>Agregar coordenadas GPS</summary><div class="gps-location-actions"><button class="button button-secondary" type="button" id="gps-locate">Usar mi ubicación actual</button><p class="gps-location-status" id="gps-location-status" role="status" aria-live="polite"></p></div><p class="gps-location-help">El navegador solicitará permiso para acceder a la ubicación. También puede escribir las coordenadas manualmente.</p><div class="form-grid four-cols"><label>Latitud<input type="number" step="0.0000001" min="-90" max="90" name="latitude" value="{{ old('latitude') }}"></label><label>Longitud<input type="number" step="0.0000001" min="-180" max="180" name="longitude" value="{{ old('longitude') }}"></label><label>Altitud (m)<input type="number" step="0.01" name="altitude" value="{{ old('altitude') }}"></label><label>Precisión (m)<input type="number" step="0.01" min="0" name="gps_accuracy" value="{{ old('gps_accuracy') }}"></label></div></details>
     </section>
@@ -94,6 +94,22 @@ const form = select('report-form'), state = select('state_id'), municipality = s
 state.addEventListener('change', async () => { setOptions(municipality, [], 'Cargando municipios'); setOptions(parish, [], 'Seleccione primero el municipio'); if (state.value) await loadOptions(municipality, `/ubicaciones/estados/${state.value}/municipios`, 'Seleccione el municipio'); });
 municipality.addEventListener('change', async () => { setOptions(parish, [], 'Cargando parroquias'); if (municipality.value) await loadOptions(parish, `/ubicaciones/municipios/${municipality.value}/parroquias`, 'Seleccione la parroquia'); });
 sector.addEventListener('change', async () => { setOptions(activity, [], 'Cargando actividades'); if (sector.value) await loadOptions(activity, `/sectores/${sector.value}/actividades`, 'Seleccione la actividad'); });
+
+const placeName = select('place_name'), placeNameSuggestions = select('place-name-suggestions');
+let placeNameTimer;
+const loadPlaceNameSuggestions = async () => {
+    const term = placeName.value.trim();
+    if (!term) { placeNameSuggestions.replaceChildren(); return; }
+    const params = new URLSearchParams({q: term, state_id: state.value, municipality_id: municipality.value, parish_id: parish.value, installation_type: form.elements.installation_type.value});
+    try {
+        const response = await fetch(`{{ route('locations.places') }}?${params.toString()}`, {headers: {'Accept': 'application/json'}});
+        const places = await response.json();
+        placeNameSuggestions.replaceChildren(...places.map(place => { const option = document.createElement('option'); option.value = place; return option; }));
+    } catch (_) { placeNameSuggestions.replaceChildren(); }
+};
+const schedulePlaceNameSuggestions = () => { clearTimeout(placeNameTimer); placeNameTimer = setTimeout(loadPlaceNameSuggestions, 250); };
+placeName.addEventListener('input', schedulePlaceNameSuggestions);
+[state, municipality, parish, form.elements.installation_type].forEach(element => element.addEventListener('change', () => { if (placeName.value.trim()) schedulePlaceNameSuggestions(); }));
 
 const gpsLocateButton = select('gps-locate'), gpsLocationStatus = select('gps-location-status');
 const setGpsLocationStatus = message => { gpsLocationStatus.textContent = message; };

@@ -43,7 +43,7 @@
         <label>Recurrente
             <select name="is_recurrent"><option value="">Todos</option><option value="1" @selected(($filters['is_recurrent'] ?? '') === '1')>Sí</option><option value="0" @selected(($filters['is_recurrent'] ?? '') === '0')>No</option></select>
         </label>
-        <label>Estado del registro
+        <label>Reportado
             <select name="reported"><option value="">Todos</option><option value="1" @selected(($filters['reported'] ?? '') === '1')>Sí</option><option value="0" @selected(($filters['reported'] ?? '') === '0')>No</option></select>
         </label>
         <div class="filter-actions">
@@ -52,6 +52,38 @@
         </div>
     </form>
 </section>
+
+<section class="content-card">
+    <div class="card-heading"><div><h2>Beneficiarios por atención</h2><p class="muted">{{ number_format($groupedBeneficiaries->count()) }} {{ $groupedBeneficiaries->count() === 1 ? 'grupo coincide' : 'grupos coinciden' }} con los filtros seleccionados.</p></div></div>
+    @if($groupedBeneficiaries->isEmpty())
+        <div class="empty-state"><p>No hay beneficiarios que coincidan con los filtros.</p></div>
+    @else
+        <div class="table-wrap"><table>
+            <thead><tr><th>Fecha de atención</th><th>Estado</th><th>Municipio</th><th>Parroquia</th><th>Nombre del lugar</th><th>Actividad</th>@if($showReportedAt)<th>Fecha de reporte</th>@endif<th>Beneficiarios</th></tr></thead>
+            <tbody>@foreach($groupedBeneficiaries as $group)
+                <tr><td>{{ \Illuminate\Support\Carbon::parse($group->report_date)->format('d/m/Y') }}</td><td>{{ $group->state_name }}</td><td>{{ $group->municipality_name }}</td><td>{{ $group->parish_name }}</td><td>{{ $group->place_name }}</td><td>{{ $group->activity_title }}</td>@if($showReportedAt)<td>{{ \Illuminate\Support\Carbon::parse($group->reported_at)->format('d/m/Y') }}</td>@endif<td>{{ number_format($group->beneficiary_count) }}</td></tr>
+            @endforeach</tbody>
+        </table></div>
+    @endif
+</section>
+
+@if((string) ($filters['reported'] ?? '') !== '1')
+    <section class="content-card donor-report-card">
+        <div><h2>Reporte al donante</h2><p class="muted">Indique la fecha con la que se consolidará la información actualmente filtrada.</p></div>
+        @if($pendingBeneficiaryCount > 0)
+            <form method="post" action="{{ route('beneficiaries.mark-reported') }}" class="donor-report-form" onsubmit="return confirm('¿Actualizar a Reportado los {{ number_format($pendingBeneficiaryCount) }} beneficiarios pendientes que coinciden con los filtros actuales?');">
+                @csrf
+                @foreach($filters as $name => $value)
+                    @if($value !== null && $value !== '')<input type="hidden" name="{{ $name }}" value="{{ $value }}">@endif
+                @endforeach
+                <label>Fecha de reporte *<input type="date" name="reported_at" value="{{ today()->format('Y-m-d') }}" max="{{ today()->format('Y-m-d') }}" required></label>
+                <button class="button button-primary" type="submit">Actualizar a Reportado</button>
+            </form>
+        @else
+            <p class="muted">No hay beneficiarios pendientes de reporte con los filtros actuales.</p>
+        @endif
+    </section>
+@endif
 
 <section class="content-card summary-card">
     <div class="card-heading"><div><h2>Resultados</h2><p class="muted">{{ number_format($reportCount) }} {{ $reportCount === 1 ? 'registro coincide' : 'registros coinciden' }} con los filtros seleccionados.</p></div></div>
@@ -76,17 +108,6 @@
             <tr><td>Mujeres embarazadas o en lactancia</td><td>{{ number_format($summary['pregnancy']) }}</td></tr>
         </tfoot>
     </table></div>
-    @if($pendingBeneficiaryCount > 0)
-        <form method="post" action="{{ route('beneficiaries.mark-reported') }}" class="form-actions" onsubmit="return confirm('¿Actualizar a Reportado los {{ number_format($pendingBeneficiaryCount) }} beneficiarios que coinciden con los filtros actuales?');">
-            @csrf
-            @foreach($filters as $name => $value)
-                @if($value !== null && $value !== '')<input type="hidden" name="{{ $name }}" value="{{ $value }}">@endif
-            @endforeach
-            <button class="button button-primary" type="submit">Actualizar a Reportado</button>
-        </form>
-    @else
-        <p class="muted">No hay beneficiarios pendientes de actualizar con los filtros actuales.</p>
-    @endif
 </section>
 
 <script>
@@ -96,6 +117,6 @@ const loadSummaryOptions = async (element, url, placeholder) => { const response
 const summaryState = summarySelect('summary_state_id'), summaryMunicipality = summarySelect('summary_municipality_id'), summaryParish = summarySelect('summary_parish_id'), summarySector = summarySelect('summary_sector_id'), summaryActivity = summarySelect('summary_activity_id');
 summaryState.addEventListener('change', async () => { setSummaryOptions(summaryMunicipality, [], 'Cargando municipios'); setSummaryOptions(summaryParish, [], 'Todas'); if (summaryState.value) await loadSummaryOptions(summaryMunicipality, `/ubicaciones/estados/${summaryState.value}/municipios`, 'Todos'); });
 summaryMunicipality.addEventListener('change', async () => { setSummaryOptions(summaryParish, [], 'Cargando parroquias'); if (summaryMunicipality.value) await loadSummaryOptions(summaryParish, `/ubicaciones/municipios/${summaryMunicipality.value}/parroquias`, 'Todas'); });
-summarySector.addEventListener('change', async () => { setSummaryOptions(summaryActivity, [], 'Cargando actividades'); if (summarySector.value) await loadSummaryOptions(summaryActivity, `/sectores/${summarySector.value}/actividades`, 'Todas'); });
+summarySector.addEventListener('change', async () => { setSummaryOptions(summaryActivity, [], 'Cargando actividades'); await loadSummaryOptions(summaryActivity, summarySector.value ? `/sectores/${summarySector.value}/actividades` : `{{ route('activities.all') }}`, 'Todas'); });
 </script>
 @endsection

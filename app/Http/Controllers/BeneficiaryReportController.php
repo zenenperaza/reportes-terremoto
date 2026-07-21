@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Activity;
 use App\Models\Beneficiary;
 use App\Models\Municipality;
 use App\Models\Report;
@@ -10,6 +11,7 @@ use App\Models\State;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -26,12 +28,14 @@ class BeneficiaryReportController extends Controller
             $reports->whereHas('beneficiaries', fn (Builder $beneficiaries) => $beneficiaries->where('is_recurrent', $isRecurrent));
         }
         if ($reported !== null) {
-            $reports->whereHas('beneficiaries', fn (Builder $beneficiaries) => $beneficiaries->where('reported', $reported));
+            $reports->whereHas('beneficiaries', fn (Builder $beneficiaries) => $reported ? $beneficiaries->whereNotNull('reported_at') : $beneficiaries->whereNull('reported_at'));
         }
 
         $beneficiaryQuery = $this->filteredBeneficiaries($request, $filters);
-        $pendingBeneficiaryCount = (clone $beneficiaryQuery)->where('reported', false)->count();
-        $beneficiaries = $beneficiaryQuery->get(['age', 'sex', 'disability', 'ethnicity', 'pregnant_lactating']);
+        $pendingBeneficiaryCount = (clone $beneficiaryQuery)->whereNull('reported_at')->count();
+        $beneficiaries = (clone $beneficiaryQuery)->get(['age', 'sex', 'disability', 'ethnicity', 'pregnant_lactating']);
+        $showReportedAt = $reported === true;
+        $groupedBeneficiaries = $this->groupedBeneficiaries($beneficiaryQuery, $showReportedAt);
 
         $selectedState = State::find($filters['state_id'] ?? null);
         $selectedMunicipality = Municipality::find($filters['municipality_id'] ?? null);
@@ -42,11 +46,15 @@ class BeneficiaryReportController extends Controller
             'summary' => $this->summary($beneficiaries),
             'reportCount' => $reports->count(),
             'pendingBeneficiaryCount' => $pendingBeneficiaryCount,
+            'groupedBeneficiaries' => $groupedBeneficiaries,
+            'showReportedAt' => $showReportedAt,
             'states' => State::orderBy('name')->get(['id', 'name']),
             'municipalities' => $selectedState ? $selectedState->municipalities()->orderBy('name')->get(['id', 'name']) : collect(),
             'parishes' => $selectedMunicipality ? $selectedMunicipality->parishes()->orderBy('name')->get(['id', 'name']) : collect(),
             'sectors' => Sector::orderBy('sort_order')->get(['id', 'name']),
-            'activities' => $selectedSector ? $selectedSector->activities()->where('active', true)->orderBy('sort_order')->get(['id', 'title']) : collect(),
+            'activities' => $selectedSector
+                ? $selectedSector->activities()->where('active', true)->orderBy('sort_order')->get(['id', 'title'])
+                : Activity::query()->where('active', true)->orderBy('sector_id')->orderBy('sort_order')->get(['id', 'title']),
             'installationTypes' => config('reports.installation_types'),
             'places' => $this->visibleReports($request)->whereNotNull('place_name')->distinct()->orderBy('place_name')->pluck('place_name'),
             'isConsolidated' => $request->user()->isCoordinator(),
@@ -56,14 +64,17 @@ class BeneficiaryReportController extends Controller
     public function markAsReported(Request $request): RedirectResponse
     {
         $filters = $this->validatedFilters($request);
+        $reportedAt = $request->validate([
+            'reported_at' => ['required', 'date', 'before_or_equal:today'],
+        ])['reported_at'];
         $updated = $this->filteredBeneficiaries($request, $filters)
-            ->where('reported', false)
-            ->update(['reported' => true, 'reported_at' => today()->toDateString()]);
+            ->whereNull('reported_at')
+            ->update(['reported' => true, 'reported_at' => $reportedAt]);
 
         $query = array_filter($filters, static fn (mixed $value): bool => $value !== null && $value !== '');
         $message = $updated === 1
-            ? '1 beneficiario fue actualizado como reportado.'
-            : "{$updated} beneficiarios fueron actualizados como reportados.";
+            ? '1 beneficiario fue actualizado como reportado con la fecha indicada.'
+            : "{$updated} beneficiarios fueron actualizados como reportados con la fecha indicada.";
 
         return redirect()->route('beneficiaries.summary', $query)->with('success', $message);
     }
@@ -131,10 +142,44 @@ class BeneficiaryReportController extends Controller
 
         $reported = $this->booleanFilter($filters, 'reported');
         if ($reported !== null) {
-            $beneficiaries->where('reported', $reported);
+            $reported ? $beneficiaries->whereNotNull('reported_at') : $beneficiaries->whereNull('reported_at');
         }
 
         return $beneficiaries;
+    }
+
+    private function groupedBeneficiaries(Builder $beneficiaries, bool $includeReportedAt): \Illuminate\Support\Collection
+    {
+        $select = [
+            'grouped_reports.report_date', 'states.name as state_name', 'municipalities.name as municipality_name',
+            'parishes.name as parish_name', 'grouped_reports.place_name', 'activities.title as activity_title',
+            DB::raw('COUNT(beneficiaries.id) as beneficiary_count'),
+        ];
+        $groupBy = [
+            'grouped_reports.report_date', 'states.id', 'states.name', 'municipalities.id', 'municipalities.name',
+            'parishes.id', 'parishes.name', 'grouped_reports.place_name', 'activities.id', 'activities.title',
+        ];
+
+        if ($includeReportedAt) {
+            $select[] = 'beneficiaries.reported_at';
+            $groupBy[] = 'beneficiaries.reported_at';
+        }
+
+        return (clone $beneficiaries)
+            ->join('reports as grouped_reports', 'beneficiaries.report_id', '=', 'grouped_reports.id')
+            ->join('states', 'grouped_reports.state_id', '=', 'states.id')
+            ->join('municipalities', 'grouped_reports.municipality_id', '=', 'municipalities.id')
+            ->join('parishes', 'grouped_reports.parish_id', '=', 'parishes.id')
+            ->join('activities', 'grouped_reports.activity_id', '=', 'activities.id')
+            ->select($select)
+            ->groupBy($groupBy)
+            ->orderByDesc('grouped_reports.report_date')
+            ->orderBy('states.name')
+            ->orderBy('municipalities.name')
+            ->orderBy('parishes.name')
+            ->orderBy('activities.title')
+            ->toBase()
+            ->get();
     }
 
     /** @param array<string, mixed> $filters */

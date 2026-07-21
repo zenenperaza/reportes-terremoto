@@ -31,6 +31,8 @@ Route::middleware('auth')->group(function (): void {
 
     Route::get('/ubicaciones/estados/{state}/municipios', [LocationController::class, 'municipalities'])->name('locations.municipalities');
     Route::get('/ubicaciones/municipios/{municipality}/parroquias', [LocationController::class, 'parishes'])->name('locations.parishes');
+    Route::get('/lugares/sugerencias', [LocationController::class, 'places'])->name('locations.places');
+    Route::get('/actividades', [LocationController::class, 'allActivities'])->name('activities.all');
     Route::get('/sectores/{sector}/actividades', [LocationController::class, 'activities'])->name('sectors.activities');
     Route::get('/beneficiarios/verificar-recurrencia', [BeneficiaryLookupController::class, 'recurrence'])->name('beneficiaries.recurrence');
     Route::post('/beneficiarios', [ReportController::class, 'storeBeneficiary'])->name('beneficiaries.store');

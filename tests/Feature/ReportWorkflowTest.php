@@ -217,13 +217,18 @@ class ReportWorkflowTest extends TestCase
         $ownBeneficiary = $ownReport->beneficiaries()->create(['full_name' => 'Ana Niño', 'age' => 10, 'sex' => 'Mujer', 'is_recurrent' => false]);
         $otherBeneficiary = $otherReport->beneficiaries()->create(['full_name' => 'Otra Niña', 'age' => 8, 'sex' => 'Mujer', 'is_recurrent' => false]);
 
+        $this->actingAs($owner)->getJson('/lugares/sugerencias?q=Lugar')
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0', 'Lugar de Ana');
+
         $this->actingAs($owner)->get('/informe-beneficiarios?reported=0')
             ->assertOk()
             ->assertSee('Actualizar a Reportado');
 
-        $this->actingAs($owner)->post('/informe-beneficiarios/marcar-reportados', ['reported' => '0'])
+        $this->actingAs($owner)->post('/informe-beneficiarios/marcar-reportados', ['reported' => '0', 'reported_at' => today()->toDateString()])
             ->assertRedirect()
-            ->assertSessionHas('success', '1 beneficiario fue actualizado como reportado.');
+            ->assertSessionHas('success', '1 beneficiario fue actualizado como reportado con la fecha indicada.');
 
         $this->assertDatabaseHas('beneficiaries', ['id' => $ownBeneficiary->id, 'reported' => true, 'reported_at' => today()->toDateString()]);
         $this->assertDatabaseHas('beneficiaries', ['id' => $otherBeneficiary->id, 'reported' => false, 'reported_at' => null]);
@@ -232,6 +237,13 @@ class ReportWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee(route('reports.show', $ownReport))
             ->assertDontSee(route('reports.show', $otherReport));
+
+        $this->actingAs($owner)->get('/informe-beneficiarios?reported=1')
+            ->assertOk()
+            ->assertSee('Beneficiarios por atención')
+            ->assertSee('Lugar de Ana')
+            ->assertSee('Fecha de reporte')
+            ->assertDontSee('Reporte al donante');
     }
 
     private function makeReport(User $user, State $state, Municipality $municipality, Parish $parish, Sector $sector, Activity $activity, string $placeName): Report

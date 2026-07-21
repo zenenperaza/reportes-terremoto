@@ -28,7 +28,7 @@ class ReportController extends Controller
         $reports = $this->filteredReports($request)
             ->with(['user', 'state', 'municipality', 'parish', 'sector', 'activity'])
             ->withCount('beneficiaries')
-            ->withCount(['beneficiaries as unreported_beneficiaries_count' => fn (Builder $query) => $query->where('reported', false)])
+            ->withCount(['beneficiaries as unreported_beneficiaries_count' => fn (Builder $query) => $query->whereNull('reported_at')])
             ->latest('created_at')->latest('id')
             ->paginate(15)
             ->withQueryString();
@@ -256,7 +256,7 @@ class ReportController extends Controller
                         $beneficiary?->age, $beneficiary?->sex, $beneficiary?->national_id, $beneficiary?->phone,
                         $beneficiary?->disability, $beneficiary?->ethnicity, $beneficiary?->pregnant_lactating,
                         $beneficiary ? ($beneficiary->is_recurrent ? 'Sí' : 'No') : null,
-                        $beneficiary ? ($beneficiary->reported ? 'Sí' : 'No') : null,
+                        $beneficiary ? ($beneficiary->reported_at ? 'Sí' : 'No') : null,
                         $beneficiary?->reported_at?->format('Y-m-d'), $report->status,
                     ]);
                 }
@@ -275,10 +275,10 @@ class ReportController extends Controller
         $reported = $request->input('reported');
         if ($reported === '1') {
             $query->whereHas('beneficiaries')
-                ->whereDoesntHave('beneficiaries', fn (Builder $beneficiaries) => $beneficiaries->where('reported', false));
+                ->whereDoesntHave('beneficiaries', fn (Builder $beneficiaries) => $beneficiaries->whereNull('reported_at'));
         }
         if ($reported === '0') {
-            $query->whereHas('beneficiaries', fn (Builder $beneficiaries) => $beneficiaries->where('reported', false));
+            $query->whereHas('beneficiaries', fn (Builder $beneficiaries) => $beneficiaries->whereNull('reported_at'));
         }
 
         return $query

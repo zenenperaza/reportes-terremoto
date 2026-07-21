@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="{{ asset('css/beneficiary-entry.css') }}">
     <link rel="stylesheet" href="{{ asset('css/user-management.css') }}">
     <link rel="stylesheet" href="{{ asset('css/beneficiary-summary.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/donor-report.css') }}">
 </head>
 <body>
     <header class="site-header">
