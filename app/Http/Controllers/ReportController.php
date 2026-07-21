@@ -25,17 +25,38 @@ class ReportController extends Controller
 {
     public function index(Request $request): View
     {
-        $reports = $this->filteredReports($request)
-            ->with(['user', 'state', 'municipality', 'parish', 'sector', 'activity'])
-            ->withCount('beneficiaries')
-            ->withCount(['beneficiaries as unreported_beneficiaries_count' => fn (Builder $query) => $query->whereNull('reported_at')])
-            ->latest('created_at')->latest('id')
-            ->get();
+        $isCoordinator = $request->user()->isCoordinator();
+        $reports = collect();
+        $beneficiaries = collect();
+
+        if ($isCoordinator) {
+            $beneficiaries = $this->filteredBeneficiaries($request)
+                ->with([
+                    'report.user',
+                    'report.state',
+                    'report.municipality',
+                    'report.parish',
+                    'report.sector',
+                    'report.activity',
+                ])
+                ->latest('created_at')
+                ->latest('id')
+                ->get();
+        } else {
+            $reports = $this->filteredReports($request)
+                ->with(['user', 'state', 'municipality', 'parish', 'sector', 'activity'])
+                ->withCount('beneficiaries')
+                ->withCount(['beneficiaries as unreported_beneficiaries_count' => fn (Builder $query) => $query->whereNull('reported_at')])
+                ->latest('created_at')
+                ->latest('id')
+                ->get();
+        }
 
         return view('reports.index', [
             'reports' => $reports,
+            'beneficiaries' => $beneficiaries,
             'states' => State::orderBy('name')->get(['id', 'name']),
-            'isCoordinator' => $request->user()->isCoordinator(),
+            'isCoordinator' => $isCoordinator,
             'filters' => $request->only(['state_id', 'reported', 'from', 'to']),
         ]);
     }
@@ -233,11 +254,13 @@ class ReportController extends Controller
     public function export(Request $request): StreamedResponse
     {
         abort_unless($request->user()->isCoordinator(), 403);
-        $reports = $this->filteredReports($request)
-            ->with(['state', 'municipality', 'parish', 'sector', 'activity', 'beneficiaries'])
+        $beneficiaries = $this->filteredBeneficiaries($request)
+            ->with(['report.state', 'report.municipality', 'report.parish', 'report.sector', 'report.activity'])
+            ->latest('created_at')
+            ->latest('id')
             ->get();
 
-        return response()->streamDownload(function () use ($reports): void {
+        return response()->streamDownload(function () use ($beneficiaries): void {
             $out = fopen('php://output', 'w');
             fputcsv($out, [
                 'ID registro', 'Fecha', 'Organización', 'Estado', 'Municipio', 'Parroquia', 'Sector', 'Actividad',
@@ -245,20 +268,19 @@ class ReportController extends Controller
                 'Embarazada o lactante', 'Recurrente', 'Reportado', 'Fecha de reporte', 'Estado de revisión',
             ]);
 
-            foreach ($reports as $report) {
-                $beneficiaries = $report->beneficiaries->isNotEmpty() ? $report->beneficiaries : collect([null]);
-                foreach ($beneficiaries as $beneficiary) {
-                    fputcsv($out, [
-                        $report->id, $report->report_date->format('Y-m-d'), $report->organization,
-                        $report->state->name, $report->municipality->name, $report->parish->name,
-                        $report->sector->name, $report->activity->title, $beneficiary?->full_name,
-                        $beneficiary?->age, $beneficiary?->sex, $beneficiary?->national_id, $beneficiary?->phone,
-                        $beneficiary?->disability, $beneficiary?->ethnicity, $beneficiary?->pregnant_lactating,
-                        $beneficiary ? ($beneficiary->is_recurrent ? 'Sí' : 'No') : null,
-                        $beneficiary ? ($beneficiary->reported_at ? 'Sí' : 'No') : null,
-                        $beneficiary?->reported_at?->format('Y-m-d'), $report->status,
-                    ]);
-                }
+            foreach ($beneficiaries as $beneficiary) {
+                $report = $beneficiary->report;
+
+                fputcsv($out, [
+                    $report->id, $report->report_date->format('Y-m-d'), $report->organization,
+                    $report->state->name, $report->municipality->name, $report->parish->name,
+                    $report->sector->name, $report->activity->title, $beneficiary->full_name,
+                    $beneficiary->age, $beneficiary->sex, $beneficiary->national_id, $beneficiary->phone,
+                    $beneficiary->disability, $beneficiary->ethnicity, $beneficiary->pregnant_lactating,
+                    $beneficiary->is_recurrent ? 'Sí' : 'No',
+                    $beneficiary->reported_at ? 'Sí' : 'No',
+                    $beneficiary->reported_at?->format('Y-m-d'), $report->status,
+                ]);
             }
             fclose($out);
         }, 'registro-respuesta-asonacop-'.now()->format('Ymd-His').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
@@ -284,6 +306,21 @@ class ReportController extends Controller
             ->when($request->integer('state_id'), fn (Builder $query, int $stateId) => $query->where('state_id', $stateId))
             ->when($request->input('from'), fn (Builder $query, string $from) => $query->whereDate('report_date', '>=', $from))
             ->when($request->input('to'), fn (Builder $query, string $to) => $query->whereDate('report_date', '<=', $to));
+    }
+
+    private function filteredBeneficiaries(Request $request): Builder
+    {
+        $reported = (string) $request->input('reported', '');
+
+        return Beneficiary::query()
+            ->whereHas('report', function (Builder $reports) use ($request): void {
+                $reports
+                    ->when($request->integer('state_id'), fn (Builder $query, int $stateId) => $query->where('state_id', $stateId))
+                    ->when($request->input('from'), fn (Builder $query, string $from) => $query->whereDate('report_date', '>=', $from))
+                    ->when($request->input('to'), fn (Builder $query, string $to) => $query->whereDate('report_date', '<=', $to));
+            })
+            ->when($reported === '1', fn (Builder $query) => $query->whereNotNull('reported_at'))
+            ->when($reported === '0', fn (Builder $query) => $query->whereNull('reported_at'));
     }
 
     private function ensureVisible(Request $request, Report $report): void

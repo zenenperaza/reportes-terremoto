@@ -137,6 +137,7 @@ class ReportWorkflowTest extends TestCase
         $otherReport = $this->makeReport($otherUser, $state, $municipality, $parish, $sector, $activity, 'Lugar de Luis');
         Beneficiary::create(['report_id' => $ownReport->id, 'full_name' => 'Ana Niño', 'age' => 4, 'sex' => 'Mujer', 'national_id' => 'V-123', 'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'N/A', 'is_recurrent' => false]);
         Beneficiary::create(['report_id' => $otherReport->id, 'full_name' => 'Luis Mayor', 'age' => 65, 'sex' => 'Hombre', 'national_id' => null, 'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'N/A', 'is_recurrent' => true]);
+        Beneficiary::create(['report_id' => $otherReport->id, 'full_name' => 'Luis Segundo', 'age' => 32, 'sex' => 'Hombre', 'national_id' => null, 'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'N/A', 'is_recurrent' => false]);
 
         $this->actingAs($owner)->get("/reportes/{$ownReport->id}")->assertOk();
         $this->actingAs($owner)->get("/reportes/{$otherReport->id}")->assertForbidden();
@@ -144,9 +145,12 @@ class ReportWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee($owner->name)
             ->assertSee($otherUser->name)
+            ->assertSee('Ana Niño')
+            ->assertSee('Luis Mayor')
+            ->assertSee('Luis Segundo')
             ->assertSee('activity-records-table', false)
             ->assertSee('/vendor/datatables/jquery-3.7.1.min.js', false)
-            ->assertSee('Mostrar _MENU_ registros');
+            ->assertSee('activityRowsLabel = "beneficiarios"', false);
 
         $this->actingAs($owner)->get('/informe-beneficiarios')
             ->assertOk()
