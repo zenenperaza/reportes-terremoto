@@ -14,6 +14,15 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\Shared\Date;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BeneficiaryReportController extends Controller
 {
@@ -77,6 +86,109 @@ class BeneficiaryReportController extends Controller
             : "{$updated} beneficiarios fueron actualizados como reportados con la fecha indicada.";
 
         return redirect()->route('beneficiaries.summary', $query)->with('success', $message);
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        $filters = $this->validatedFilters($request);
+        $spreadsheet = new Spreadsheet();
+        $worksheet = $spreadsheet->getActiveSheet();
+        $worksheet->setTitle('Beneficiarios');
+
+        $headers = [
+            'ID', 'Estado', 'Municipio', 'Parroquia', 'Tipo de instalación', 'Nombre del lugar',
+            'Latitud', 'Longitud', 'Sector programático', 'Actividad a reportar',
+            'Detalles adicionales de la actividad', 'Fecha de atención', 'Nombre y apellido',
+            'Edad', 'Sexo', 'Cédula', 'Teléfono', 'Discapacidad', 'Indígena',
+            'Embarazada o lactante', 'Recurrente', 'Fecha de reporte', 'Fecha de inclusión', 'Usuario',
+        ];
+        $lastColumn = Coordinate::stringFromColumnIndex(count($headers));
+
+        foreach ($headers as $index => $header) {
+            $worksheet->setCellValueExplicit(
+                Coordinate::stringFromColumnIndex($index + 1).'1',
+                $header,
+                DataType::TYPE_STRING,
+            );
+        }
+
+        $worksheet->freezePane('A2');
+        $worksheet->setAutoFilter("A1:{$lastColumn}1");
+        $worksheet->getRowDimension(1)->setRowHeight(30);
+        $worksheet->getStyle("A1:{$lastColumn}1")->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF2F6B57']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF8DA99D']]],
+        ]);
+
+        $widths = [8, 18, 20, 18, 26, 28, 13, 13, 22, 48, 48, 16, 28, 10, 16, 16, 18, 18, 18, 22, 14, 18, 20, 28];
+        foreach ($widths as $index => $width) {
+            $worksheet->getColumnDimension(Coordinate::stringFromColumnIndex($index + 1))->setWidth($width);
+        }
+
+        $rowNumber = 2;
+        foreach ($this->exportBeneficiaries($request, $filters)->cursor() as $beneficiary) {
+            $values = [
+                $beneficiary->beneficiary_id,
+                $beneficiary->state_name,
+                $beneficiary->municipality_name,
+                $beneficiary->parish_name,
+                $beneficiary->installation_type,
+                $beneficiary->place_name,
+                $beneficiary->latitude,
+                $beneficiary->longitude,
+                $beneficiary->sector_name,
+                $beneficiary->activity_title,
+                $beneficiary->activity_details,
+                $this->excelDate($beneficiary->report_date),
+                $beneficiary->full_name,
+                $beneficiary->age,
+                $beneficiary->sex,
+                $beneficiary->national_id,
+                $beneficiary->phone,
+                $beneficiary->disability,
+                $beneficiary->ethnicity,
+                $beneficiary->pregnant_lactating,
+                $beneficiary->is_recurrent ? 'Sí' : 'No',
+                $this->excelDate($beneficiary->reported_at),
+                $this->excelDate($beneficiary->beneficiary_created_at, true),
+                $beneficiary->user_name ?: trim("{$beneficiary->reporter_first_name} {$beneficiary->reporter_last_name}"),
+            ];
+
+            foreach ($values as $index => $value) {
+                $cell = Coordinate::stringFromColumnIndex($index + 1).$rowNumber;
+
+                if (in_array($index, [0, 13], true) && $value !== null && $value !== '') {
+                    $worksheet->setCellValue($cell, (int) $value);
+                } elseif (in_array($index, [6, 7], true) && $value !== null && $value !== '') {
+                    $worksheet->setCellValue($cell, (float) $value);
+                } elseif (in_array($index, [11, 21, 22], true) && $value !== null) {
+                    $worksheet->setCellValue($cell, $value);
+                } else {
+                    $worksheet->setCellValueExplicit($cell, $this->spreadsheetText($value), DataType::TYPE_STRING);
+                }
+            }
+
+            $rowNumber++;
+        }
+
+        $lastDataRow = max(2, $rowNumber - 1);
+        $worksheet->getStyle("A2:{$lastColumn}{$lastDataRow}")->getAlignment()->setVertical(Alignment::VERTICAL_TOP)->setWrapText(true);
+        $worksheet->getStyle("L2:L{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+        $worksheet->getStyle("V2:V{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+        $worksheet->getStyle("W2:W{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy hh:mm');
+
+        $writer = new Xlsx($spreadsheet);
+        $fileName = 'beneficiarios-'.now()->format('Ymd-His').'.xlsx';
+
+        return response()->streamDownload(
+            static function () use ($writer): void {
+                $writer->save('php://output');
+            },
+            $fileName,
+            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+        );
     }
 
     /** @param array<string, mixed> $filters */
@@ -148,6 +260,35 @@ class BeneficiaryReportController extends Controller
         return $beneficiaries;
     }
 
+    /** @param array<string, mixed> $filters */
+    private function exportBeneficiaries(Request $request, array $filters): Builder
+    {
+        return (clone $this->filteredBeneficiaries($request, $filters))
+            ->join('reports as export_reports', 'beneficiaries.report_id', '=', 'export_reports.id')
+            ->join('states as export_states', 'export_reports.state_id', '=', 'export_states.id')
+            ->join('municipalities as export_municipalities', 'export_reports.municipality_id', '=', 'export_municipalities.id')
+            ->join('parishes as export_parishes', 'export_reports.parish_id', '=', 'export_parishes.id')
+            ->join('sectors as export_sectors', 'export_reports.sector_id', '=', 'export_sectors.id')
+            ->join('activities as export_activities', 'export_reports.activity_id', '=', 'export_activities.id')
+            ->leftJoin('users as export_users', 'export_reports.user_id', '=', 'export_users.id')
+            ->select([
+                'beneficiaries.id as beneficiary_id', 'beneficiaries.full_name', 'beneficiaries.age', 'beneficiaries.sex',
+                'beneficiaries.national_id', 'beneficiaries.phone', 'beneficiaries.disability', 'beneficiaries.ethnicity',
+                'beneficiaries.pregnant_lactating', 'beneficiaries.is_recurrent', 'beneficiaries.reported_at',
+                'beneficiaries.created_at as beneficiary_created_at', 'export_states.name as state_name',
+                'export_municipalities.name as municipality_name', 'export_parishes.name as parish_name',
+                'export_reports.installation_type', 'export_reports.place_name', 'export_reports.latitude',
+                'export_reports.longitude', 'export_sectors.name as sector_name', 'export_activities.title as activity_title',
+                'export_reports.activity_details', 'export_reports.report_date', 'export_users.name as user_name',
+                'export_reports.reporter_first_name', 'export_reports.reporter_last_name',
+            ])
+            ->orderByDesc('export_reports.report_date')
+            ->orderBy('export_states.name')
+            ->orderBy('export_municipalities.name')
+            ->orderBy('export_parishes.name')
+            ->orderBy('beneficiaries.id');
+    }
+
     private function groupedBeneficiaries(Builder $beneficiaries, bool $includeReportedAt): \Illuminate\Support\Collection
     {
         $select = [
@@ -190,6 +331,24 @@ class BeneficiaryReportController extends Controller
         }
 
         return (bool) $filters[$field];
+    }
+
+    private function excelDate(mixed $value, bool $includeTime = false): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $date = \Illuminate\Support\Carbon::parse($value);
+
+        return Date::PHPToExcel($includeTime ? $date : $date->startOfDay());
+    }
+
+    private function spreadsheetText(mixed $value): string
+    {
+        $value = trim((string) ($value ?? ''));
+
+        return preg_match('/^[=+\\-@]/', $value) === 1 ? "'{$value}" : $value;
     }
 
     /** @param \Illuminate\Support\Collection<int, Beneficiary> $beneficiaries */

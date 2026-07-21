@@ -2,6 +2,12 @@
 
 @section('title', 'Informe de beneficiarios | Respuesta ASONACOP')
 
+@push('styles')
+    <link rel="stylesheet" href="/vendor/datatables/dataTables.dataTables.min.css">
+    <link rel="stylesheet" href="/vendor/datatables/buttons.dataTables.min.css">
+    <link rel="stylesheet" href="/css/beneficiary-datatable.css">
+@endpush
+
 @section('content')
 <section class="page-heading compact-heading">
     <div>
@@ -48,6 +54,7 @@
         </label>
         <div class="filter-actions">
             <button class="button button-primary" type="submit">Generar informe</button>
+            <a class="button button-secondary" href="{{ route('beneficiaries.export', request()->query()) }}">Exportar Excel</a>
             <a class="button button-secondary" href="{{ route('beneficiaries.summary') }}">Limpiar</a>
         </div>
     </form>
@@ -58,10 +65,10 @@
     @if($groupedBeneficiaries->isEmpty())
         <div class="empty-state"><p>No hay beneficiarios que coincidan con los filtros.</p></div>
     @else
-        <div class="table-wrap"><table>
+        <div class="table-wrap"><table id="beneficiary-attention-table" class="beneficiary-attention-table">
             <thead><tr><th>Fecha de atención</th><th>Estado</th><th>Municipio</th><th>Parroquia</th><th>Nombre del lugar</th><th>Actividad</th>@if($showReportedAt)<th>Fecha de reporte</th>@endif<th>Beneficiarios</th></tr></thead>
             <tbody>@foreach($groupedBeneficiaries as $group)
-                <tr><td>{{ \Illuminate\Support\Carbon::parse($group->report_date)->format('d/m/Y') }}</td><td>{{ $group->state_name }}</td><td>{{ $group->municipality_name }}</td><td>{{ $group->parish_name }}</td><td>{{ $group->place_name }}</td><td>{{ $group->activity_title }}</td>@if($showReportedAt)<td>{{ \Illuminate\Support\Carbon::parse($group->reported_at)->format('d/m/Y') }}</td>@endif<td>{{ number_format($group->beneficiary_count) }}</td></tr>
+                <tr><td data-order="{{ $group->report_date }}">{{ \Illuminate\Support\Carbon::parse($group->report_date)->format('d/m/Y') }}</td><td>{{ $group->state_name }}</td><td>{{ $group->municipality_name }}</td><td>{{ $group->parish_name }}</td><td>{{ $group->place_name }}</td><td>{{ $group->activity_title }}</td>@if($showReportedAt)<td data-order="{{ $group->reported_at }}">{{ \Illuminate\Support\Carbon::parse($group->reported_at)->format('d/m/Y') }}</td>@endif<td data-order="{{ $group->beneficiary_count }}">{{ number_format($group->beneficiary_count) }}</td></tr>
             @endforeach</tbody>
         </table></div>
     @endif
@@ -118,5 +125,54 @@ const summaryState = summarySelect('summary_state_id'), summaryMunicipality = su
 summaryState.addEventListener('change', async () => { setSummaryOptions(summaryMunicipality, [], 'Cargando municipios'); setSummaryOptions(summaryParish, [], 'Todas'); if (summaryState.value) await loadSummaryOptions(summaryMunicipality, `/ubicaciones/estados/${summaryState.value}/municipios`, 'Todos'); });
 summaryMunicipality.addEventListener('change', async () => { setSummaryOptions(summaryParish, [], 'Cargando parroquias'); if (summaryMunicipality.value) await loadSummaryOptions(summaryParish, `/ubicaciones/municipios/${summaryMunicipality.value}/parroquias`, 'Todas'); });
 summarySector.addEventListener('change', async () => { setSummaryOptions(summaryActivity, [], 'Cargando actividades'); await loadSummaryOptions(summaryActivity, summarySector.value ? `/sectores/${summarySector.value}/actividades` : `{{ route('activities.all') }}`, 'Todas'); });
+</script>
+
+<script src="/vendor/datatables/jquery-3.7.1.min.js"></script>
+<script src="/vendor/datatables/dataTables.min.js"></script>
+<script src="/vendor/datatables/dataTables.buttons.min.js"></script>
+<script src="/vendor/datatables/jszip.min.js"></script>
+<script src="/vendor/datatables/pdfmake.min.js"></script>
+<script src="/vendor/datatables/vfs_fonts.js"></script>
+<script src="/vendor/datatables/buttons.html5.min.js"></script>
+<script src="/vendor/datatables/buttons.print.min.js"></script>
+<script>
+    const beneficiaryAttentionTable = document.getElementById('beneficiary-attention-table');
+    if (beneficiaryAttentionTable && typeof DataTable === 'undefined') {
+        console.error('No fue posible cargar la biblioteca DataTables.');
+    }
+
+    if (beneficiaryAttentionTable && typeof DataTable !== 'undefined') {
+        new DataTable(beneficiaryAttentionTable, {
+            layout: {
+                topStart: {
+                    buttons: [
+                        {extend: 'copyHtml5', text: 'Copiar'},
+                        {extend: 'csvHtml5', text: 'CSV', title: 'Beneficiarios por atención'},
+                        {extend: 'excelHtml5', text: 'Excel', title: 'Beneficiarios por atención'},
+                        {extend: 'pdfHtml5', text: 'PDF', title: 'Beneficiarios por atención', orientation: 'landscape', pageSize: 'A4'},
+                        {extend: 'print', text: 'Imprimir', title: 'Beneficiarios por atención'},
+                    ],
+                },
+                topEnd: 'search',
+                bottomStart: 'info',
+                bottomEnd: 'paging',
+            },
+            pageLength: 10,
+            lengthMenu: [[10, 25, 50, -1], [10, 25, 50, 'Todos']],
+            order: [[0, 'desc']],
+            language: {
+                emptyTable: 'No hay beneficiarios que coincidan con los filtros.',
+                info: 'Mostrando _START_ a _END_ de _TOTAL_ grupos',
+                infoEmpty: 'Mostrando 0 a 0 de 0 grupos',
+                infoFiltered: '(filtrado de _MAX_ grupos)',
+                lengthMenu: 'Mostrar _MENU_ grupos',
+                loadingRecords: 'Cargando…',
+                processing: 'Procesando…',
+                search: 'Buscar:',
+                zeroRecords: 'No se encontraron grupos coincidentes',
+                paginate: {first: 'Primero', last: 'Último', next: 'Siguiente', previous: 'Anterior'},
+            },
+        });
+    }
 </script>
 @endsection

@@ -140,9 +140,29 @@ class ReportWorkflowTest extends TestCase
 
         $this->actingAs($owner)->get("/reportes/{$ownReport->id}")->assertOk();
         $this->actingAs($owner)->get("/reportes/{$otherReport->id}")->assertForbidden();
-        $this->actingAs($administrator)->get('/reportes')->assertOk()->assertSee($owner->name)->assertSee($otherUser->name);
+        $this->actingAs($administrator)->get('/reportes')
+            ->assertOk()
+            ->assertSee($owner->name)
+            ->assertSee($otherUser->name)
+            ->assertSee('activity-records-table', false)
+            ->assertSee('/vendor/datatables/jquery-3.7.1.min.js', false)
+            ->assertSee('Mostrar _MENU_ registros');
 
-        $this->actingAs($owner)->get('/informe-beneficiarios')->assertOk()->assertSee('1 registro coincide');
+        $this->actingAs($owner)->get('/informe-beneficiarios')
+            ->assertOk()
+            ->assertSee('1 registro coincide')
+            ->assertSee('beneficiary-attention-table', false)
+            ->assertSee('vendor/datatables/jquery-3.7.1.min.js', false)
+            ->assertSee('vendor/datatables/dataTables.min.js', false)
+            ->assertSee('Copiar');
+
+        $excelExport = $this->actingAs($owner)->get('/informe-beneficiarios/exportar?state_id='.$state->id);
+        $excelExport
+            ->assertOk()
+            ->assertDownload()
+            ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $this->assertStringStartsWith('PK', $excelExport->streamedContent());
+
         $this->actingAs($administrator)->get('/informe-beneficiarios')->assertOk()->assertSee('2 registros coinciden');
         $this->actingAs($administrator)->get('/informe-beneficiarios?is_recurrent=1')->assertOk()->assertSee('1 registro coincide');
 

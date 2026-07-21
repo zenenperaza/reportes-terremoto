@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="{{ asset('css/user-management.css') }}">
     <link rel="stylesheet" href="{{ asset('css/beneficiary-summary.css') }}">
     <link rel="stylesheet" href="{{ asset('css/donor-report.css') }}">
+    @stack('styles')
 </head>
 <body>
     <header class="site-header">
@@ -57,5 +58,6 @@
         @endif
         @yield('content')
     </main>
+    @stack('scripts')
 </body>
 </html>

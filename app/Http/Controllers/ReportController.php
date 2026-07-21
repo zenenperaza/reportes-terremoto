@@ -30,8 +30,7 @@ class ReportController extends Controller
             ->withCount('beneficiaries')
             ->withCount(['beneficiaries as unreported_beneficiaries_count' => fn (Builder $query) => $query->whereNull('reported_at')])
             ->latest('created_at')->latest('id')
-            ->paginate(15)
-            ->withQueryString();
+            ->get();
 
         return view('reports.index', [
             'reports' => $reports,
