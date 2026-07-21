@@ -20,7 +20,7 @@
     @stack('styles')
 </head>
 <body>
-    <header class="site-header navbar navbar-expand-lg" data-bs-theme="dark">
+    <header class="site-header navbar navbar-expand-xl" data-bs-theme="dark">
         <div class="header-inner">
             <a class="brand" href="{{ auth()->check() ? route('dashboard') : route('login') }}">
                 <span class="brand-mark">ASONACOP</span>
@@ -31,7 +31,7 @@
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <div class="collapse navbar-collapse" id="primary-navigation">
-                    <nav class="main-nav navbar-nav ms-lg-auto" aria-label="Navegación principal">
+                    <nav class="main-nav navbar-nav ms-xl-auto" aria-label="Navegación principal">
                         <a href="{{ route('dashboard') }}">Panel</a>
                         <a href="{{ route('reports.index') }}">Registros</a>
                         <a href="{{ route('beneficiaries.summary') }}">Informe de beneficiarios</a>
