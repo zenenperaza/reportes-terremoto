@@ -7,55 +7,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\UserManagementController;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
-
-
-
-$maintenanceToken = static function (): string {
-    $envFile = base_path('.env');
-    $contents = is_file($envFile) ? (string) file_get_contents($envFile) : '';
-
-    if (preg_match('/^SERVER_MAINTENANCE_TOKEN=(.*)$/m', $contents, $matches) !== 1) {
-        return '';
-    }
-
-    return trim($matches[1], " \t\n\r\0\x0B\"");
-};
-
-$maintenanceWithoutSession = [
-    \Illuminate\Session\Middleware\StartSession::class,
-    \Illuminate\View\Middleware\ShareErrorsFromSession::class,
-];
-
-Route::get('/ejecutar-migraciones-temp', function () use ($maintenanceToken) {
-    $token = $maintenanceToken();
-
-    abort_if($token === '', 503, 'Falta configurar SERVER_MAINTENANCE_TOKEN en el archivo .env.');
-    abort_unless(hash_equals($token, (string) request('token')), 403);
-
-    $resultados = [];
-
-    try {
-        $exitCode = Artisan::call('migrate', ['--force' => true]);
-        $resultados[] = "MIGRACIONES (código {$exitCode}):";
-        $resultados[] = Artisan::output();
-
-        $exitCode = Artisan::call('db:seed', ['--force' => true]);
-        $resultados[] = "SEEDERS (código {$exitCode}):";
-        $resultados[] = Artisan::output();
-
-        return response(
-            '<pre>'.e(implode("\n\n", $resultados)).'</pre>',
-            200
-        );
-    } catch (\Throwable $error) {
-        return response(
-            '<pre>ERROR: '.e($error->getMessage()).'</pre>',
-            500
-        );
-    }
-})->withoutMiddleware($maintenanceWithoutSession);
 
 Route::redirect('/', '/panel');
 
