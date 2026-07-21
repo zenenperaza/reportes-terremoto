@@ -7,7 +7,151 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\UserManagementController;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/server-repair-temp', function () {
+    $token = request('token');
+    abort_unless($token === 'MiTokenPrivado123456', 403);
+
+    $paths = [
+        storage_path(),
+        storage_path('app'),
+        storage_path('framework'),
+        storage_path('framework/cache'),
+        storage_path('framework/cache/data'),
+        storage_path('framework/sessions'),
+        storage_path('framework/views'),
+        storage_path('logs'),
+        base_path('bootstrap'),
+        base_path('bootstrap/cache'),
+    ];
+
+    $out = [];
+
+    foreach ($paths as $path) {
+        if (!file_exists($path)) {
+            if (@mkdir($path, 0775, true)) {
+                $out[] = "✅ Creada: {$path}";
+            } else {
+                $out[] = "❌ No se pudo crear: {$path}";
+                continue;
+            }
+        } else {
+            $out[] = "✔ Ya existe: {$path}";
+        }
+
+        if (@chmod($path, 0775)) {
+            $out[] = "✔ Permisos aplicados: {$path}";
+        } else {
+            $out[] = "⚠ No se pudieron cambiar permisos: {$path}";
+        }
+    }
+
+    try {
+        Artisan::call('optimize:clear');
+        $out[] = "✅ optimize:clear ejecutado";
+        $out[] = trim(Artisan::output());
+    } catch (\Throwable $e) {
+        $out[] = "❌ Error en optimize:clear: " . $e->getMessage();
+    }
+
+    return '<pre>' . implode("\n", $out) . '</pre>';
+});
+
+Route::get('/server-storage-link-temp', function () {
+    $token = request('token');
+    abort_unless($token === 'MiTokenPrivado123456', 403);
+
+    $out = [];
+    $publicStorage = public_path('storage');
+
+    try {
+        if (is_link($publicStorage)) {
+            if (@unlink($publicStorage)) {
+                $out[] = "✅ Symlink anterior eliminado: {$publicStorage}";
+            } else {
+                $out[] = "⚠ No se pudo eliminar el symlink anterior: {$publicStorage}";
+            }
+        } elseif (file_exists($publicStorage)) {
+            $out[] = "⚠ public/storage existe pero no es symlink. No se eliminó automáticamente.";
+        }
+
+        Artisan::call('storage:link');
+        $out[] = "✅ storage:link ejecutado";
+        $out[] = trim(Artisan::output());
+
+    } catch (\Throwable $e) {
+        $out[] = "❌ Error al crear el enlace simbólico: " . $e->getMessage();
+    }
+
+    return '<pre>' . implode("\n", $out) . '</pre>';
+});
+
+Route::get('/server-clear-temp', function () {
+    $token = request('token');
+    abort_unless($token === 'MiTokenPrivado123456', 403);
+
+    $out = [];
+
+    try {
+        Artisan::call('optimize:clear');
+        $out[] = "✅ optimize:clear ejecutado";
+        $out[] = trim(Artisan::output());
+    } catch (\Throwable $e) {
+        $out[] = "❌ Error en optimize:clear: " . $e->getMessage();
+    }
+
+    return '<pre>' . implode("\n", $out) . '</pre>';
+});
+
+Route::get('/server-migrate-temp', function () {
+    $token = request('token');
+    abort_unless($token === 'MiTokenPrivado123456', 403);
+
+    $out = [];
+
+    try {
+        Artisan::call('migrate', [
+            '--force' => true,
+        ]);
+        $out[] = "✅ migrate ejecutado";
+        $out[] = trim(Artisan::output());
+
+        Artisan::call('db:seed', [
+            '--force' => true,
+        ]);
+        $out[] = "✅ db:seed ejecutado";
+        $out[] = trim(Artisan::output());
+
+    } catch (\Throwable $e) {
+        $out[] = "❌ Error en migraciones/seeders: " . $e->getMessage();
+    }
+
+    return '<pre>' . implode("\n\n", $out) . '</pre>';
+});
+
+Route::get('/server-migrate-fresh-temp', function () {
+    $token = request('token');
+    abort_unless($token === 'MiTokenPrivado123456', 403);
+
+    $out = [];
+
+    try {
+        Artisan::call('migrate:fresh', [
+            '--seed' => true,
+            '--force' => true,
+        ]);
+        $out[] = "✅ migrate:fresh --seed ejecutado";
+        $out[] = trim(Artisan::output());
+
+    } catch (\Throwable $e) {
+        $out[] = "❌ Error en migrate:fresh: " . $e->getMessage();
+    }
+
+    return '<pre>' . implode("\n\n", $out) . '</pre>';
+});
+
 
 Route::redirect('/', '/panel');
 
