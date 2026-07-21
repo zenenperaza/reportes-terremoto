@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Respuesta ASONACOP Venezuela')</title>
+    <link rel="stylesheet" href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
     <link rel="stylesheet" href="{{ asset('css/navigation-fixes.css') }}">
     <link rel="stylesheet" href="{{ asset('css/geolocation.css') }}">
@@ -19,26 +20,31 @@
     @stack('styles')
 </head>
 <body>
-    <header class="site-header">
+    <header class="site-header navbar navbar-expand-lg" data-bs-theme="dark">
         <div class="header-inner">
             <a class="brand" href="{{ auth()->check() ? route('dashboard') : route('login') }}">
                 <span class="brand-mark">ASONACOP</span>
                 <span>Respuesta al terremoto<br><strong>Venezuela</strong></span>
             </a>
             @auth
-                <nav class="main-nav" aria-label="Navegación principal">
-                    <a href="{{ route('dashboard') }}">Panel</a>
-                    <a href="{{ route('reports.index') }}">Registros</a>
-                    <a href="{{ route('beneficiaries.summary') }}">Informe de beneficiarios</a>
-                    @if (auth()->user()->isAdministrator())
-                        <a href="{{ route('users.index') }}">Usuarios</a>
-                    @endif
-                    <a class="button button-small" href="{{ route('reports.create') }}">+ Nuevo registro</a>
-                    <form action="{{ route('logout') }}" method="post">
-                        @csrf
-                        <button class="link-button" type="submit">Salir</button>
-                    </form>
-                </nav>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#primary-navigation" aria-controls="primary-navigation" aria-expanded="false" aria-label="Abrir menú de navegación">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="primary-navigation">
+                    <nav class="main-nav navbar-nav ms-lg-auto" aria-label="Navegación principal">
+                        <a href="{{ route('dashboard') }}">Panel</a>
+                        <a href="{{ route('reports.index') }}">Registros</a>
+                        <a href="{{ route('beneficiaries.summary') }}">Informe de beneficiarios</a>
+                        @if (auth()->user()->isAdministrator())
+                            <a href="{{ route('users.index') }}">Usuarios</a>
+                        @endif
+                        <a class="button button-small" href="{{ route('reports.create') }}">+ Nuevo registro</a>
+                        <form action="{{ route('logout') }}" method="post">
+                            @csrf
+                            <button class="link-button" type="submit">Salir</button>
+                        </form>
+                    </nav>
+                </div>
             @endauth
         </div>
     </header>
@@ -58,6 +64,7 @@
         @endif
         @yield('content')
     </main>
+    <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
     @stack('scripts')
 </body>
 </html>
