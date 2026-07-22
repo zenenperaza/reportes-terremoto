@@ -112,7 +112,7 @@
     <section class="content-card donor-report-card" id="donor-report-section">
         <div><h2>Reporte al donante</h2><p class="muted">Indique la fecha con la que se consolidará la información actualmente filtrada.</p></div>
         @if($pendingBeneficiaryCount > 0)
-            <form method="post" action="{{ route('beneficiaries.mark-reported') }}" class="donor-report-form" onsubmit="return confirm('¿Actualizar a Reportado los {{ number_format($pendingBeneficiaryCount) }} beneficiarios pendientes que coinciden con los filtros actuales?');">
+            <form method="post" action="{{ route('beneficiaries.mark-reported') }}" class="donor-report-form" data-beneficiary-count="{{ $pendingBeneficiaryCount }}">
                 @csrf
                 @foreach($filters as $name => $value)
                     @if($value !== null && $value !== '')<input type="hidden" name="{{ $name }}" value="{{ $value }}">@endif
@@ -144,6 +144,7 @@ summarySector.addEventListener('change', async () => { setSummaryOptions(summary
 <script src="/vendor/datatables/vfs_fonts.js"></script>
 <script src="/vendor/datatables/buttons.html5.min.js"></script>
 <script src="/vendor/datatables/buttons.print.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     const initializeBeneficiaryTable = () => {
         const beneficiaryAttentionTable = document.getElementById('beneficiary-attention-table');
@@ -221,7 +222,25 @@ summarySector.addEventListener('change', async () => { setSummaryOptions(summary
         if (!submitButton) return;
         const form = submitButton.form;
         event.preventDefault();
-        if (!form.reportValidity() || (form.onsubmit && !form.onsubmit())) return;
+        if (!form.reportValidity()) return;
+
+        const beneficiaryCount = Number(form.dataset.beneficiaryCount || 0);
+        const confirmationText = `Se actualizarán ${beneficiaryCount.toLocaleString('es-VE')} ${beneficiaryCount === 1 ? 'beneficiario pendiente' : 'beneficiarios pendientes'} que coinciden con los filtros actuales.`;
+        const confirmation = typeof Swal !== 'undefined'
+            ? await Swal.fire({
+                title: '¿Actualizar a Reportado?',
+                text: confirmationText,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, actualizar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#1cabe2',
+                cancelButtonColor: '#6c757d',
+                reverseButtons: true,
+                focusCancel: true,
+            })
+            : {isConfirmed: window.confirm(confirmationText)};
+        if (!confirmation.isConfirmed) return;
 
         submitButton.disabled = true;
         try {
@@ -233,8 +252,26 @@ summarySector.addEventListener('change', async () => { setSummaryOptions(summary
             replaceReportSection(source, 'donor-report-section');
             replaceReportSection(source, 'beneficiary-results-section');
             initializeBeneficiaryTable();
+
+            if (typeof Swal !== 'undefined') {
+                await Swal.fire({
+                    title: 'Actualización completada',
+                    text: beneficiaryCount === 1 ? 'El beneficiario fue marcado como reportado.' : 'Los beneficiarios fueron marcados como reportados.',
+                    icon: 'success',
+                    confirmButtonText: 'Aceptar',
+                    confirmButtonColor: '#1cabe2',
+                });
+            }
         } catch (error) {
-            form.submit();
+            if (typeof Swal !== 'undefined') {
+                await Swal.fire({
+                    title: 'No se pudo actualizar',
+                    text: 'Intente nuevamente. Si el problema continúa, recargue la página.',
+                    icon: 'error',
+                    confirmButtonText: 'Aceptar',
+                    confirmButtonColor: '#1cabe2',
+                });
+            }
         } finally {
             submitButton.disabled = false;
         }
