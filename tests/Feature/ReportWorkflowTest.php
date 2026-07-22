@@ -233,13 +233,13 @@ class ReportWorkflowTest extends TestCase
         ];
 
         $first = $this->actingAs($user)->postJson('/beneficiarios', $header + ['beneficiary' => [
-            'full_name' => 'María Gómez', 'age' => 8, 'sex' => 'Mujer', 'national_id' => 'V12345678', 'phone' => null,
+            'age' => 8, 'sex' => 'Mujer', 'national_id' => 'V12345678', 'phone' => null,
             'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'N/A', 'is_recurrent' => false,
         ]])->assertCreated()->assertJsonPath('summary.total', 1);
 
         $reportId = $first->json('report.id');
         $this->assertDatabaseHas('reports', ['id' => $reportId, 'user_id' => $user->id, 'total_beneficiaries' => 1]);
-        $this->assertDatabaseHas('beneficiaries', ['report_id' => $reportId, 'full_name' => 'María Gómez']);
+        $this->assertDatabaseHas('beneficiaries', ['report_id' => $reportId, 'full_name' => null]);
 
         $this->actingAs($user)->postJson('/beneficiarios', $header + ['report_id' => $reportId, 'beneficiary' => [
             'full_name' => 'Carlos Ruiz', 'age' => 34, 'sex' => 'Hombre', 'national_id' => null, 'phone' => '04140000000',

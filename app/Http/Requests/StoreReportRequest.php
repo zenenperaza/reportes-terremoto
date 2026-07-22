@@ -45,7 +45,7 @@ class StoreReportRequest extends FormRequest
             'activity_details' => ['nullable', 'string', 'max:5000'],
 
             'beneficiaries' => ['required', 'array', 'min:1', 'max:1000'],
-            'beneficiaries.*.full_name' => ['required', 'string', 'max:150'],
+            'beneficiaries.*.full_name' => ['nullable', 'string', 'max:150'],
             'beneficiaries.*.age' => ['required', 'integer', 'min:0', 'max:120'],
             'beneficiaries.*.sex' => ['required', Rule::in($beneficiaryOptions['sexes'])],
             'beneficiaries.*.national_id' => ['nullable', 'string', 'max:30'],

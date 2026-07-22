@@ -50,7 +50,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             'evidence_3' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx,xlsx', 'max:10240'],
 
             'beneficiary' => ['required', 'array'],
-            'beneficiary.full_name' => ['required', 'string', 'max:150'],
+            'beneficiary.full_name' => ['nullable', 'string', 'max:150'],
             'beneficiary.age' => ['required', 'integer', 'min:0', 'max:120'],
             'beneficiary.sex' => ['required', Rule::in($beneficiaryOptions['sexes'])],
             'beneficiary.national_id' => ['nullable', 'string', 'max:30'],

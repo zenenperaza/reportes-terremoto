@@ -66,7 +66,7 @@
         <fieldset class="beneficiary-entry">
             <legend id="beneficiary-entry-title">Registrar beneficiario</legend>
             <div class="form-grid beneficiary-form-grid">
-                <label>Nombre y apellido *<input type="text" id="beneficiary_full_name" maxlength="150" autocomplete="name"></label>
+                <label>Nombre y apellido <small>(opcional)</small><input type="text" id="beneficiary_full_name" maxlength="150" autocomplete="name"></label>
                 <label>Edad *<input type="number" id="beneficiary_age" min="0" max="120" inputmode="numeric"></label>
                 <label>Sexo *<select id="beneficiary_sex"><option value="">Seleccione</option>@foreach($beneficiaryOptions['sexes'] as $option)<option value="{{ $option }}">{{ $option }}</option>@endforeach</select></label>
                 <label>Cédula<input type="text" id="beneficiary_national_id" maxlength="30" inputmode="numeric"></label>
@@ -249,7 +249,7 @@ const ensureReportContext = () => {
     setMessage(entryError, `Antes de guardar, complete ${missing[1]}.`); form.elements[missing[0]].focus(); return false;
 };
 const beneficiaryValidationMessage = beneficiary => {
-    const labels = {full_name: 'nombre y apellido', age: 'edad', sex: 'sexo', is_recurrent: 'recurrente'};
+    const labels = {age: 'edad', sex: 'sexo', is_recurrent: 'recurrente'};
     const missing = Object.keys(labels).filter(field => beneficiary[field] === '');
     const errors = missing.length ? [`Complete los campos obligatorios: ${missing.map(field => labels[field]).join(', ')}.`] : [];
     if (beneficiary.age !== '' && (!Number.isInteger(Number(beneficiary.age)) || Number(beneficiary.age) < 0 || Number(beneficiary.age) > 120)) errors.push('Indique una edad válida entre 0 y 120 años.');
@@ -260,7 +260,7 @@ function renderBeneficiaries() {
     beneficiaryList.replaceChildren();
     beneficiaries.forEach((beneficiary, index) => {
         const row = document.createElement('tr');
-        [beneficiary.full_name, beneficiary.age, beneficiary.sex, beneficiary.national_id || '—', beneficiary.phone || '—', beneficiary.disability || 'No especificada', beneficiary.ethnicity || 'No especificada', beneficiary.pregnant_lactating || 'No especificado', beneficiary.is_recurrent ? 'Sí' : 'No'].forEach(value => { const cell = document.createElement('td'); cell.textContent = value; row.appendChild(cell); });
+        [beneficiary.full_name || 'Sin nombre registrado', beneficiary.age, beneficiary.sex, beneficiary.national_id || '—', beneficiary.phone || '—', beneficiary.disability || 'No especificada', beneficiary.ethnicity || 'No especificada', beneficiary.pregnant_lactating || 'No especificado', beneficiary.is_recurrent ? 'Sí' : 'No'].forEach(value => { const cell = document.createElement('td'); cell.textContent = value; row.appendChild(cell); });
         const actions = document.createElement('td');
         const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'table-action'; edit.textContent = 'Editar'; edit.addEventListener('click', () => { beneficiaryFields.forEach(field => beneficiaryInputs[field].value = field === 'is_recurrent' ? (beneficiary[field] ? '1' : '0') : String(beneficiary[field] ?? '')); syncPregnantLactatingField(); beneficiaryEditId = beneficiary.id; select('beneficiary-entry-title').textContent = `Editar beneficiario ${index + 1}`; saveButton.textContent = 'Actualizar beneficiario'; select('cancel-beneficiary-edit').hidden = false; select('beneficiary_full_name').focus(); });
         const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'table-action danger-action'; remove.textContent = 'Eliminar'; remove.addEventListener('click', () => removeBeneficiary(beneficiary));
@@ -312,7 +312,7 @@ async function saveBeneficiary() {
     finally { isSaving = false; saveButton.disabled = false; }
 }
 async function removeBeneficiary(beneficiary) {
-    if (!confirm(`¿Eliminar a ${beneficiary.full_name}?`)) return;
+    if (!confirm(`¿Eliminar a ${beneficiary.full_name || 'este beneficiario'}?`)) return;
     setMessage(entryError); setMessage(entrySuccess);
     try {
         const result = await responseMessage(await fetch(`{{ url('/beneficiarios') }}/${beneficiary.id}`, {method: 'DELETE', headers: requestHeaders}));

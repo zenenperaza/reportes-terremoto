@@ -61,7 +61,7 @@
                         <td data-order="{{ $report->report_date->format('Y-m-d') }}">{{ $report->report_date->format('d/m/Y') }}</td>
                         <td>{{ $report->reporter_first_name }} {{ $report->reporter_last_name }}<br><small>{{ $report->organization }}</small></td>
                         <td>
-                            {{ $beneficiary->full_name }}
+                            {{ $beneficiary->full_name ?: 'Sin nombre registrado' }}
                             <br><small>{{ $beneficiary->age }} años · {{ $beneficiary->sex }}@if($beneficiary->national_id) · Cédula: {{ $beneficiary->national_id }}@endif</small>
                             @if($beneficiary->phone)<br><small>Tel.: {{ $beneficiary->phone }}</small>@endif
                         </td>
