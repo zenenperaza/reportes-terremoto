@@ -220,7 +220,7 @@ class BeneficiaryReportController extends Controller
     /** @return array<string, mixed> */
     private function validatedFilters(Request $request): array
     {
-        return $request->validate([
+        $filters = $request->validate([
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],
             'state_id' => ['nullable', 'integer', 'exists:states,id'],
@@ -233,6 +233,12 @@ class BeneficiaryReportController extends Controller
             'is_recurrent' => ['nullable', Rule::in(['0', '1', 0, 1])],
             'reported' => ['nullable', Rule::in(['0', '1', 0, 1])],
         ]);
+
+        if (! $request->exists('reported')) {
+            $filters['reported'] = '0';
+        }
+
+        return $filters;
     }
 
     /** @param array<string, mixed> $filters */
