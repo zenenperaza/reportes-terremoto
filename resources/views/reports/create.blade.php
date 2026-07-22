@@ -12,7 +12,7 @@
     </div>
 </section>
 
-<form enctype="multipart/form-data" class="report-form" id="report-form" data-beneficiary-url="{{ route('beneficiaries.store') }}" novalidate>
+<form enctype="multipart/form-data" class="report-form" id="report-form" data-beneficiary-url="{{ route('beneficiaries.store') }}" data-location-reverse-url="{{ route('locations.reverse') }}" novalidate>
     @csrf
     <section class="form-section">
         <div class="section-heading"><span>1</span><div><h2>Actividad</h2><p>Si cambia cualquiera de estos encabezados, el próximo beneficiario iniciará un nuevo registro.</p></div></div>
@@ -39,6 +39,12 @@
 
     <section class="form-section">
         <div class="section-heading"><span>3</span><div><h2>Ubicación</h2><p>La información se mantiene mientras agregue beneficiarios a este registro.</p></div></div>
+        <div class="gps-location-actions gps-location-actions-top">
+            <button class="button button-secondary" type="button" id="gps-locate">Usar mi ubicación actual</button>
+            <p class="gps-location-status" id="gps-location-status" role="status" aria-live="polite"></p>
+        </div>
+        <p class="gps-location-help">El navegador solicitará permiso para acceder a la ubicación. Se cargarán las coordenadas y se intentará seleccionar Estado, Municipio y Parroquia.</p>
+        <p class="gps-geocoding-attribution">Ubicación administrativa aproximada: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a>.</p>
         <div class="form-grid three-cols">
             <label>Estado *<select name="state_id" id="state_id" required><option value="">Seleccione el estado</option>@foreach($states as $state)<option value="{{ $state->id }}" @selected(old('state_id') == $state->id)>{{ $state->name }}</option>@endforeach</select></label>
             <label>Municipio *<select name="municipality_id" id="municipality_id" required><option value="">Seleccione primero el estado</option>@foreach($municipalities as $municipality)<option value="{{ $municipality->id }}" @selected(old('municipality_id') == $municipality->id)>{{ $municipality->name }}</option>@endforeach</select></label>
@@ -46,7 +52,7 @@
             <label>Tipo de instalación / ubicación *<select name="installation_type" required><option value="">Seleccione una opción</option>@foreach($installationTypes as $type)<option value="{{ $type }}" @selected(old('installation_type') === $type)>{{ $type }}</option>@endforeach</select></label>
             <label class="span-two">Nombre específico del lugar *<input type="text" name="place_name" id="place_name" list="place-name-suggestions" autocomplete="off" maxlength="200" placeholder="Ej. Escuela Simón Bolívar o Comunidad El Carmen" value="{{ old('place_name') }}" required><datalist id="place-name-suggestions"></datalist><small>Escriba para ver lugares registrados anteriormente.</small></label>
         </div>
-        <details class="gps-details"><summary>Agregar coordenadas GPS</summary><div class="gps-location-actions"><button class="button button-secondary" type="button" id="gps-locate">Usar mi ubicación actual</button><p class="gps-location-status" id="gps-location-status" role="status" aria-live="polite"></p></div><p class="gps-location-help">El navegador solicitará permiso para acceder a la ubicación. También puede escribir las coordenadas manualmente.</p><div class="form-grid four-cols"><label>Latitud<input type="number" step="0.0000001" min="-90" max="90" name="latitude" value="{{ old('latitude') }}"></label><label>Longitud<input type="number" step="0.0000001" min="-180" max="180" name="longitude" value="{{ old('longitude') }}"></label><label>Altitud (m)<input type="number" step="0.01" name="altitude" value="{{ old('altitude') }}"></label><label>Precisión (m)<input type="number" step="0.01" min="0" name="gps_accuracy" value="{{ old('gps_accuracy') }}"></label></div></details>
+        <div class="gps-details"><p class="gps-details-heading">Ver o editar coordenadas GPS</p><p class="gps-location-help">También puede escribir las coordenadas manualmente. Si las indica, se verificarán antes de guardar que correspondan a Venezuela.</p><div class="form-grid four-cols"><label>Latitud<input type="number" step="0.0000001" min="0.5" max="12.7" name="latitude" value="{{ old('latitude') }}"></label><label>Longitud<input type="number" step="0.0000001" min="-74" max="-59" name="longitude" value="{{ old('longitude') }}"></label><label>Altitud (m)<input type="number" step="0.01" name="altitude" value="{{ old('altitude') }}"></label><label>Precisión (m)<input type="number" step="0.01" min="0" name="gps_accuracy" value="{{ old('gps_accuracy') }}"></label></div></div>
     </section>
 
     <section class="form-section">
@@ -112,24 +118,100 @@ placeName.addEventListener('input', schedulePlaceNameSuggestions);
 [state, municipality, parish, form.elements.installation_type].forEach(element => element.addEventListener('change', () => { if (placeName.value.trim()) schedulePlaceNameSuggestions(); }));
 
 const gpsLocateButton = select('gps-locate'), gpsLocationStatus = select('gps-location-status');
+const latitudeInput = form.elements.latitude, longitudeInput = form.elements.longitude;
 const setGpsLocationStatus = message => { gpsLocationStatus.textContent = message; };
 const formatGpsValue = (value, decimals) => Number(value).toFixed(decimals);
+const setCoordinateValidity = (message = '') => {
+    latitudeInput.setCustomValidity(message);
+    longitudeInput.setCustomValidity(message);
+};
+const applyDetectedLocation = async location => {
+    if (!location?.state) return false;
+
+    state.value = location.state.id;
+    setOptions(municipality, [], 'Cargando municipios');
+    setOptions(parish, [], 'Seleccione primero el municipio');
+    await loadOptions(municipality, '/ubicaciones/estados/' + state.value + '/municipios', 'Seleccione el municipio', location.municipality?.id || '');
+
+    if (!location.municipality) return true;
+
+    municipality.value = location.municipality.id;
+    await loadOptions(parish, '/ubicaciones/municipios/' + municipality.value + '/parroquias', 'Seleccione la parroquia', location.parish?.id || '');
+
+    return true;
+};
+const reverseGeocode = async (latitude, longitude) => {
+    const params = new URLSearchParams({latitude, longitude});
+    const response = await fetch(form.dataset.locationReverseUrl + '?' + params.toString(), {headers: {'Accept': 'application/json'}});
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok) throw new Error(result.message || 'No fue posible completar la ubicación administrativa.');
+
+    await applyDetectedLocation(result.location);
+    return result.message || 'Ubicación agregada correctamente.';
+};
+const validateCoordinates = async ({showStatus = true} = {}) => {
+    const latitude = latitudeInput.value.trim(), longitude = longitudeInput.value.trim();
+
+    if (!latitude && !longitude) {
+        setCoordinateValidity();
+        return true;
+    }
+
+    if (!latitude || !longitude) {
+        const message = 'Indique latitud y longitud para validar las coordenadas.';
+        setCoordinateValidity(message);
+        if (showStatus) setGpsLocationStatus(message);
+        return false;
+    }
+
+    setCoordinateValidity();
+    if (!latitudeInput.checkValidity() || !longitudeInput.checkValidity()) {
+        const message = 'Ingrese coordenadas dentro del rango geográfico de Venezuela.';
+        setCoordinateValidity(message);
+        if (showStatus) setGpsLocationStatus(message);
+        return false;
+    }
+
+    if (showStatus) setGpsLocationStatus('Verificando que las coordenadas correspondan a Venezuela…');
+
+    try {
+        const message = await reverseGeocode(latitude, longitude);
+        setCoordinateValidity();
+        if (showStatus) setGpsLocationStatus(message);
+        return true;
+    } catch (error) {
+        const message = error.message || 'No fue posible validar las coordenadas.';
+        setCoordinateValidity(message);
+        if (showStatus) setGpsLocationStatus(message);
+        return false;
+    }
+};
 gpsLocateButton.addEventListener('click', () => {
     if (!navigator.geolocation) { setGpsLocationStatus('Este navegador no permite obtener la ubicación. Ingrese las coordenadas manualmente.'); return; }
     gpsLocateButton.disabled = true; setGpsLocationStatus('Buscando su ubicación actual…');
-    navigator.geolocation.getCurrentPosition(position => {
+    navigator.geolocation.getCurrentPosition(async position => {
         const coordinates = position.coords;
         form.elements.latitude.value = formatGpsValue(coordinates.latitude, 7);
         form.elements.longitude.value = formatGpsValue(coordinates.longitude, 7);
         form.elements.gps_accuracy.value = formatGpsValue(coordinates.accuracy, 2);
         form.elements.altitude.value = coordinates.altitude === null ? '' : formatGpsValue(coordinates.altitude, 2);
-        gpsLocateButton.disabled = false;
-        setGpsLocationStatus(coordinates.altitude === null ? 'Ubicación agregada. Su dispositivo no proporcionó la altitud.' : 'Ubicación agregada correctamente.');
+        setCoordinateValidity();
+
+        try {
+            await validateCoordinates();
+        } finally {
+            gpsLocateButton.disabled = false;
+        }
     }, error => {
         const messages = {1: 'Permiso de ubicación denegado. Puede permitirlo en el navegador o escribir las coordenadas manualmente.', 2: 'No fue posible determinar la ubicación. Intente nuevamente o ingrese las coordenadas manualmente.', 3: 'La ubicación tardó demasiado. Intente nuevamente o ingrese las coordenadas manualmente.'};
         gpsLocateButton.disabled = false; setGpsLocationStatus(messages[error.code] || 'No fue posible obtener la ubicación.');
     }, {enableHighAccuracy: true, timeout: 15000, maximumAge: 0});
 });
+[latitudeInput, longitudeInput].forEach(input => input.addEventListener('change', () => {
+    if (latitudeInput.value.trim() && longitudeInput.value.trim()) void validateCoordinates();
+    else setCoordinateValidity();
+}));
 
 const beneficiaryFields = ['full_name', 'age', 'sex', 'national_id', 'phone', 'disability', 'ethnicity', 'pregnant_lactating', 'is_recurrent'];
 const beneficiaryInputs = Object.fromEntries(beneficiaryFields.map(field => [field, select(`beneficiary_${field}`)]));
@@ -187,6 +269,11 @@ const responseMessage = async response => { const payload = await response.json(
 const requestHeaders = {'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content};
 async function saveBeneficiary() {
     if (isSaving || !ensureReportContext()) return;
+    if (!await validateCoordinates()) {
+        setMessage(entryError, 'Corrija las coordenadas GPS antes de guardar el beneficiario.');
+        (latitudeInput.value.trim() ? longitudeInput : latitudeInput).focus();
+        return;
+    }
     const beneficiary = beneficiaryRecord();
     const validationMessage = beneficiaryValidationMessage(beneficiary);
     if (validationMessage) { setMessage(entryError, validationMessage); return; }

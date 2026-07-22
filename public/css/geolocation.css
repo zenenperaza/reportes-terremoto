@@ -1,1 +1,8 @@
-.gps-location-actions{display:flex;align-items:center;gap:14px;margin:14px 0 6px}.gps-location-status{margin:0;color:#305b78;font-size:14px;font-weight:600}.gps-location-help{margin:0 0 14px;color:#52728a;font-size:13px}@media(max-width:560px){.gps-location-actions{align-items:flex-start;flex-direction:column;gap:8px}}
+.gps-location-actions{display:flex;align-items:center;gap:14px;margin:14px 0 6px}
+.gps-location-actions-top{margin:0 0 6px}
+.gps-location-status{margin:0;color:#305b78;font-size:14px;font-weight:600}
+.gps-location-help{margin:0 0 8px;color:#52728a;font-size:13px}
+.gps-geocoding-attribution{margin:0 0 16px;color:#6b7f8d;font-size:12px}
+.gps-geocoding-attribution a{color:#057bb4}
+.gps-details-heading{margin:0 0 8px;color:#057bb4;font-size:16px;font-weight:700}
+@media(max-width:560px){.gps-location-actions{align-items:flex-start;flex-direction:column;gap:8px}}

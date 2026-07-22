@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests;
 
+use App\Exceptions\ReverseGeocodingException;
 use App\Models\Activity;
 use App\Models\Municipality;
 use App\Models\Parish;
+use App\Services\ReverseGeocoder;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -32,8 +34,8 @@ class StoreReportRequest extends FormRequest
             'parish_id' => ['required', 'integer', 'exists:parishes,id'],
             'installation_type' => ['required', Rule::in(config('reports.installation_types'))],
             'place_name' => ['required', 'string', 'max:200'],
-            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
-            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'latitude' => ['nullable', 'required_with:longitude', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'required_with:latitude', 'numeric', 'between:-180,180'],
             'altitude' => ['nullable', 'numeric', 'between:-500,10000'],
             'gps_accuracy' => ['nullable', 'numeric', 'min:0', 'max:100000'],
 
@@ -62,6 +64,8 @@ class StoreReportRequest extends FormRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator): void {
+            $this->validateCoordinatesAreInVenezuela($validator);
+
             $municipality = Municipality::find($this->integer('municipality_id'));
             if ($municipality && $municipality->state_id !== $this->integer('state_id')) {
                 $validator->errors()->add('municipality_id', 'El municipio no pertenece al estado seleccionado.');
@@ -77,6 +81,35 @@ class StoreReportRequest extends FormRequest
                 $validator->errors()->add('activity_id', 'La actividad no corresponde al sector seleccionado.');
             }
         });
+    }
+
+    private function validateCoordinatesAreInVenezuela($validator): void
+    {
+        if ($validator->errors()->has('latitude') || $validator->errors()->has('longitude')) {
+            return;
+        }
+
+        $latitude = $this->input('latitude');
+        $longitude = $this->input('longitude');
+
+        if ($latitude === null || $latitude === '' || $longitude === null || $longitude === '') {
+            return;
+        }
+
+        try {
+            $reverseGeocoder = app(ReverseGeocoder::class);
+            $isInVenezuela = $reverseGeocoder->isInVenezuela(
+                $reverseGeocoder->resolve((float) $latitude, (float) $longitude),
+            );
+        } catch (ReverseGeocodingException $exception) {
+            $validator->errors()->add('latitude', $exception->getMessage());
+
+            return;
+        }
+
+        if (! $isInVenezuela) {
+            $validator->errors()->add('latitude', 'Las coordenadas deben corresponder al territorio venezolano.');
+        }
     }
 
     public function attributes(): array

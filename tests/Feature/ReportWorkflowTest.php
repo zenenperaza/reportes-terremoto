@@ -13,6 +13,9 @@ use App\Models\State;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -225,6 +228,52 @@ class ReportWorkflowTest extends TestCase
         $this->assertDatabaseCount('reports', 2);
         $this->assertDatabaseHas('reports', ['id' => $reportId, 'place_name' => 'Comunidad El Carmen', 'total_beneficiaries' => 2]);
         $this->assertDatabaseHas('reports', ['place_name' => 'Comunidad El Manantial', 'total_beneficiaries' => 1]);
+    }
+
+    public function test_beneficiary_cannot_be_saved_with_coordinates_outside_venezuela(): void
+    {
+        RateLimiter::clear('nominatim-reverse-geocode');
+        Cache::forget('reverse-geocode:4.57090:-74.29730');
+        config(['services.nominatim.url' => 'https://nominatim.test']);
+        Http::fake([
+            'https://nominatim.test/reverse*' => Http::response([
+                'address' => ['country_code' => 'co'],
+            ]),
+        ]);
+
+        $user = User::factory()->create(['role' => 'reporter']);
+        $state = State::create(['code' => 'VE01', 'name' => 'Distrito Capital']);
+        $municipality = Municipality::create(['state_id' => $state->id, 'code' => 'VE0101', 'name' => 'Libertador']);
+        $parish = Parish::create(['municipality_id' => $municipality->id, 'code' => 'VE010101', 'name' => 'Altagracia']);
+        $sector = Sector::create(['name' => 'Protección', 'slug' => 'proteccion', 'sort_order' => 1]);
+        $activity = Activity::create(['sector_id' => $sector->id, 'code' => 'TEST-01', 'title' => 'Actividad de prueba', 'sort_order' => 1]);
+
+        $this->actingAs($user)->postJson('/beneficiarios', [
+            'report_date' => today()->toDateString(),
+            'reporter_first_name' => 'Ana',
+            'reporter_last_name' => 'Pérez',
+            'reporter_email' => 'ana@example.test',
+            'organization' => 'ASONACOP',
+            'state_id' => $state->id,
+            'municipality_id' => $municipality->id,
+            'parish_id' => $parish->id,
+            'installation_type' => 'Comunidad / Espacio Comunitario',
+            'place_name' => 'Comunidad El Carmen',
+            'latitude' => 4.5709,
+            'longitude' => -74.2973,
+            'sector_id' => $sector->id,
+            'activity_id' => $activity->id,
+            'beneficiary' => [
+                'full_name' => 'María Gómez',
+                'age' => 8,
+                'sex' => 'Mujer',
+                'is_recurrent' => false,
+            ],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('latitude');
+
+        $this->assertDatabaseCount('reports', 0);
     }
 
     public function test_user_can_mark_filtered_beneficiaries_as_reported_without_affecting_other_users(): void
