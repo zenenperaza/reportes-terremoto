@@ -60,7 +60,7 @@
     </form>
 </section>
 
-<section class="content-card">
+<section class="content-card" id="beneficiary-groups-section">
     <div class="card-heading"><div><h2>Beneficiarios por atención</h2><p class="muted">{{ number_format($groupedBeneficiaries->count()) }} {{ $groupedBeneficiaries->count() === 1 ? 'grupo coincide' : 'grupos coinciden' }} con los filtros seleccionados.</p></div></div>
     @if($groupedBeneficiaries->isEmpty())
         <div class="empty-state"><p>No hay beneficiarios que coincidan con los filtros.</p></div>
@@ -68,31 +68,22 @@
         <div class="table-wrap"><table id="beneficiary-attention-table" class="beneficiary-attention-table">
             <thead><tr><th>Fecha de atención</th><th>Estado</th><th>Municipio</th><th>Parroquia</th><th>Nombre del lugar</th><th>Actividad</th>@if($showReportedAt)<th>Fecha de reporte</th>@endif<th>Beneficiarios</th></tr></thead>
             <tbody>@foreach($groupedBeneficiaries as $group)
-                <tr><td data-order="{{ $group->report_date }}">{{ \Illuminate\Support\Carbon::parse($group->report_date)->format('d/m/Y') }}</td><td>{{ $group->state_name }}</td><td>{{ $group->municipality_name }}</td><td>{{ $group->parish_name }}</td><td>{{ $group->place_name }}</td><td>{{ $group->activity_title }}</td>@if($showReportedAt)<td data-order="{{ $group->reported_at }}">{{ \Illuminate\Support\Carbon::parse($group->reported_at)->format('d/m/Y') }}</td>@endif<td data-order="{{ $group->beneficiary_count }}">{{ number_format($group->beneficiary_count) }}</td></tr>
+                @php
+                    $groupFilters = array_merge($filters, [
+                        'from' => $group->report_date, 'to' => $group->report_date,
+                        'state_id' => $group->state_id, 'municipality_id' => $group->municipality_id,
+                        'parish_id' => $group->parish_id, 'place_name' => $group->place_name,
+                        'activity_id' => $group->activity_id,
+                    ]);
+                    $groupUrl = route('beneficiaries.summary', array_filter($groupFilters, static fn ($value) => $value !== null && $value !== ''));
+                @endphp
+                <tr class="beneficiary-group-row" data-detail-url="{{ $groupUrl }}" tabindex="0" role="link" aria-label="Ver resultados del grupo del {{ \Illuminate\Support\Carbon::parse($group->report_date)->format('d/m/Y') }}"><td data-order="{{ $group->report_date }}"><a class="beneficiary-group-link" href="{{ $groupUrl }}">{{ \Illuminate\Support\Carbon::parse($group->report_date)->format('d/m/Y') }}</a></td><td>{{ $group->state_name }}</td><td>{{ $group->municipality_name }}</td><td>{{ $group->parish_name }}</td><td>{{ $group->place_name }}</td><td>{{ $group->activity_title }}</td>@if($showReportedAt)<td data-order="{{ $group->reported_at }}">{{ \Illuminate\Support\Carbon::parse($group->reported_at)->format('d/m/Y') }}</td>@endif<td data-order="{{ $group->beneficiary_count }}">{{ number_format($group->beneficiary_count) }}</td></tr>
             @endforeach</tbody>
         </table></div>
     @endif
 </section>
 
-@if((string) ($filters['reported'] ?? '') !== '1')
-    <section class="content-card donor-report-card">
-        <div><h2>Reporte al donante</h2><p class="muted">Indique la fecha con la que se consolidará la información actualmente filtrada.</p></div>
-        @if($pendingBeneficiaryCount > 0)
-            <form method="post" action="{{ route('beneficiaries.mark-reported') }}" class="donor-report-form" onsubmit="return confirm('¿Actualizar a Reportado los {{ number_format($pendingBeneficiaryCount) }} beneficiarios pendientes que coinciden con los filtros actuales?');">
-                @csrf
-                @foreach($filters as $name => $value)
-                    @if($value !== null && $value !== '')<input type="hidden" name="{{ $name }}" value="{{ $value }}">@endif
-                @endforeach
-                <label>Fecha de reporte *<input type="date" name="reported_at" value="{{ today()->format('Y-m-d') }}" max="{{ today()->format('Y-m-d') }}" required></label>
-                <button class="button button-primary" type="submit">Actualizar a Reportado</button>
-            </form>
-        @else
-            <p class="muted">No hay beneficiarios pendientes de reporte con los filtros actuales.</p>
-        @endif
-    </section>
-@endif
-
-<section class="content-card summary-card">
+<section class="content-card summary-card" id="beneficiary-results-section">
     <div class="card-heading"><div><h2>Resultados</h2><p class="muted">{{ number_format($reportCount) }} {{ $reportCount === 1 ? 'registro coincide' : 'registros coinciden' }} con los filtros seleccionados.</p></div></div>
     <div class="table-wrap"><table class="summary-table">
         <thead><tr><th>Beneficiarios</th><th>Cantidad</th></tr></thead>
@@ -117,6 +108,24 @@
     </table></div>
 </section>
 
+@if((string) ($filters['reported'] ?? '') !== '1')
+    <section class="content-card donor-report-card" id="donor-report-section">
+        <div><h2>Reporte al donante</h2><p class="muted">Indique la fecha con la que se consolidará la información actualmente filtrada.</p></div>
+        @if($pendingBeneficiaryCount > 0)
+            <form method="post" action="{{ route('beneficiaries.mark-reported') }}" class="donor-report-form" onsubmit="return confirm('¿Actualizar a Reportado los {{ number_format($pendingBeneficiaryCount) }} beneficiarios pendientes que coinciden con los filtros actuales?');">
+                @csrf
+                @foreach($filters as $name => $value)
+                    @if($value !== null && $value !== '')<input type="hidden" name="{{ $name }}" value="{{ $value }}">@endif
+                @endforeach
+                <label>Fecha de reporte *<input type="date" name="reported_at" value="{{ today()->format('Y-m-d') }}" max="{{ today()->format('Y-m-d') }}" required></label>
+                <button class="button button-primary" type="submit">Actualizar a Reportado</button>
+            </form>
+        @else
+            <p class="muted">No hay beneficiarios pendientes de reporte con los filtros actuales.</p>
+        @endif
+    </section>
+@endif
+
 <script>
 const summarySelect = (id) => document.getElementById(id);
 const setSummaryOptions = (element, items, placeholder) => { element.innerHTML = `<option value="">${placeholder}</option>` + items.map(item => `<option value="${item.id}">${item.name || item.title}</option>`).join(''); };
@@ -136,12 +145,10 @@ summarySector.addEventListener('change', async () => { setSummaryOptions(summary
 <script src="/vendor/datatables/buttons.html5.min.js"></script>
 <script src="/vendor/datatables/buttons.print.min.js"></script>
 <script>
-    const beneficiaryAttentionTable = document.getElementById('beneficiary-attention-table');
-    if (beneficiaryAttentionTable && typeof DataTable === 'undefined') {
-        console.error('No fue posible cargar la biblioteca DataTables.');
-    }
+    const initializeBeneficiaryTable = () => {
+        const beneficiaryAttentionTable = document.getElementById('beneficiary-attention-table');
+        if (!beneficiaryAttentionTable || typeof DataTable === 'undefined') return;
 
-    if (beneficiaryAttentionTable && typeof DataTable !== 'undefined') {
         new DataTable(beneficiaryAttentionTable, {
             layout: {
                 topStart: {
@@ -173,6 +180,74 @@ summarySector.addEventListener('change', async () => { setSummaryOptions(summary
                 paginate: {first: 'Primero', last: 'Último', next: 'Siguiente', previous: 'Anterior'},
             },
         });
-    }
+    };
+
+    const reportDocument = async (url, options = {}) => {
+        const response = await fetch(url, {...options, headers: {...(options.headers || {}), 'X-Requested-With': 'XMLHttpRequest'}});
+        if (!response.ok) throw new Error('No fue posible actualizar el informe.');
+        return new DOMParser().parseFromString(await response.text(), 'text/html');
+    };
+
+    const replaceReportSection = (source, id) => {
+        const current = document.getElementById(id);
+        const replacement = source.getElementById(id);
+        if (current && replacement) current.replaceWith(replacement);
+        else if (current) current.remove();
+    };
+
+    const showGroupResults = async (url) => {
+        document.body.classList.add('report-loading');
+        try {
+            const source = await reportDocument(url);
+            replaceReportSection(source, 'donor-report-section');
+            replaceReportSection(source, 'beneficiary-results-section');
+            document.getElementById('beneficiary-results-section')?.scrollIntoView({behavior: 'smooth', block: 'start'});
+        } catch (error) {
+            window.location.href = url;
+        } finally {
+            document.body.classList.remove('report-loading');
+        }
+    };
+
+    document.addEventListener('click', async (event) => {
+        const row = event.target.closest('.beneficiary-group-row');
+        if (row) {
+            event.preventDefault();
+            await showGroupResults(row.dataset.detailUrl);
+            return;
+        }
+
+        const submitButton = event.target.closest('#donor-report-section button[type="submit"]');
+        if (!submitButton) return;
+        const form = submitButton.form;
+        event.preventDefault();
+        if (!form.reportValidity() || (form.onsubmit && !form.onsubmit())) return;
+
+        submitButton.disabled = true;
+        try {
+            await reportDocument(form.action, {method: 'POST', body: new FormData(form)});
+            const baseUrl = new URL(document.getElementById('beneficiary-report-filters').action || window.location.href);
+            baseUrl.search = new URLSearchParams(new FormData(document.getElementById('beneficiary-report-filters'))).toString();
+            const source = await reportDocument(baseUrl.toString());
+            replaceReportSection(source, 'beneficiary-groups-section');
+            replaceReportSection(source, 'donor-report-section');
+            replaceReportSection(source, 'beneficiary-results-section');
+            initializeBeneficiaryTable();
+        } catch (error) {
+            form.submit();
+        } finally {
+            submitButton.disabled = false;
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        const row = event.target.closest('.beneficiary-group-row');
+        if (row && (event.key === 'Enter' || event.key === ' ')) {
+            event.preventDefault();
+            showGroupResults(row.dataset.detailUrl);
+        }
+    });
+
+    initializeBeneficiaryTable();
 </script>
 @endsection

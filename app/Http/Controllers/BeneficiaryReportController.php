@@ -298,8 +298,10 @@ class BeneficiaryReportController extends Controller
     private function groupedBeneficiaries(Builder $beneficiaries, bool $includeReportedAt): \Illuminate\Support\Collection
     {
         $select = [
-            'grouped_reports.report_date', 'states.name as state_name', 'municipalities.name as municipality_name',
-            'parishes.name as parish_name', 'grouped_reports.place_name', 'activities.title as activity_title',
+            'grouped_reports.report_date', 'states.id as state_id', 'states.name as state_name',
+            'municipalities.id as municipality_id', 'municipalities.name as municipality_name',
+            'parishes.id as parish_id', 'parishes.name as parish_name', 'grouped_reports.place_name',
+            'activities.id as activity_id', 'activities.title as activity_title',
             DB::raw('COUNT(beneficiaries.id) as beneficiary_count'),
         ];
         $groupBy = [
