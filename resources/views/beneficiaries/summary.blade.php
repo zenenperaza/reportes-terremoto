@@ -118,7 +118,7 @@
     <section class="content-card donor-report-card" id="donor-report-section">
         <div><h2>Reporte al donante</h2><p class="muted">Indique la fecha con la que se consolidará la información actualmente filtrada.</p></div>
         @if($pendingBeneficiaryCount > 0)
-            <form method="post" action="{{ route('beneficiaries.mark-reported') }}" class="donor-report-form" data-beneficiary-count="{{ $pendingBeneficiaryCount }}">
+            <form method="post" action="{{ route('beneficiaries.mark-reported') }}" class="donor-report-form" data-beneficiary-count="{{ $pendingBeneficiaryCount }}" data-can-report="{{ auth()->user()->isCoordinator() ? '1' : '0' }}">
                 @csrf
                 @foreach($filters as $name => $value)
                     @if($value !== null && $value !== '')<input type="hidden" name="{{ $name }}" value="{{ $value }}">@endif
@@ -228,6 +228,21 @@ summarySector.addEventListener('change', async () => { setSummaryOptions(summary
         if (!submitButton) return;
         const form = submitButton.form;
         event.preventDefault();
+        if (form.dataset.canReport !== '1') {
+            const authorizationMessage = 'Solo los Coordinadores o Administradores pueden Reportar';
+            if (typeof Swal !== 'undefined') {
+                await Swal.fire({
+                    title: 'Acción no permitida',
+                    text: authorizationMessage,
+                    icon: 'warning',
+                    confirmButtonText: 'Aceptar',
+                    confirmButtonColor: '#1cabe2',
+                });
+            } else {
+                window.alert(authorizationMessage);
+            }
+            return;
+        }
         if (!form.reportValidity()) return;
 
         const beneficiaryCount = Number(form.dataset.beneficiaryCount || 0);

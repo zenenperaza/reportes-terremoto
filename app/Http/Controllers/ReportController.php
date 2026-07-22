@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateBeneficiaryRequest;
 use App\Models\Beneficiary;
 use App\Models\Evidence;
 use App\Models\Municipality;
+use App\Models\PlaceName;
 use App\Models\Report;
 use App\Models\Sector;
 use App\Models\State;
@@ -80,6 +81,7 @@ class ReportController extends Controller
             'activities' => $sector ? $sector->activities()->where('active', true)->orderBy('sort_order')->get(['id', 'title']) : collect(),
             'organizations' => config('reports.organizations'),
             'installationTypes' => config('reports.installation_types'),
+            'placeNames' => PlaceName::query()->orderBy('name')->get(['id', 'name']),
             'beneficiaryOptions' => config('reports.beneficiary_options'),
             'user' => $request->user(),
         ]);

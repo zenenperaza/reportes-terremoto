@@ -5,6 +5,7 @@ use App\Http\Controllers\BeneficiaryLookupController;
 use App\Http\Controllers\BeneficiaryReportController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LocationController;
+use App\Http\Controllers\PlaceNameController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\UserManagementController;
 use Illuminate\Support\Facades\Route;
@@ -33,6 +34,10 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/ubicaciones/municipios/{municipality}/parroquias', [LocationController::class, 'parishes'])->name('locations.parishes');
     Route::get('/ubicaciones/coordenadas', [LocationController::class, 'reverseGeocode'])->name('locations.reverse');
     Route::get('/lugares/sugerencias', [LocationController::class, 'places'])->name('locations.places');
+    Route::get('/nombres-del-lugar', [PlaceNameController::class, 'index'])->name('place-names.index');
+    Route::post('/nombres-del-lugar', [PlaceNameController::class, 'store'])->name('place-names.store');
+    Route::put('/nombres-del-lugar/{placeName}', [PlaceNameController::class, 'update'])->name('place-names.update');
+    Route::delete('/nombres-del-lugar/{placeName}', [PlaceNameController::class, 'destroy'])->name('place-names.destroy');
     Route::get('/actividades', [LocationController::class, 'allActivities'])->name('activities.all');
     Route::get('/sectores/{sector}/actividades', [LocationController::class, 'activities'])->name('sectors.activities');
     Route::get('/beneficiarios/verificar-recurrencia', [BeneficiaryLookupController::class, 'recurrence'])->name('beneficiaries.recurrence');

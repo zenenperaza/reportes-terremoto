@@ -7,6 +7,7 @@ use App\Models\Beneficiary;
 use App\Models\Evidence;
 use App\Models\Municipality;
 use App\Models\Parish;
+use App\Models\PlaceName;
 use App\Models\Report;
 use App\Models\Sector;
 use App\Models\State;
@@ -22,6 +23,15 @@ use Tests\TestCase;
 class ReportWorkflowTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        foreach (['Comunidad El Carmen', 'Comunidad El Manantial', 'Lugar de Ana', 'Lugar de otra persona'] as $name) {
+            PlaceName::create(['name' => $name]);
+        }
+    }
 
     public function test_guest_is_redirected_to_login_and_can_see_login_form(): void
     {
@@ -122,6 +132,28 @@ class ReportWorkflowTest extends TestCase
         $reporter = User::factory()->create(['role' => 'reporter']);
 
         $this->actingAs($reporter)->get('/usuarios')->assertForbidden();
+    }
+
+    public function test_any_authenticated_user_can_manage_place_names(): void
+    {
+        $reporter = User::factory()->create(['role' => 'reporter']);
+
+        $this->actingAs($reporter)->get('/nombres-del-lugar')
+            ->assertOk()
+            ->assertSee('Nombres específicos del lugar');
+
+        $this->actingAs($reporter)->post('/nombres-del-lugar', ['name' => 'Escuela Nueva'])
+            ->assertRedirect(route('place-names.index'));
+        $placeName = PlaceName::where('name', 'Escuela Nueva')->firstOrFail();
+        $this->assertSame($reporter->id, $placeName->created_by);
+
+        $this->actingAs($reporter)->put("/nombres-del-lugar/{$placeName->id}", ['name' => 'Escuela Renovada'])
+            ->assertRedirect(route('place-names.index'));
+        $this->assertDatabaseHas('place_names', ['id' => $placeName->id, 'name' => 'Escuela Renovada']);
+
+        $this->actingAs($reporter)->delete("/nombres-del-lugar/{$placeName->id}")
+            ->assertRedirect(route('place-names.index'));
+        $this->assertDatabaseMissing('place_names', ['id' => $placeName->id]);
     }
 
     public function test_reports_and_beneficiary_summary_are_scoped_to_the_user_except_for_administrators(): void
@@ -276,10 +308,43 @@ class ReportWorkflowTest extends TestCase
         $this->assertDatabaseCount('reports', 0);
     }
 
+    public function test_coordinates_must_match_selected_state_and_municipality(): void
+    {
+        RateLimiter::clear('nominatim-reverse-geocode');
+        Cache::forget('reverse-geocode:10.00000:-67.00000');
+        config(['services.nominatim.url' => 'https://nominatim.test']);
+        Http::fake([
+            'https://nominatim.test/reverse*' => Http::response([
+                'address' => ['country_code' => 've', 'state' => 'Lara', 'municipality' => 'Iribarren'],
+            ]),
+        ]);
+
+        $user = User::factory()->create(['role' => 'reporter']);
+        $state = State::create(['code' => 'VE01', 'name' => 'Distrito Capital']);
+        $municipality = Municipality::create(['state_id' => $state->id, 'code' => 'VE0101', 'name' => 'Libertador']);
+        $parish = Parish::create(['municipality_id' => $municipality->id, 'code' => 'VE010101', 'name' => 'Altagracia']);
+        $sector = Sector::create(['name' => 'Protección', 'slug' => 'proteccion', 'sort_order' => 1]);
+        $activity = Activity::create(['sector_id' => $sector->id, 'code' => 'TEST-01', 'title' => 'Actividad de prueba', 'sort_order' => 1]);
+
+        $this->actingAs($user)->postJson('/beneficiarios', [
+            'report_date' => today()->toDateString(), 'reporter_first_name' => 'Ana', 'reporter_last_name' => 'Pérez',
+            'reporter_email' => 'ana@example.test', 'organization' => 'ASONACOP', 'state_id' => $state->id,
+            'municipality_id' => $municipality->id, 'parish_id' => $parish->id,
+            'installation_type' => 'Comunidad / Espacio Comunitario', 'place_name' => 'Comunidad El Carmen',
+            'latitude' => 10, 'longitude' => -67, 'sector_id' => $sector->id, 'activity_id' => $activity->id,
+            'beneficiary' => ['full_name' => 'María Gómez', 'age' => 8, 'sex' => 'Mujer', 'is_recurrent' => false],
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('latitude')
+            ->assertJsonPath('errors.latitude.0', 'LAS COORDENADAS NO COINCIDEN CON EL ESTADO Y MUNICIPIO QUE DESEA REGISTRAR');
+
+        $this->assertDatabaseCount('reports', 0);
+    }
+
     public function test_user_can_mark_filtered_beneficiaries_as_reported_without_affecting_other_users(): void
     {
         $owner = User::factory()->create(['role' => 'reporter']);
         $otherUser = User::factory()->create(['role' => 'reporter']);
+        $coordinator = User::factory()->create(['role' => 'coordinator']);
         $state = State::create(['code' => 'VE01', 'name' => 'Distrito Capital']);
         $municipality = Municipality::create(['state_id' => $state->id, 'code' => 'VE0101', 'name' => 'Libertador']);
         $parish = Parish::create(['municipality_id' => $municipality->id, 'code' => 'VE010101', 'name' => 'Altagracia']);
@@ -300,6 +365,12 @@ class ReportWorkflowTest extends TestCase
             ->assertSee('Actualizar a Reportado');
 
         $this->actingAs($owner)->post('/informe-beneficiarios/marcar-reportados', ['reported' => '0', 'reported_at' => today()->toDateString()])
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('beneficiaries', ['id' => $ownBeneficiary->id, 'reported' => false, 'reported_at' => null]);
+        $this->assertDatabaseHas('beneficiaries', ['id' => $otherBeneficiary->id, 'reported' => false, 'reported_at' => null]);
+
+        $this->actingAs($coordinator)->post('/informe-beneficiarios/marcar-reportados', ['reported' => '0', 'place_name' => 'Lugar de Ana', 'reported_at' => today()->toDateString()])
             ->assertRedirect()
             ->assertSessionHas('success', '1 beneficiario fue actualizado como reportado con la fecha indicada.');
 

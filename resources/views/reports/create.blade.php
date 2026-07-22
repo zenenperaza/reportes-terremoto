@@ -50,7 +50,13 @@
             <label>Municipio *<select name="municipality_id" id="municipality_id" required><option value="">Seleccione primero el estado</option>@foreach($municipalities as $municipality)<option value="{{ $municipality->id }}" @selected(old('municipality_id') == $municipality->id)>{{ $municipality->name }}</option>@endforeach</select></label>
             <label>Parroquia *<select name="parish_id" id="parish_id" required><option value="">Seleccione primero el municipio</option>@foreach($parishes as $parish)<option value="{{ $parish->id }}" @selected(old('parish_id') == $parish->id)>{{ $parish->name }}</option>@endforeach</select></label>
             <label>Tipo de instalación / ubicación *<select name="installation_type" required><option value="">Seleccione una opción</option>@foreach($installationTypes as $type)<option value="{{ $type }}" @selected(old('installation_type') === $type)>{{ $type }}</option>@endforeach</select></label>
-            <label class="span-two">Nombre específico del lugar *<input type="text" name="place_name" id="place_name" list="place-name-suggestions" autocomplete="off" maxlength="200" placeholder="Ej. Escuela Simón Bolívar o Comunidad El Carmen" value="{{ old('place_name') }}" required><datalist id="place-name-suggestions"></datalist><small>Escriba para ver lugares registrados anteriormente.</small></label>
+            <label class="span-two">Nombre específico del lugar *
+                <select name="place_name" id="place_name" required>
+                    <option value="">Seleccione el nombre del lugar</option>
+                    @foreach($placeNames as $placeName)<option value="{{ $placeName->name }}" @selected(old('place_name') === $placeName->name)>{{ $placeName->name }}</option>@endforeach
+                </select>
+                <small>¿No aparece? <a href="{{ route('place-names.index') }}" target="_blank" rel="noopener">Crear o administrar nombres de lugares</a>.</small>
+            </label>
         </div>
         <div class="gps-details"><p class="gps-details-heading">Ver o editar coordenadas GPS</p><p class="gps-location-help">También puede escribir las coordenadas manualmente. Si las indica, se verificarán antes de guardar que correspondan a Venezuela.</p><div class="form-grid four-cols"><label>Latitud<input type="number" step="0.0000001" min="0.5" max="12.7" name="latitude" value="{{ old('latitude') }}"></label><label>Longitud<input type="number" step="0.0000001" min="-74" max="-59" name="longitude" value="{{ old('longitude') }}"></label><label>Altitud (m)<input type="number" step="0.01" name="altitude" value="{{ old('altitude') }}"></label><label>Precisión (m)<input type="number" step="0.01" min="0" name="gps_accuracy" value="{{ old('gps_accuracy') }}"></label></div></div>
     </section>
@@ -101,22 +107,6 @@ state.addEventListener('change', async () => { setOptions(municipality, [], 'Car
 municipality.addEventListener('change', async () => { setOptions(parish, [], 'Cargando parroquias'); if (municipality.value) await loadOptions(parish, `/ubicaciones/municipios/${municipality.value}/parroquias`, 'Seleccione la parroquia'); });
 sector.addEventListener('change', async () => { setOptions(activity, [], 'Cargando actividades'); if (sector.value) await loadOptions(activity, `/sectores/${sector.value}/actividades`, 'Seleccione la actividad'); });
 
-const placeName = select('place_name'), placeNameSuggestions = select('place-name-suggestions');
-let placeNameTimer;
-const loadPlaceNameSuggestions = async () => {
-    const term = placeName.value.trim();
-    if (!term) { placeNameSuggestions.replaceChildren(); return; }
-    const params = new URLSearchParams({q: term, state_id: state.value, municipality_id: municipality.value, parish_id: parish.value, installation_type: form.elements.installation_type.value});
-    try {
-        const response = await fetch(`{{ route('locations.places') }}?${params.toString()}`, {headers: {'Accept': 'application/json'}});
-        const places = await response.json();
-        placeNameSuggestions.replaceChildren(...places.map(place => { const option = document.createElement('option'); option.value = place; return option; }));
-    } catch (_) { placeNameSuggestions.replaceChildren(); }
-};
-const schedulePlaceNameSuggestions = () => { clearTimeout(placeNameTimer); placeNameTimer = setTimeout(loadPlaceNameSuggestions, 250); };
-placeName.addEventListener('input', schedulePlaceNameSuggestions);
-[state, municipality, parish, form.elements.installation_type].forEach(element => element.addEventListener('change', () => { if (placeName.value.trim()) schedulePlaceNameSuggestions(); }));
-
 const gpsLocateButton = select('gps-locate'), gpsLocationStatus = select('gps-location-status');
 const latitudeInput = form.elements.latitude, longitudeInput = form.elements.longitude;
 const setGpsLocationStatus = message => { gpsLocationStatus.textContent = message; };
@@ -144,17 +134,30 @@ const applyDetectedLocation = async location => {
 
     return true;
 };
-const reverseGeocode = async (latitude, longitude) => {
+const coordinateLocationMismatchMessage = 'LAS COORDENADAS NO COINCIDEN CON EL ESTADO Y MUNICIPIO QUE DESEA REGISTRAR';
+const reverseGeocode = async (latitude, longitude, {applyLocation = false} = {}) => {
+    const selectedState = state.value;
+    const selectedMunicipality = municipality.value;
     const params = new URLSearchParams({latitude, longitude});
     const response = await fetch(form.dataset.locationReverseUrl + '?' + params.toString(), {headers: {'Accept': 'application/json'}});
     const result = await response.json().catch(() => ({}));
 
     if (!response.ok) throw new Error(result.message || 'No fue posible completar la ubicación administrativa.');
 
-    await applyDetectedLocation(result.location);
-    return result.message || 'Ubicación agregada correctamente.';
+    if (applyLocation) {
+        await applyDetectedLocation(result.location);
+        return result.message || 'Ubicación agregada correctamente.';
+    }
+
+    const stateMismatch = selectedState && result.location?.state && String(result.location.state.id) !== String(selectedState);
+    const municipalityMismatch = selectedMunicipality && result.location?.municipality && String(result.location.municipality.id) !== String(selectedMunicipality);
+    if (stateMismatch || municipalityMismatch) throw new Error(coordinateLocationMismatchMessage);
+
+    return result.location?.state && result.location?.municipality
+        ? 'Las coordenadas coinciden con el Estado y Municipio seleccionados.'
+        : (result.message || 'Las coordenadas corresponden a Venezuela. Verifique manualmente el Estado y Municipio.');
 };
-const validateCoordinates = async ({showStatus = true} = {}) => {
+const validateCoordinates = async ({showStatus = true, applyLocation = false} = {}) => {
     const latitude = latitudeInput.value.trim(), longitude = longitudeInput.value.trim();
 
     if (!latitude && !longitude) {
@@ -180,7 +183,7 @@ const validateCoordinates = async ({showStatus = true} = {}) => {
     if (showStatus) setGpsLocationStatus('Verificando que las coordenadas correspondan a Venezuela…');
 
     try {
-        const message = await reverseGeocode(latitude, longitude);
+        const message = await reverseGeocode(latitude, longitude, {applyLocation});
         setCoordinateValidity();
         if (showStatus) setGpsLocationStatus(message);
         return true;
@@ -204,7 +207,7 @@ const loadCurrentLocation = (automatically = false) => {
         setCoordinateValidity();
 
         try {
-            await validateCoordinates();
+            await validateCoordinates({applyLocation: true});
         } finally {
             gpsLocateButton.disabled = false;
         }

@@ -24,6 +24,30 @@
     box-shadow: 0 0 0 .2rem rgba(255, 255, 255, .25);
 }
 
+.current-user {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    padding: 4px 12px;
+    color: #fff;
+    line-height: 1.15;
+}
+
+.current-user strong {
+    max-width: 180px;
+    overflow: hidden;
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.current-user span {
+    margin-top: 3px;
+    color: rgba(255, 255, 255, .72);
+    font-size: 11px;
+}
+
 @media (min-width: 1200px) {
     .header-inner {
         padding: 16px 30px;
@@ -66,6 +90,12 @@
     .main-nav form {
         margin-left: 4px;
         padding-left: 8px;
+        border-left: 1px solid rgba(255, 255, 255, .2);
+    }
+
+    .current-user {
+        margin-left: 8px;
+        padding-left: 14px;
         border-left: 1px solid rgba(255, 255, 255, .2);
     }
 }
@@ -111,5 +141,15 @@
 
     .main-nav .link-button {
         text-align: left;
+    }
+
+    .current-user {
+        padding: 10px;
+        border-top: 1px solid rgba(255, 255, 255, .15);
+        border-bottom: 1px solid rgba(255, 255, 255, .15);
+    }
+
+    .current-user strong {
+        max-width: none;
     }
 }

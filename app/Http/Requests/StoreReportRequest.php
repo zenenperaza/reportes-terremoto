@@ -6,6 +6,7 @@ use App\Exceptions\ReverseGeocodingException;
 use App\Models\Activity;
 use App\Models\Municipality;
 use App\Models\Parish;
+use App\Models\State;
 use App\Services\ReverseGeocoder;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -33,7 +34,7 @@ class StoreReportRequest extends FormRequest
             'municipality_id' => ['required', 'integer', 'exists:municipalities,id'],
             'parish_id' => ['required', 'integer', 'exists:parishes,id'],
             'installation_type' => ['required', Rule::in(config('reports.installation_types'))],
-            'place_name' => ['required', 'string', 'max:200'],
+            'place_name' => ['required', 'string', 'max:200', Rule::exists('place_names', 'name')],
             'latitude' => ['nullable', 'required_with:longitude', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'required_with:latitude', 'numeric', 'between:-180,180'],
             'altitude' => ['nullable', 'numeric', 'between:-500,10000'],
@@ -98,9 +99,8 @@ class StoreReportRequest extends FormRequest
 
         try {
             $reverseGeocoder = app(ReverseGeocoder::class);
-            $isInVenezuela = $reverseGeocoder->isInVenezuela(
-                $reverseGeocoder->resolve((float) $latitude, (float) $longitude),
-            );
+            $address = $reverseGeocoder->resolve((float) $latitude, (float) $longitude);
+            $isInVenezuela = $reverseGeocoder->isInVenezuela($address);
         } catch (ReverseGeocodingException $exception) {
             $validator->errors()->add('latitude', $exception->getMessage());
 
@@ -109,6 +109,14 @@ class StoreReportRequest extends FormRequest
 
         if (! $isInVenezuela) {
             $validator->errors()->add('latitude', 'Las coordenadas deben corresponder al territorio venezolano.');
+
+            return;
+        }
+
+        $state = State::find($this->integer('state_id'));
+        $municipality = Municipality::find($this->integer('municipality_id'));
+        if ($state && $municipality && $reverseGeocoder->matchesAdministrativeLocation($address, $state->name, $municipality->name) === false) {
+            $validator->errors()->add('latitude', 'LAS COORDENADAS NO COINCIDEN CON EL ESTADO Y MUNICIPIO QUE DESEA REGISTRAR');
         }
     }
 

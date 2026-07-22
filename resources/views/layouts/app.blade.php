@@ -35,10 +35,15 @@
                         <a href="{{ route('dashboard') }}">Panel</a>
                         <a href="{{ route('reports.index') }}">Registros</a>
                         <a href="{{ route('beneficiaries.summary') }}">Informe de beneficiarios</a>
+                        <a href="{{ route('place-names.index') }}">Lugares</a>
                         @if (auth()->user()->isAdministrator())
                             <a href="{{ route('users.index') }}">Usuarios</a>
                         @endif
                         <a class="button button-small" href="{{ route('reports.create') }}">+ Nuevo registro</a>
+                        <div class="current-user" aria-label="Usuario conectado">
+                            <strong>{{ auth()->user()->name }}</strong>
+                            <span>{{ \App\Models\User::roleLabels()[auth()->user()->role] ?? auth()->user()->role }}</span>
+                        </div>
                         <form action="{{ route('logout') }}" method="post">
                             @csrf
                             <button class="link-button" type="submit">Salir</button>

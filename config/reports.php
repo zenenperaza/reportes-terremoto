@@ -77,7 +77,7 @@ return [
     ],
 
     'beneficiary_options' => [
-        'sexes' => ['Hombre', 'Mujer', 'Mujer Trans', 'Hombre Trans', 'Persona no Binaria', 'Otro', 'Prefiere no especificar'],
+        'sexes' => ['Hombre', 'Mujer'],
         'disabilities' => [
             'Ninguna', 'Discapacidad Física o Motora', 'Discapacidad Sensorial (auditiva y visual)',
             'Discapacidad Auditiva', 'Discapacidad Visual', 'Discapacidad Intelectual', 'Discapacidad Psíquica',
