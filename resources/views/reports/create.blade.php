@@ -187,9 +187,10 @@ const validateCoordinates = async ({showStatus = true} = {}) => {
         return false;
     }
 };
-gpsLocateButton.addEventListener('click', () => {
+const loadCurrentLocation = (automatically = false) => {
     if (!navigator.geolocation) { setGpsLocationStatus('Este navegador no permite obtener la ubicación. Ingrese las coordenadas manualmente.'); return; }
-    gpsLocateButton.disabled = true; setGpsLocationStatus('Buscando su ubicación actual…');
+    gpsLocateButton.disabled = true;
+    setGpsLocationStatus(automatically ? 'Solicitando permiso para cargar su ubicación actual…' : 'Buscando su ubicación actual…');
     navigator.geolocation.getCurrentPosition(async position => {
         const coordinates = position.coords;
         form.elements.latitude.value = formatGpsValue(coordinates.latitude, 7);
@@ -207,11 +208,19 @@ gpsLocateButton.addEventListener('click', () => {
         const messages = {1: 'Permiso de ubicación denegado. Puede permitirlo en el navegador o escribir las coordenadas manualmente.', 2: 'No fue posible determinar la ubicación. Intente nuevamente o ingrese las coordenadas manualmente.', 3: 'La ubicación tardó demasiado. Intente nuevamente o ingrese las coordenadas manualmente.'};
         gpsLocateButton.disabled = false; setGpsLocationStatus(messages[error.code] || 'No fue posible obtener la ubicación.');
     }, {enableHighAccuracy: true, timeout: 15000, maximumAge: 0});
-});
+};
+gpsLocateButton.addEventListener('click', () => loadCurrentLocation());
 [latitudeInput, longitudeInput].forEach(input => input.addEventListener('change', () => {
     if (latitudeInput.value.trim() && longitudeInput.value.trim()) void validateCoordinates();
     else setCoordinateValidity();
 }));
+
+const hasLocationData = () => [latitudeInput, longitudeInput, state, municipality, parish]
+    .some(input => input.value.trim() !== '');
+
+if (!hasLocationData()) {
+    window.setTimeout(() => loadCurrentLocation(true), 300);
+}
 
 const beneficiaryFields = ['full_name', 'age', 'sex', 'national_id', 'phone', 'disability', 'ethnicity', 'pregnant_lactating', 'is_recurrent'];
 const beneficiaryInputs = Object.fromEntries(beneficiaryFields.map(field => [field, select(`beneficiary_${field}`)]));
