@@ -61,6 +61,42 @@ class StoreBeneficiaryEntryRequest extends FormRequest
         ];
     }
 
+    /** @return array<string, string> */
+    public function messages(): array
+    {
+        return [
+            'required' => 'El campo :attribute es obligatorio.',
+            'required_if' => 'El campo :attribute es obligatorio.',
+            'required_with' => 'El campo :attribute es obligatorio cuando se indica su coordenada relacionada.',
+        ];
+    }
+
+    /** @return array<string, string> */
+    public function attributes(): array
+    {
+        return [
+            'report_date' => 'fecha de registro',
+            'reporter_first_name' => 'nombre de quien registra',
+            'reporter_last_name' => 'apellido de quien registra',
+            'reporter_email' => 'correo electrónico',
+            'organization' => 'organización',
+            'other_organization' => 'otra organización',
+            'state_id' => 'estado',
+            'municipality_id' => 'municipio',
+            'parish_id' => 'parroquia',
+            'installation_type' => 'tipo de instalación',
+            'place_name' => 'nombre del lugar',
+            'latitude' => 'latitud',
+            'longitude' => 'longitud',
+            'sector_id' => 'sector programático',
+            'activity_id' => 'actividad a reportar',
+            'beneficiary.full_name' => 'nombre y apellido del beneficiario',
+            'beneficiary.age' => 'edad del beneficiario',
+            'beneficiary.sex' => 'sexo del beneficiario',
+            'beneficiary.is_recurrent' => 'condición recurrente',
+        ];
+    }
+
     public function withValidator($validator): void
     {
         $validator->after(function ($validator): void {

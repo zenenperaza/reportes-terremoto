@@ -128,15 +128,19 @@ const setCoordinateValidity = (message = '') => {
 const applyDetectedLocation = async location => {
     if (!location?.state) return false;
 
+    const previousState = state.value;
+    const previousMunicipality = municipality.value;
+    const previousParish = parish.value;
     state.value = location.state.id;
     setOptions(municipality, [], 'Cargando municipios');
     setOptions(parish, [], 'Seleccione primero el municipio');
-    await loadOptions(municipality, '/ubicaciones/estados/' + state.value + '/municipios', 'Seleccione el municipio', location.municipality?.id || '');
+    const municipalityToKeep = location.municipality?.id || (String(previousState) === String(location.state.id) ? previousMunicipality : '');
+    await loadOptions(municipality, '/ubicaciones/estados/' + state.value + '/municipios', 'Seleccione el municipio', municipalityToKeep);
 
-    if (!location.municipality) return true;
+    if (!municipality.value) return true;
 
-    municipality.value = location.municipality.id;
-    await loadOptions(parish, '/ubicaciones/municipios/' + municipality.value + '/parroquias', 'Seleccione la parroquia', location.parish?.id || '');
+    const parishToKeep = location.parish?.id || (String(previousMunicipality) === String(municipality.value) ? previousParish : '');
+    await loadOptions(parish, '/ubicaciones/municipios/' + municipality.value + '/parroquias', 'Seleccione la parroquia', parishToKeep);
 
     return true;
 };
