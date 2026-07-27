@@ -36,6 +36,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/lugares/sugerencias', [LocationController::class, 'places'])->name('locations.places');
     Route::get('/nombres-del-lugar', [PlaceNameController::class, 'index'])->name('place-names.index');
     Route::post('/nombres-del-lugar', [PlaceNameController::class, 'store'])->name('place-names.store');
+    Route::get('/nombres-del-lugar/{placeName}/editar', [PlaceNameController::class, 'edit'])->name('place-names.edit');
     Route::put('/nombres-del-lugar/{placeName}', [PlaceNameController::class, 'update'])->name('place-names.update');
     Route::delete('/nombres-del-lugar/{placeName}', [PlaceNameController::class, 'destroy'])->name('place-names.destroy');
     Route::get('/actividades', [LocationController::class, 'allActivities'])->name('activities.all');

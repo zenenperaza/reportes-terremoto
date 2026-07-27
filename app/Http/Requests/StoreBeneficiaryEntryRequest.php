@@ -6,6 +6,7 @@ use App\Exceptions\ReverseGeocodingException;
 use App\Models\Activity;
 use App\Models\Municipality;
 use App\Models\Parish;
+use App\Models\PlaceName;
 use App\Models\State;
 use App\Services\ReverseGeocoder;
 use Illuminate\Foundation\Http\FormRequest;
@@ -116,6 +117,16 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             $activity = Activity::find($this->integer('activity_id'));
             if ($activity && $activity->sector_id !== $this->integer('sector_id')) {
                 $validator->errors()->add('activity_id', 'La actividad no corresponde al sector seleccionado.');
+            }
+
+            $place = PlaceName::where('name', $this->input('place_name'))->first();
+            if ($place && $place->state_id && (
+                $place->state_id !== $this->integer('state_id')
+                || $place->municipality_id !== $this->integer('municipality_id')
+                || $place->parish_id !== $this->integer('parish_id')
+                || $place->installation_type !== $this->input('installation_type')
+            )) {
+                $validator->errors()->add('place_name', 'La ubicación del lugar seleccionado no coincide con los datos enviados.');
             }
         });
     }

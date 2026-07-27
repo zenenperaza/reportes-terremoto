@@ -88,6 +88,6 @@ return [
             'Pumé', 'Sáliba', 'Sanema', 'Sapé', 'Urak', 'Waike', 'Waikerí', 'Wanuikua', 'Waraos', 'Wayúu',
             'Wottuja-Piaroa', 'Yabarana', 'Yanowamö', 'Yekuana', 'Yukpa', 'Otra Etnia',
         ],
-        'pregnant_lactating' => ['No', 'Sí', 'N/A'],
+        'pregnant_lactating' => ['Ninguna', 'No', 'Sí', 'N/A'],
     ],
 ];

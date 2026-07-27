@@ -2,3 +2,18 @@
 .breakdown-grid[hidden] {
     display: none !important;
 }
+
+.place-location-summary {
+    display: block;
+    margin-top: 2px;
+    padding: 7px 10px;
+    border-left: 3px solid var(--blue);
+    background: #f1f9fc;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 400;
+}
+
+.place-location-summary[hidden] {
+    display: none !important;
+}

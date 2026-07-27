@@ -64,15 +64,10 @@ class ReportController extends Controller
 
     public function create(Request $request): View
     {
-        $state = State::find(old('state_id'));
-        $municipality = Municipality::find(old('municipality_id'));
         $selectedSectorId = old('sector_id', Sector::where('slug', 'proteccion-ninez')->value('id'));
         $sector = Sector::find($selectedSectorId);
 
         return view('reports.create', [
-            'states' => State::orderBy('name')->get(['id', 'name']),
-            'municipalities' => $state ? $state->municipalities()->orderBy('name')->get(['id', 'name']) : collect(),
-            'parishes' => $municipality ? $municipality->parishes()->orderBy('name')->get(['id', 'name']) : collect(),
             'sectors' => Sector::query()
                 ->orderByRaw('CASE WHEN slug = ? THEN 0 ELSE 1 END', ['proteccion-ninez'])
                 ->orderBy('sort_order')
@@ -80,8 +75,14 @@ class ReportController extends Controller
             'selectedSectorId' => $selectedSectorId,
             'activities' => $sector ? $sector->activities()->where('active', true)->orderBy('sort_order')->get(['id', 'title']) : collect(),
             'organizations' => config('reports.organizations'),
-            'installationTypes' => config('reports.installation_types'),
-            'placeNames' => PlaceName::query()->orderBy('name')->get(['id', 'name']),
+            'placeNames' => PlaceName::query()
+                ->with(['state:id,name', 'municipality:id,name', 'parish:id,name'])
+                ->whereNotNull('state_id')->whereNotNull('municipality_id')->whereNotNull('parish_id')
+                ->whereNotNull('installation_type')->orderBy('name')
+                ->get([
+                    'id', 'name', 'state_id', 'municipality_id', 'parish_id', 'installation_type',
+                    'latitude', 'longitude', 'altitude', 'gps_accuracy',
+                ]),
             'beneficiaryOptions' => config('reports.beneficiary_options'),
             'user' => $request->user(),
         ]);

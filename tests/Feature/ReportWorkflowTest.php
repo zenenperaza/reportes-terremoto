@@ -47,9 +47,20 @@ class ReportWorkflowTest extends TestCase
         $parish = Parish::create(['municipality_id' => $municipality->id, 'code' => 'VE010101', 'name' => 'Altagracia']);
         $sector = Sector::create(['name' => 'Protección de la niñez', 'slug' => 'proteccion-ninez', 'sort_order' => 1]);
         $activity = Activity::create(['sector_id' => $sector->id, 'code' => 'TEST-01', 'title' => 'Actividad de prueba', 'sort_order' => 1]);
+        PlaceName::where('name', 'Comunidad El Carmen')->update([
+            'state_id' => $state->id, 'municipality_id' => $municipality->id, 'parish_id' => $parish->id,
+            'installation_type' => 'Comunidad / Espacio Comunitario',
+            'latitude' => 10.0760788, 'longitude' => -69.3100264, 'altitude' => 100, 'gps_accuracy' => 83,
+        ]);
         Storage::fake('local');
 
-        $this->actingAs($user)->get('/reportes/nuevo')->assertOk()->assertSee('Registrar beneficiario')->assertDontSee('Enviar reporte');
+        $this->actingAs($user)->get('/reportes/nuevo')
+            ->assertOk()
+            ->assertSee('Registrar beneficiario')
+            ->assertSee('data-state-id="'.$state->id.'"', false)
+            ->assertSee('data-latitude="10.0760788"', false)
+            ->assertDontSee('Usar mi ubicación actual')
+            ->assertDontSee('Enviar reporte');
 
         $response = $this->actingAs($user)->post('/reportes', [
             'report_date' => today()->toDateString(),
@@ -137,17 +148,31 @@ class ReportWorkflowTest extends TestCase
     public function test_any_authenticated_user_can_manage_place_names(): void
     {
         $reporter = User::factory()->create(['role' => 'reporter']);
+        $state = State::create(['code' => 'VE01', 'name' => 'Distrito Capital']);
+        $municipality = Municipality::create(['state_id' => $state->id, 'code' => 'VE0101', 'name' => 'Libertador']);
+        $parish = Parish::create(['municipality_id' => $municipality->id, 'code' => 'VE010101', 'name' => 'Altagracia']);
+        $location = [
+            'state_id' => $state->id,
+            'municipality_id' => $municipality->id,
+            'parish_id' => $parish->id,
+            'installation_type' => 'Comunidad / Espacio Comunitario',
+            'latitude' => 10.0760788,
+            'longitude' => -69.3100264,
+            'altitude' => 100,
+            'gps_accuracy' => 83,
+        ];
 
         $this->actingAs($reporter)->get('/nombres-del-lugar')
             ->assertOk()
             ->assertSee('Nombres específicos del lugar');
 
-        $this->actingAs($reporter)->post('/nombres-del-lugar', ['name' => 'Escuela Nueva'])
+        $this->actingAs($reporter)->post('/nombres-del-lugar', ['name' => 'Escuela Nueva'] + $location)
             ->assertRedirect(route('place-names.index'));
         $placeName = PlaceName::where('name', 'Escuela Nueva')->firstOrFail();
         $this->assertSame($reporter->id, $placeName->created_by);
+        $this->assertSame('10.0760788', $placeName->latitude);
 
-        $this->actingAs($reporter)->put("/nombres-del-lugar/{$placeName->id}", ['name' => 'Escuela Renovada'])
+        $this->actingAs($reporter)->put("/nombres-del-lugar/{$placeName->id}", ['name' => 'Escuela Renovada'] + $location)
             ->assertRedirect(route('place-names.index'));
         $this->assertDatabaseHas('place_names', ['id' => $placeName->id, 'name' => 'Escuela Renovada']);
 
