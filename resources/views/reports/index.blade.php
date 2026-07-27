@@ -34,7 +34,7 @@
         </label>
         <label>Desde<input type="date" name="from" value="{{ $filters['from'] ?? '' }}"></label>
         <label>Hasta<input type="date" name="to" value="{{ $filters['to'] ?? '' }}"></label>
-        <label>Estado del registro
+        <label>Reportados
             <select name="reported"><option value="">Todos</option><option value="1" @selected(($filters['reported'] ?? '') === '1')>Sí</option><option value="0" @selected(($filters['reported'] ?? '') === '0')>No</option></select>
         </label>
         <button class="button button-secondary" type="submit">Aplicar filtros</button>
