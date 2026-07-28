@@ -287,7 +287,10 @@ class ReportController extends Controller
         return view('reports.show', [
             'report' => $report,
             'isCoordinator' => $request->user()->isCoordinator(),
-            'canEditBeneficiaries' => $report->user_id === $request->user()->id && $report->status !== 'reviewed',
+            'canEditBeneficiaries' => (
+                $report->user_id === $request->user()->id
+                || $request->user()->isAdministrator()
+            ) && $report->status !== 'reviewed',
             'beneficiaryOptions' => config('reports.beneficiary_options'),
             'beneficiaryEditData' => $report->beneficiaries->keyBy('id')->map(fn (Beneficiary $beneficiary): array => [
                 'id' => $beneficiary->id,
@@ -427,7 +430,10 @@ class ReportController extends Controller
 
     private function ensureEditable(Request $request, Report $report): void
     {
-        abort_unless($report->user_id === $request->user()->id, 403);
+        abort_unless(
+            $report->user_id === $request->user()->id || $request->user()->isAdministrator(),
+            403
+        );
         abort_if($report->status === 'reviewed', 409, 'No se puede modificar un registro revisado.');
     }
 

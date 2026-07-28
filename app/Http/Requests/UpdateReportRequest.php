@@ -12,7 +12,10 @@ class UpdateReportRequest extends StoreReportRequest
 
         return $this->user() !== null
             && $report instanceof Report
-            && $report->user_id === $this->user()->id;
+            && (
+                $report->user_id === $this->user()->id
+                || $this->user()->isAdministrator()
+            );
     }
 
     public function rules(): array

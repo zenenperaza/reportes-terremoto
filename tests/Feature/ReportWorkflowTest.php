@@ -258,7 +258,11 @@ class ReportWorkflowTest extends TestCase
         $this->actingAs($owner)->get("/reportes/{$otherReport->id}")->assertForbidden();
         $this->actingAs($administrator)->get("/reportes/{$ownReport->id}")
             ->assertOk()
-            ->assertDontSee('beneficiary-edit-button', false);
+            ->assertSee('Editar registro')
+            ->assertSee(route('reports.edit', $ownReport), false);
+        $this->actingAs($administrator)->get("/reportes/{$ownReport->id}/editar")
+            ->assertOk()
+            ->assertSee('Editar actividad');
 
         $this->actingAs($owner)->putJson("/beneficiarios/{$ownBeneficiary->id}", [
             'full_name' => 'Ana Niño',
