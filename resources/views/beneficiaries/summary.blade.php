@@ -97,6 +97,13 @@
 
 <section class="content-card summary-card" id="beneficiary-results-section">
     <div class="card-heading"><div><h2>Resultados</h2><p class="muted">{{ number_format($reportCount) }} {{ $reportCount === 1 ? 'registro coincide' : 'registros coinciden' }} con los filtros seleccionados.</p></div></div>
+    @php
+        $totalNna = $summary['girls_0_5'] + $summary['boys_0_5']
+            + $summary['girls_6_11'] + $summary['boys_6_11']
+            + $summary['girls_12_17'] + $summary['boys_12_17'];
+        $totalAdults = $summary['women_18_59'] + $summary['men_18_59']
+            + $summary['women_60_plus'] + $summary['men_60_plus'];
+    @endphp
     <div class="table-wrap"><table class="summary-table">
         <thead><tr><th>Beneficiarios</th><th>Cantidad</th></tr></thead>
         <tbody>
@@ -106,10 +113,12 @@
             <tr><td>Niños de 6 a 11 años</td><td>{{ number_format($summary['boys_6_11']) }}</td></tr>
             <tr><td>Niñas de 12 a 17 años</td><td>{{ number_format($summary['girls_12_17']) }}</td></tr>
             <tr><td>Niños de 12 a 17 años</td><td>{{ number_format($summary['boys_12_17']) }}</td></tr>
+            <tr class="summary-subtotal"><th>Total NNA</th><th>{{ number_format($totalNna) }}</th></tr>
             <tr><td>Mujeres (18 a 59 años)</td><td>{{ number_format($summary['women_18_59']) }}</td></tr>
             <tr><td>Hombres (18 a 59 años)</td><td>{{ number_format($summary['men_18_59']) }}</td></tr>
             <tr><td>Mujeres (60 años o más)</td><td>{{ number_format($summary['women_60_plus']) }}</td></tr>
             <tr><td>Hombres (60 años o más)</td><td>{{ number_format($summary['men_60_plus']) }}</td></tr>
+            <tr class="summary-subtotal"><th>Total de adultos</th><th>{{ number_format($totalAdults) }}</th></tr>
         </tbody>
         <tfoot>
             <tr><th>Total de beneficiarios alcanzados</th><th>{{ number_format($summary['total']) }}</th></tr>
