@@ -53,6 +53,8 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/reportes', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reportes/nuevo', [ReportController::class, 'create'])->name('reports.create');
     Route::post('/reportes', [ReportController::class, 'store'])->name('reports.store');
+    Route::get('/reportes/{report}/editar', [ReportController::class, 'edit'])->name('reports.edit');
+    Route::put('/reportes/{report}', [ReportController::class, 'update'])->name('reports.update');
     Route::get('/reportes/{report}', [ReportController::class, 'show'])->name('reports.show');
     Route::post('/reportes/{report}/revisar', [ReportController::class, 'review'])->name('reports.review');
     Route::get('/evidencias/{evidence}/descargar', [ReportController::class, 'downloadEvidence'])->name('evidences.download');

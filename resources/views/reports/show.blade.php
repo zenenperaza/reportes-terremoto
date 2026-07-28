@@ -9,7 +9,7 @@
         <h1>{{ $report->sector->name }}</h1>
         <p class="muted">{{ $report->activity->title }}</p>
     </div>
-    <div class="heading-actions"><span class="status status-{{ $report->status }}">{{ $report->status === 'reviewed' ? 'Revisado' : 'Enviado' }}</span><a class="button button-secondary" href="{{ route('reports.index') }}">Volver a registros</a></div>
+    <div class="heading-actions"><span class="status status-{{ $report->status }}">{{ $report->status === 'reviewed' ? 'Revisado' : 'Enviado' }}</span>@if($canEditBeneficiaries)<a class="button button-primary" href="{{ route('reports.edit', $report) }}">Editar registro</a>@endif<a class="button button-secondary" href="{{ route('reports.index') }}">Volver a registros</a></div>
 </section>
 
 @if($isCoordinator && $report->status !== 'reviewed')
@@ -28,9 +28,90 @@
     @if($report->beneficiaries->isEmpty())
         <p class="muted">Este registro fue creado antes del registro individual de beneficiarios.</p>
     @else
-        <div class="table-wrap"><table class="beneficiary-table"><thead><tr><th>Nombre y apellido</th><th>Edad</th><th>Sexo</th><th>Cédula</th><th>Teléfono</th><th>Discapacidad</th><th>Indígena</th><th>Emb./lact.</th><th>Recurrente</th><th>Reportado</th><th>Fecha de reporte</th></tr></thead><tbody>@foreach($report->beneficiaries as $beneficiary)<tr><td>{{ $beneficiary->full_name }}</td><td>{{ $beneficiary->age }}</td><td>{{ $beneficiary->sex }}</td><td>{{ $beneficiary->national_id ?: '—' }}</td><td>{{ $beneficiary->phone ?: '—' }}</td><td>{{ $beneficiary->disability ?: 'No especificada' }}</td><td>{{ $beneficiary->ethnicity ?: 'No especificada' }}</td><td>{{ $beneficiary->pregnant_lactating ?: 'No especificado' }}</td><td>{{ $beneficiary->is_recurrent ? 'Sí' : 'No' }}</td><td>{{ $beneficiary->reported_at ? 'Sí' : 'No' }}</td><td>{{ $beneficiary->reported_at?->format('d/m/Y') ?: '—' }}</td></tr>@endforeach</tbody></table></div>
+        <div class="table-wrap">
+            <table class="beneficiary-table">
+                <thead><tr><th>Nombre y apellido</th><th>Edad</th><th>Sexo</th><th>Cédula</th><th>Teléfono</th><th>Discapacidad</th><th>Indígena</th><th>Emb./lact.</th><th>Recurrente</th><th>Reportado</th><th>Fecha de reporte</th>@if($canEditBeneficiaries)<th>Acciones</th>@endif</tr></thead>
+                <tbody>@foreach($report->beneficiaries as $beneficiary)<tr><td>{{ $beneficiary->full_name }}</td><td>{{ $beneficiary->age }}</td><td>{{ $beneficiary->sex }}</td><td>{{ $beneficiary->national_id ?: '—' }}</td><td>{{ $beneficiary->phone ?: '—' }}</td><td>{{ $beneficiary->disability ?: 'Ninguna' }}</td><td>{{ $beneficiary->ethnicity ?: 'Ninguna' }}</td><td>{{ $beneficiary->pregnant_lactating ?: 'Ninguna' }}</td><td>{{ $beneficiary->is_recurrent ? 'Sí' : 'No' }}</td><td>{{ $beneficiary->reported_at ? 'Sí' : 'No' }}</td><td>{{ $beneficiary->reported_at?->format('d/m/Y') ?: '—' }}</td>@if($canEditBeneficiaries)<td><a class="table-action" href="{{ route('reports.edit', ['report' => $report, 'beneficiary' => $beneficiary->id]) }}">Editar</a></td>@endif</tr>@endforeach</tbody>
+            </table>
+        </div>
+        @if($canEditBeneficiaries)
+            <form id="beneficiary-edit-form" class="beneficiary-entry beneficiary-detail-editor" hidden>
+                <div class="card-heading"><div><h2>Editar beneficiario</h2><p class="muted">Actualice los datos y guarde los cambios.</p></div><button type="button" class="button button-secondary" id="cancel-beneficiary-edit">Cancelar</button></div>
+                <div class="form-grid beneficiary-form-grid">
+                    <label>Nombre y apellido *<input name="full_name" maxlength="150" required></label>
+                    <label>Edad *<input name="age" type="number" min="0" max="120" required></label>
+                    <label>Sexo *<select name="sex" required>@foreach($beneficiaryOptions['sexes'] as $option)<option value="{{ $option }}">{{ $option }}</option>@endforeach</select></label>
+                    <label>Cédula<input name="national_id" maxlength="30"></label>
+                    <label>Teléfono<input name="phone" maxlength="30"></label>
+                    <label>Discapacidad<select name="disability">@foreach($beneficiaryOptions['disabilities'] as $option)<option value="{{ $option }}">{{ $option }}</option>@endforeach</select></label>
+                    <label>Indígena / etnia<select name="ethnicity">@foreach($beneficiaryOptions['ethnicities'] as $option)<option value="{{ $option }}">{{ $option }}</option>@endforeach</select></label>
+                    <label>Embarazada o lactante<select name="pregnant_lactating">@foreach($beneficiaryOptions['pregnant_lactating'] as $option)<option value="{{ $option }}">{{ $option }}</option>@endforeach</select></label>
+                    <label>Recurrente *<select name="is_recurrent" required><option value="0">No</option><option value="1">Sí</option></select></label>
+                </div>
+                <div class="beneficiary-entry-actions"><p id="beneficiary-edit-error" class="field-error" role="alert" hidden></p><button class="button button-primary" type="submit">Guardar cambios</button></div>
+            </form>
+        @endif
     @endif
 </section>
 
 <section class="content-card"><h2>Registro cualitativo</h2><p class="notes">{{ $report->qualitative_notes ?: 'No se registraron notas cualitativas.' }}</p><h3>Medios de verificación</h3>@if($report->evidences->isEmpty())<p class="muted">No se adjuntaron medios de verificación.</p>@else<div class="evidence-list">@foreach($report->evidences as $evidence)<a href="{{ route('evidences.download', $evidence) }}">Soporte {{ $evidence->slot }} · {{ $evidence->original_name }} <small>({{ number_format($evidence->size / 1024, 0) }} KB)</small></a>@endforeach</div>@endif</section>
 @endsection
+
+@if($canEditBeneficiaries && $report->beneficiaries->isNotEmpty())
+    @push('styles')
+        <style>.beneficiary-detail-editor{margin-top:22px}.beneficiary-detail-editor[hidden]{display:none}</style>
+    @endpush
+    @push('scripts')
+        <script>
+            (() => {
+                const beneficiaries = @json($beneficiaryEditData);
+                const form = document.getElementById('beneficiary-edit-form');
+                const error = document.getElementById('beneficiary-edit-error');
+                let beneficiaryId = null;
+
+                document.querySelectorAll('.beneficiary-edit-button').forEach((button) => button.addEventListener('click', () => {
+                    beneficiaryId = button.dataset.beneficiaryId;
+                    const beneficiary = beneficiaries[beneficiaryId];
+                    Object.entries(beneficiary).forEach(([name, value]) => {
+                        const field = form.elements.namedItem(name);
+                        if (field) field.value = name === 'is_recurrent' ? (value ? '1' : '0') : (value ?? '');
+                    });
+                    error.hidden = true;
+                    form.hidden = false;
+                    form.scrollIntoView({behavior: 'smooth', block: 'center'});
+                }));
+
+                document.getElementById('cancel-beneficiary-edit').addEventListener('click', () => {
+                    form.hidden = true;
+                    beneficiaryId = null;
+                });
+
+                form.addEventListener('submit', async (event) => {
+                    event.preventDefault();
+                    if (!form.reportValidity() || !beneficiaryId) return;
+                    const submitButton = form.querySelector('[type="submit"]');
+                    submitButton.disabled = true;
+                    error.hidden = true;
+                    try {
+                        const response = await fetch(`{{ url('/beneficiarios') }}/${beneficiaryId}`, {
+                            method: 'PUT',
+                            headers: {'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content},
+                            body: JSON.stringify(Object.fromEntries(new FormData(form))),
+                        });
+                        const data = await response.json();
+                        if (!response.ok) {
+                            const validationMessage = data.errors ? Object.values(data.errors).flat()[0] : null;
+                            throw new Error(validationMessage || data.message || 'No se pudo actualizar el beneficiario.');
+                        }
+                        window.location.reload();
+                    } catch (exception) {
+                        error.textContent = exception.message;
+                        error.hidden = false;
+                    } finally {
+                        submitButton.disabled = false;
+                    }
+                });
+            })();
+        </script>
+    @endpush
+@endif

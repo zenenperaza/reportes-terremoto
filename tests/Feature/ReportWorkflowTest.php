@@ -100,6 +100,58 @@ class ReportWorkflowTest extends TestCase
         $this->assertDatabaseHas('evidences', ['original_name' => 'evidencia.pdf', 'slot' => 1]);
         Storage::disk('local')->assertExists(Evidence::firstOrFail()->path);
         $this->get($response->headers->get('Location'))->assertOk()->assertSee('Actividad de prueba')->assertSee('Carla Rojas');
+
+        $report = Report::firstOrFail();
+        $firstBeneficiary = $report->beneficiaries()->firstOrFail();
+        $this->actingAs($user)->get("/reportes/{$report->id}")
+            ->assertOk()
+            ->assertSee("/reportes/{$report->id}/editar?beneficiary={$firstBeneficiary->id}", false);
+        $this->actingAs($user)->get("/reportes/{$report->id}/editar")
+            ->assertOk()
+            ->assertSee("const initialBeneficiaryEditId = {$firstBeneficiary->id}", false)
+            ->assertSee('class="beneficiary-list-card"  hidden', false);
+        $this->actingAs($user)->get("/reportes/{$report->id}/editar?beneficiary={$firstBeneficiary->id}")
+            ->assertOk()
+            ->assertSee('Editar actividad')
+            ->assertSee('Guardar cambios del registro')
+            ->assertDontSee('Información adicional')
+            ->assertDontSee('Medio de verificación 1')
+            ->assertSee('let beneficiaries =', false)
+            ->assertSee("const initialBeneficiaryEditId = {$firstBeneficiary->id}", false)
+            ->assertSee('data-report-id="'.$report->id.'"', false);
+
+        $this->actingAs($user)->putJson("/reportes/{$report->id}", [
+            'report_date' => today()->toDateString(),
+            'reporter_first_name' => 'Ana María',
+            'reporter_last_name' => 'Pérez',
+            'reporter_email' => 'ana.actualizada@example.test',
+            'organization' => 'ASONACOP',
+            'state_id' => $state->id,
+            'municipality_id' => $municipality->id,
+            'parish_id' => $parish->id,
+            'installation_type' => 'Comunidad / Espacio Comunitario',
+            'place_name' => 'Comunidad El Carmen',
+            'sector_id' => $sector->id,
+            'activity_id' => $activity->id,
+            'activity_details' => 'Detalles actualizados.',
+            'qualitative_notes' => 'Notas actualizadas.',
+        ])->assertOk()->assertJsonPath('message', 'Registro actualizado correctamente.');
+
+        $this->assertDatabaseHas('reports', [
+            'id' => $report->id,
+            'reporter_first_name' => 'Ana María',
+            'reporter_email' => 'ana.actualizada@example.test',
+            'activity_details' => 'Detalles actualizados.',
+            'qualitative_notes' => 'Notas actualizadas.',
+            'total_beneficiaries' => 2,
+        ]);
+
+        $otherUser = User::factory()->create(['role' => 'reporter']);
+        $this->actingAs($otherUser)->get("/reportes/{$report->id}/editar")->assertForbidden();
+        $this->actingAs($otherUser)->putJson("/reportes/{$report->id}", [
+            'report_date' => today()->toDateString(),
+        ])->assertForbidden();
+
         $this->get('/panel')->assertOk()->assertSee('Mis actividades registradas');
     }
 
@@ -195,12 +247,40 @@ class ReportWorkflowTest extends TestCase
 
         $ownReport = $this->makeReport($owner, $state, $municipality, $parish, $sector, $activity, 'Lugar de Ana');
         $otherReport = $this->makeReport($otherUser, $state, $municipality, $parish, $sector, $activity, 'Lugar de Luis');
-        Beneficiary::create(['report_id' => $ownReport->id, 'full_name' => 'Ana Niño', 'age' => 4, 'sex' => 'Mujer', 'national_id' => 'V-123', 'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'N/A', 'is_recurrent' => false]);
+        $ownBeneficiary = Beneficiary::create(['report_id' => $ownReport->id, 'full_name' => 'Ana Niño', 'age' => 4, 'sex' => 'Mujer', 'national_id' => 'V-123', 'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'N/A', 'is_recurrent' => false]);
         Beneficiary::create(['report_id' => $otherReport->id, 'full_name' => 'Luis Mayor', 'age' => 65, 'sex' => 'Hombre', 'national_id' => null, 'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'N/A', 'is_recurrent' => true]);
         Beneficiary::create(['report_id' => $otherReport->id, 'full_name' => 'Luis Segundo', 'age' => 32, 'sex' => 'Hombre', 'national_id' => null, 'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'N/A', 'is_recurrent' => false]);
 
-        $this->actingAs($owner)->get("/reportes/{$ownReport->id}")->assertOk();
+        $this->actingAs($owner)->get("/reportes/{$ownReport->id}")
+            ->assertOk()
+            ->assertSee('Editar beneficiario')
+            ->assertSee('beneficiary-edit-button', false);
         $this->actingAs($owner)->get("/reportes/{$otherReport->id}")->assertForbidden();
+        $this->actingAs($administrator)->get("/reportes/{$ownReport->id}")
+            ->assertOk()
+            ->assertDontSee('beneficiary-edit-button', false);
+
+        $this->actingAs($owner)->putJson("/beneficiarios/{$ownBeneficiary->id}", [
+            'full_name' => 'Ana Niño',
+            'age' => 4,
+            'sex' => 'Mujer',
+            'national_id' => 'V-123',
+            'phone' => '04140000000',
+            'disability' => 'Ninguna',
+            'ethnicity' => 'Ninguna',
+            'pregnant_lactating' => 'Ninguna',
+            'is_recurrent' => false,
+        ])->assertOk()
+            ->assertJsonPath('message', 'Beneficiario actualizado correctamente.')
+            ->assertJsonPath('beneficiary.phone', '04140000000');
+
+        $this->assertDatabaseHas('beneficiaries', [
+            'id' => $ownBeneficiary->id,
+            'full_name' => 'Ana Niño',
+            'age' => 4,
+            'phone' => '04140000000',
+            'is_recurrent' => false,
+        ]);
         $this->actingAs($administrator)->get('/reportes')
             ->assertOk()
             ->assertSee($owner->name)

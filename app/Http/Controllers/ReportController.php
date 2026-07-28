@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreReportRequest;
 use App\Http\Requests\StoreBeneficiaryEntryRequest;
 use App\Http\Requests\UpdateBeneficiaryRequest;
+use App\Http\Requests\UpdateReportRequest;
 use App\Models\Beneficiary;
 use App\Models\Evidence;
 use App\Models\Municipality;
@@ -86,6 +87,61 @@ class ReportController extends Controller
             'beneficiaryOptions' => config('reports.beneficiary_options'),
             'user' => $request->user(),
         ]);
+    }
+
+    public function edit(Request $request, Report $report): View
+    {
+        $this->ensureEditable($request, $report);
+        $report->load(['beneficiaries', 'evidences']);
+        $requestedBeneficiaryId = $request->integer('beneficiary');
+        $editBeneficiaryId = $requestedBeneficiaryId && $report->beneficiaries->contains('id', $requestedBeneficiaryId)
+            ? $requestedBeneficiaryId
+            : $report->beneficiaries->first()?->id;
+
+        $selectedSectorId = old('sector_id', $report->sector_id);
+        $sector = Sector::find($selectedSectorId);
+
+        return view('reports.create', [
+            'report' => $report,
+            'sectors' => Sector::orderByRaw('CASE WHEN slug = ? THEN 0 ELSE 1 END', ['proteccion-ninez'])
+                ->orderBy('sort_order')->get(['id', 'name']),
+            'selectedSectorId' => $selectedSectorId,
+            'activities' => $sector ? $sector->activities()->where('active', true)->orderBy('sort_order')->get(['id', 'title']) : collect(),
+            'organizations' => config('reports.organizations'),
+            'placeNames' => PlaceName::query()
+                ->with(['state:id,name', 'municipality:id,name', 'parish:id,name'])
+                ->whereNotNull('state_id')->whereNotNull('municipality_id')->whereNotNull('parish_id')
+                ->whereNotNull('installation_type')->orderBy('name')
+                ->get([
+                    'id', 'name', 'state_id', 'municipality_id', 'parish_id', 'installation_type',
+                    'latitude', 'longitude', 'altitude', 'gps_accuracy',
+                ]),
+            'beneficiaryOptions' => config('reports.beneficiary_options'),
+            'user' => $request->user(),
+            'editBeneficiaryId' => $editBeneficiaryId,
+        ]);
+    }
+
+    public function update(UpdateReportRequest $request, Report $report): RedirectResponse|JsonResponse
+    {
+        $this->ensureEditable($request, $report);
+        $data = $request->validated();
+        unset($data['evidence_1'], $data['evidence_2'], $data['evidence_3']);
+
+        DB::transaction(function () use ($request, $report, $data): void {
+            $report->update($data);
+            $this->storeEvidence($report, $request);
+            $this->syncBeneficiarySummary($report);
+        });
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Registro actualizado correctamente.',
+                'url' => route('reports.show', $report),
+            ]);
+        }
+
+        return redirect()->route('reports.show', $report)->with('success', 'Registro actualizado correctamente.');
     }
 
     public function store(StoreReportRequest $request): RedirectResponse
@@ -231,6 +287,20 @@ class ReportController extends Controller
         return view('reports.show', [
             'report' => $report,
             'isCoordinator' => $request->user()->isCoordinator(),
+            'canEditBeneficiaries' => $report->user_id === $request->user()->id && $report->status !== 'reviewed',
+            'beneficiaryOptions' => config('reports.beneficiary_options'),
+            'beneficiaryEditData' => $report->beneficiaries->keyBy('id')->map(fn (Beneficiary $beneficiary): array => [
+                'id' => $beneficiary->id,
+                'full_name' => $beneficiary->full_name,
+                'age' => $beneficiary->age,
+                'sex' => $beneficiary->sex,
+                'national_id' => $beneficiary->national_id,
+                'phone' => $beneficiary->phone,
+                'disability' => $beneficiary->disability ?: 'Ninguna',
+                'ethnicity' => $beneficiary->ethnicity ?: 'Ninguna',
+                'pregnant_lactating' => $beneficiary->pregnant_lactating ?: 'Ninguna',
+                'is_recurrent' => $beneficiary->is_recurrent,
+            ]),
         ]);
     }
 

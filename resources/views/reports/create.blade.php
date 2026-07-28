@@ -1,26 +1,32 @@
 @extends('layouts.app')
 
-@section('title', 'Nuevo registro | Respuesta ASONACOP')
+@php
+    $editing = isset($report);
+    $initialBeneficiaries = $editing ? $report->beneficiaries : collect();
+@endphp
+
+@section('title', ($editing ? 'Editar registro #'.$report->id : 'Nuevo registro').' | Respuesta ASONACOP')
 
 @section('content')
     @php($nameParts = preg_split('/\s+/', trim($user->name), 2))
     <section class="page-heading compact-heading">
         <div>
             <p class="eyebrow">Formulario de respuesta</p>
-            <h1>Registrar actividad</h1>
-            <p class="muted">Cada clic en “Guardar beneficiario” registra inmediatamente la persona en la base de datos.</p>
+            <h1>{{ $editing ? 'Editar actividad' : 'Registrar actividad' }}</h1>
+            <p class="muted">{{ $editing ? 'Modifique la información necesaria y guarde los cambios del registro.' : 'Cada clic en “Guardar beneficiario” registra inmediatamente la persona en la base de datos.' }}</p>
         </div>
     </section>
 
     <form enctype="multipart/form-data" class="report-form" id="report-form"
         data-beneficiary-url="{{ route('beneficiaries.store') }}" data-location-reverse-url="{{ route('locations.reverse') }}"
+        @if($editing) data-report-id="{{ $report->id }}" data-report-update-url="{{ route('reports.update', $report) }}" @endif
         novalidate>
         @csrf
         <section class="form-section">
             <div class="section-heading"><span>1</span>
                 <div>
                     <h2>Actividad</h2>
-                    <p>Si cambia cualquiera de estos encabezados, el próximo beneficiario iniciará un nuevo registro.</p>
+                    <p>{{ $editing ? 'Puede modificar estos datos sin crear un registro nuevo.' : 'Si cambia cualquiera de estos encabezados, el próximo beneficiario iniciará un nuevo registro.' }}</p>
                 </div>
             </div>
             <div class="form-grid two-cols">
@@ -34,13 +40,13 @@
                 <label>Actividad a reportar *<select name="activity_id" id="activity_id" required>
                         <option value="">Seleccione primero el sector</option>
                         @foreach ($activities as $activity)
-                            <option value="{{ $activity->id }}" @selected(old('activity_id') == $activity->id)>{{ $activity->title }}</option>
+                            <option value="{{ $activity->id }}" @selected(old('activity_id', $editing ? $report->activity_id : null) == $activity->id)>{{ $activity->title }}</option>
                         @endforeach
                     </select>
                 </label>
                 <label class="span-two">Detalles adicionales de la actividad
                     <textarea name="activity_details" rows="4" maxlength="300"
-                        placeholder="Cantidades entregadas, temas de capacitación, logros o detalles relevantes.">{{ old('activity_details') }}</textarea>
+                        placeholder="Cantidades entregadas, temas de capacitación, logros o detalles relevantes.">{{ old('activity_details', $editing ? $report->activity_details : null) }}</textarea>
                 </label>
             </div>
         </section>
@@ -54,28 +60,28 @@
             </div>
             <div class="form-grid three-cols">
                 <label>Nombre *<input type="text" name="reporter_first_name"
-                        value="{{ old('reporter_first_name', $nameParts[0] ?? '') }}" required></label>
+                        value="{{ old('reporter_first_name', $editing ? $report->reporter_first_name : ($nameParts[0] ?? '')) }}" required></label>
                 <label>Apellido *<input type="text" name="reporter_last_name"
-                        value="{{ old('reporter_last_name', $nameParts[1] ?? '') }}" required></label>
+                        value="{{ old('reporter_last_name', $editing ? $report->reporter_last_name : ($nameParts[1] ?? '')) }}" required></label>
                 <label>Correo electrónico *<input type="email" name="reporter_email"
-                        value="{{ old('reporter_email', $user->email) }}" required></label>
+                        value="{{ old('reporter_email', $editing ? $report->reporter_email : $user->email) }}" required></label>
             </div>
             <br>
             <div class="form-grid three-cols">
                 <label>Fecha de atencion *<input type="date" name="report_date"
-                        value="{{ old('report_date', today()->format('Y-m-d')) }}" max="{{ today()->format('Y-m-d') }}"
+                        value="{{ old('report_date', $editing ? $report->report_date->format('Y-m-d') : today()->format('Y-m-d')) }}" max="{{ today()->format('Y-m-d') }}"
                         required></label>
 
                 <label>Organización implementadora *
                     <select name="organization" id="organization" required>
                         <option value="">Seleccione una organización</option>
                         @foreach ($organizations as $organization)
-                            <option value="{{ $organization }}" @selected(old('organization', 'ASONACOP') === $organization)>{{ $organization }}</option>
+                            <option value="{{ $organization }}" @selected(old('organization', $editing ? $report->organization : 'ASONACOP') === $organization)>{{ $organization }}</option>
                         @endforeach
                     </select>
                 </label>
                 <label id="other-organization-field" hidden>Especifique otra organización<input type="text"
-                        name="other_organization" value="{{ old('other_organization') }}"></label>
+                        name="other_organization" value="{{ old('other_organization', $editing ? $report->other_organization : null) }}"></label>
             </div>
         </section>
 
@@ -101,7 +107,7 @@
                                 data-latitude="{{ $placeName->latitude }}"
                                 data-longitude="{{ $placeName->longitude }}"
                                 data-altitude="{{ $placeName->altitude }}"
-                                data-gps-accuracy="{{ $placeName->gps_accuracy }}" @selected(old('place_name') === $placeName->name)>
+                                data-gps-accuracy="{{ $placeName->gps_accuracy }}" @selected(old('place_name', $editing ? $report->place_name : null) === $placeName->name)>
                                 {{ $placeName->name }}</option>
                         @endforeach
                     </select>
@@ -110,14 +116,14 @@
                     <small id="place-location-summary" class="place-location-summary" hidden></small>
                 </label>
             </div>
-            <input type="hidden" name="state_id" id="state_id" value="{{ old('state_id') }}">
-            <input type="hidden" name="municipality_id" id="municipality_id" value="{{ old('municipality_id') }}">
-            <input type="hidden" name="parish_id" id="parish_id" value="{{ old('parish_id') }}">
-            <input type="hidden" name="installation_type" id="installation_type" value="{{ old('installation_type') }}">
-            <input type="hidden" name="latitude" id="latitude" value="{{ old('latitude') }}">
-            <input type="hidden" name="longitude" id="longitude" value="{{ old('longitude') }}">
-            <input type="hidden" name="altitude" id="altitude" value="{{ old('altitude') }}">
-            <input type="hidden" name="gps_accuracy" id="gps_accuracy" value="{{ old('gps_accuracy') }}">
+            <input type="hidden" name="state_id" id="state_id" value="{{ old('state_id', $editing ? $report->state_id : null) }}">
+            <input type="hidden" name="municipality_id" id="municipality_id" value="{{ old('municipality_id', $editing ? $report->municipality_id : null) }}">
+            <input type="hidden" name="parish_id" id="parish_id" value="{{ old('parish_id', $editing ? $report->parish_id : null) }}">
+            <input type="hidden" name="installation_type" id="installation_type" value="{{ old('installation_type', $editing ? $report->installation_type : null) }}">
+            <input type="hidden" name="latitude" id="latitude" value="{{ old('latitude', $editing ? $report->latitude : null) }}">
+            <input type="hidden" name="longitude" id="longitude" value="{{ old('longitude', $editing ? $report->longitude : null) }}">
+            <input type="hidden" name="altitude" id="altitude" value="{{ old('altitude', $editing ? $report->altitude : null) }}">
+            <input type="hidden" name="gps_accuracy" id="gps_accuracy" value="{{ old('gps_accuracy', $editing ? $report->gps_accuracy : null) }}">
         </section>
 
         <section class="form-section">
@@ -180,7 +186,7 @@
                 </div>
             </fieldset>
 
-            <div class="beneficiary-list-card">
+            <div class="beneficiary-list-card" @if($editing) hidden @endif>
                 <div class="card-heading">
                     <div>
                         <h3>Beneficiarios guardados</h3>
@@ -210,7 +216,7 @@
             </div>
         </section>
 
-        <section class="form-section" hidden>
+        <section class="form-section">
             <div class="section-heading"><span>3</span>
                 <div>
                     <h2>Grupos con necesidades específicas</h2>
@@ -225,7 +231,8 @@
             </div>
         </section>
 
-        <section class="form-section" hidden>
+        @unless($editing)
+        <section class="form-section">
             <div class="section-heading"><span>4</span>
                 <div>
                     <h2>Información adicional</h2>
@@ -234,17 +241,19 @@
             </div>
             <div class="form-grid two-cols"><label class="span-two">Detalle cualitativo / notas de campo
                     <textarea name="qualitative_notes" rows="5" maxlength="5000"
-                        placeholder="Describa brevemente logros, desafíos u observaciones relevantes.">{{ old('qualitative_notes') }}</textarea>
+                        placeholder="Describa brevemente logros, desafíos u observaciones relevantes.">{{ old('qualitative_notes', $editing ? $report->qualitative_notes : null) }}</textarea>
                 </label><label>Medio de verificación 1<input type="file" name="evidence_1"
                         accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xlsx"><small>PDF, imagen, Word o Excel; máximo 10
-                        MB.</small></label><label>Medio de verificación 2 (opcional)<input type="file"
+                        MB.@if($editing && $report->evidences->firstWhere('slot', 1)) Actual: {{ $report->evidences->firstWhere('slot', 1)->original_name }}.@endif</small></label><label>Medio de verificación 2 (opcional)<input type="file"
                         name="evidence_2" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xlsx"><small>Máximo 10
-                        MB.</small></label><label>Medio de verificación 3 (opcional)<input type="file"
+                        MB.@if($editing && $report->evidences->firstWhere('slot', 2)) Actual: {{ $report->evidences->firstWhere('slot', 2)->original_name }}.@endif</small></label><label>Medio de verificación 3 (opcional)<input type="file"
                         name="evidence_3" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xlsx"><small>Máximo 10
-                        MB.</small></label></div>
+                        MB.@if($editing && $report->evidences->firstWhere('slot', 3)) Actual: {{ $report->evidences->firstWhere('slot', 3)->original_name }}.@endif</small></label></div>
         </section>
-        <div class="form-actions"><a class="button button-ghost" href="{{ route('dashboard') }}">Cancelar</a><a
-                class="button button-secondary" id="current-report-link" href="#" hidden>Ver registro guardado</a>
+        @endunless
+        <div class="form-actions"><a class="button button-ghost" href="{{ $editing ? route('reports.show', $report) : route('dashboard') }}">Cancelar</a>
+            @if($editing)<button class="button button-primary" type="button" id="save-report-changes">Guardar cambios del registro</button>@endif
+            <a class="button button-secondary" id="current-report-link" href="{{ $editing ? route('reports.show', $report) : '#' }}" @if(!$editing) hidden @endif>Ver registro guardado</a>
         </div>
     </form>
 
@@ -317,21 +326,22 @@
             'other_organization', 'state_id', 'municipality_id', 'parish_id', 'installation_type', 'place_name',
             'sector_id', 'activity_id'
         ];
-        let beneficiaries = [],
-            activeReportId = null,
+        let beneficiaries = @json($initialBeneficiaries),
+            activeReportId = form.dataset.reportId || null,
             activeHeaderSignature = null,
             beneficiaryEditId = null,
             isSaving = false;
         let currentSummary = {
-            total: 0,
-            people_with_disabilities: 0,
-            indigenous_people: 0,
-            pregnant_or_lactating_women: 0
+            total: {{ $editing ? $report->total_beneficiaries : 0 }},
+            people_with_disabilities: {{ $editing ? $report->people_with_disabilities : 0 }},
+            indigenous_people: {{ $editing ? $report->indigenous_people : 0 }},
+            pregnant_or_lactating_women: {{ $editing ? $report->pregnant_or_lactating_women : 0 }}
         };
         const inputValue = field => beneficiaryInputs[field].value.trim();
         const beneficiaryRecord = () => Object.fromEntries(beneficiaryFields.map(field => [field, inputValue(field)]));
         const headerSignature = () => JSON.stringify(Object.fromEntries(headerFields.map(field => [field, form.elements[
             field]?.value.trim() || ''])));
+        if (activeReportId) activeHeaderSignature = headerSignature();
         const setMessage = (element, message = '') => {
             element.textContent = message;
             element.hidden = !message;
@@ -411,6 +421,7 @@
                 const edit = document.createElement('button');
                 edit.type = 'button';
                 edit.className = 'table-action';
+                edit.dataset.beneficiaryId = beneficiary.id;
                 edit.textContent = 'Editar';
                 edit.addEventListener('click', () => {
                     beneficiaryFields.forEach(field => beneficiaryInputs[field].value = field ===
@@ -503,7 +514,12 @@
                 return;
             }
             const signature = headerSignature(),
-                createsNewReport = !activeReportId || activeHeaderSignature !== signature;
+                headersChanged = Boolean(activeReportId && activeHeaderSignature !== signature),
+                createsNewReport = !activeReportId || headersChanged;
+            if (form.dataset.reportUpdateUrl && headersChanged) {
+                setMessage(entryError, 'Guarde primero los cambios del registro antes de guardar o editar beneficiarios.');
+                return;
+            }
             if (beneficiaryEditId && createsNewReport) {
                 setMessage(entryError,
                 'Para editar, restaure los encabezados con los que se guardó este beneficiario.');
@@ -540,7 +556,7 @@
                 renderBeneficiaries();
                 clearBeneficiaryEntry();
                 ['evidence_1', 'evidence_2', 'evidence_3'].forEach(field => {
-                    form.elements[field].value = '';
+                    if (form.elements[field]) form.elements[field].value = '';
                 });
                 setMessage(entrySuccess, createsNewReport ?
                     'Beneficiario guardado. Se creó un nuevo registro con estos encabezados.' : result.message);
@@ -595,5 +611,46 @@
         syncOrganization();
         syncPregnantLactatingField();
         renderBeneficiaries();
+        const initialBeneficiaryEditId = @json($editing ? $editBeneficiaryId : null);
+        if (initialBeneficiaryEditId) {
+            const initialEditButton = beneficiaryList.querySelector(`[data-beneficiary-id="${initialBeneficiaryEditId}"]`);
+            if (initialEditButton) {
+                initialEditButton.click();
+                select('beneficiary-entry-title').scrollIntoView({behavior: 'smooth', block: 'center'});
+            }
+        }
+
+        const saveReportChanges = select('save-report-changes');
+        if (saveReportChanges) saveReportChanges.addEventListener('click', async () => {
+            if (isSaving || !ensureReportContext()) return;
+            const invalidField = [...form.querySelectorAll('[name][required]')].find(field => !field.checkValidity());
+            if (invalidField) {
+                invalidField.reportValidity();
+                return;
+            }
+            isSaving = true;
+            saveReportChanges.disabled = true;
+            setMessage(entryError);
+            setMessage(entrySuccess);
+            try {
+                const data = new FormData(form);
+                data.set('_method', 'PUT');
+                const result = await responseMessage(await fetch(form.dataset.reportUpdateUrl, {
+                    method: 'POST',
+                    headers: requestHeaders,
+                    body: data
+                }));
+                activeHeaderSignature = headerSignature();
+                ['evidence_1', 'evidence_2', 'evidence_3'].forEach(field => {
+                    if (form.elements[field]) form.elements[field].value = '';
+                });
+                setMessage(entrySuccess, result.message);
+            } catch (error) {
+                setMessage(entryError, error.message);
+            } finally {
+                isSaving = false;
+                saveReportChanges.disabled = false;
+            }
+        });
     </script>
 @endsection
