@@ -48,7 +48,7 @@
         <div class="table-wrap"><table id="activity-records-table" class="activity-records-table">
             <thead>
                 @if ($isCoordinator)
-                    <tr><th>Fecha atención</th><th>Registrado por</th><th>Beneficiario</th><th>Ubicación</th><th>Actividad</th><th>Recurrente</th><th>Reportado</th><th></th></tr>
+                    <tr><th>Fecha atención</th><th>Registrado por</th><th>Fecha registro</th><th>Beneficiario</th><th>Ubicación</th><th>Actividad</th><th>Recurrente</th><th>Reportado</th><th></th></tr>
                 @else
                     <tr><th>Fecha atención</th><th>Ubicación</th><th>Actividad</th><th>Beneficiarios</th><th>Reportado</th><th></th></tr>
                 @endif
@@ -60,6 +60,7 @@
                     <tr>
                         <td data-order="{{ $report->report_date->format('Y-m-d') }}">{{ $report->report_date->format('d/m/Y') }}</td>
                         <td>{{ $report->reporter_first_name }} {{ $report->reporter_last_name }}<br><small>{{ $report->organization }}</small></td>
+                        <td data-order="{{ $beneficiary->created_at->format('Y-m-d H:i:s') }}">{{ $beneficiary->created_at->format('d/m/Y') }}<br><small>{{ $beneficiary->created_at->format('h:i A') }}</small></td>
                         <td>
                             {{ $beneficiary->full_name ?: 'Sin nombre registrado' }}
                             <br><small>{{ $beneficiary->age }} años · {{ $beneficiary->sex }}@if($beneficiary->national_id) · Cédula: {{ $beneficiary->national_id }}@endif</small>
