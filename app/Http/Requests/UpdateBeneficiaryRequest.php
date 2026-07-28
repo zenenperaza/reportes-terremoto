@@ -29,4 +29,28 @@ class UpdateBeneficiaryRequest extends FormRequest
             'is_recurrent' => ['required', 'boolean'],
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'required' => 'El campo :attribute es obligatorio.',
+            'boolean' => 'El campo :attribute debe contener una opción válida.',
+            'in' => 'La opción seleccionada en :attribute no es válida.',
+        ];
+    }
+
+    public function attributes(): array
+    {
+        return [
+            'full_name' => 'nombre y apellido',
+            'age' => 'edad',
+            'sex' => 'sexo',
+            'national_id' => 'cédula',
+            'phone' => 'teléfono',
+            'disability' => 'discapacidad',
+            'ethnicity' => 'indígena / etnia',
+            'pregnant_lactating' => 'embarazada o lactante',
+            'is_recurrent' => 'recurrente',
+        ];
+    }
 }

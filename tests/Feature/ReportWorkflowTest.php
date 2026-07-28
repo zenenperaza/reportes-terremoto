@@ -120,6 +120,22 @@ class ReportWorkflowTest extends TestCase
             ->assertSee("const initialBeneficiaryEditId = {$firstBeneficiary->id}", false)
             ->assertSee('data-report-id="'.$report->id.'"', false);
 
+        $this->actingAs($user)->post("/beneficiarios/{$firstBeneficiary->id}", [
+            '_method' => 'PUT',
+            'full_name' => $firstBeneficiary->full_name,
+            'age' => $firstBeneficiary->age,
+            'sex' => 'Hombre',
+            'national_id' => $firstBeneficiary->national_id,
+            'phone' => $firstBeneficiary->phone,
+            'disability' => 'Ninguna',
+            'ethnicity' => 'Ninguna',
+            'pregnant_lactating' => 'Ninguna',
+            'is_recurrent' => '0',
+        ], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonPath('beneficiary.sex', 'Hombre');
+        $this->assertDatabaseHas('beneficiaries', ['id' => $firstBeneficiary->id, 'sex' => 'Hombre']);
+
         $this->actingAs($user)->putJson("/reportes/{$report->id}", [
             'report_date' => today()->toDateString(),
             'reporter_first_name' => 'Ana María',

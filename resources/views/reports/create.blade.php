@@ -525,13 +525,18 @@
                 'Para editar, restaure los encabezados con los que se guardó este beneficiario.');
                 return;
             }
-            const data = new FormData(form);
-            beneficiaryFields.forEach(field => data.set(`beneficiary[${field}]`, beneficiary[field]));
+            let data;
             let url = form.dataset.beneficiaryUrl;
             if (beneficiaryEditId) {
+                data = new FormData();
+                beneficiaryFields.forEach(field => data.set(field, beneficiary[field]));
                 url = `{{ url('/beneficiarios') }}/${beneficiaryEditId}`;
-                data.append('_method', 'PUT');
-            } else if (!createsNewReport) data.set('report_id', activeReportId);
+                data.set('_method', 'PUT');
+            } else {
+                data = new FormData(form);
+                beneficiaryFields.forEach(field => data.set(`beneficiary[${field}]`, beneficiary[field]));
+                if (!createsNewReport) data.set('report_id', activeReportId);
+            }
             isSaving = true;
             saveButton.disabled = true;
             setMessage(entryError);
