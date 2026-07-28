@@ -39,6 +39,13 @@ class BeneficiaryReportController extends Controller
         if ($reported !== null) {
             $reports->whereHas('beneficiaries', fn (Builder $beneficiaries) => $reported ? $beneficiaries->whereNotNull('reported_at') : $beneficiaries->whereNull('reported_at'));
         }
+        if (($filters['included_from'] ?? null) || ($filters['included_to'] ?? null)) {
+            $reports->whereHas('beneficiaries', function (Builder $beneficiaries) use ($filters): void {
+                $beneficiaries
+                    ->when($filters['included_from'] ?? null, fn (Builder $query, string $date) => $query->whereDate('beneficiaries.created_at', '>=', $date))
+                    ->when($filters['included_to'] ?? null, fn (Builder $query, string $date) => $query->whereDate('beneficiaries.created_at', '<=', $date));
+            });
+        }
 
         $beneficiaryQuery = $this->filteredBeneficiaries($request, $filters);
         $pendingBeneficiaryCount = (clone $beneficiaryQuery)->whereNull('reported_at')->count();
@@ -229,6 +236,8 @@ class BeneficiaryReportController extends Controller
         $filters = $request->validate([
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],
+            'included_from' => ['nullable', 'date'],
+            'included_to' => ['nullable', 'date', 'after_or_equal:included_from'],
             'state_id' => ['nullable', 'integer', 'exists:states,id'],
             'municipality_id' => ['nullable', 'integer', 'exists:municipalities,id'],
             'parish_id' => ['nullable', 'integer', 'exists:parishes,id'],
@@ -268,6 +277,10 @@ class BeneficiaryReportController extends Controller
         if ($reported !== null) {
             $reported ? $beneficiaries->whereNotNull('reported_at') : $beneficiaries->whereNull('reported_at');
         }
+
+        $beneficiaries
+            ->when($filters['included_from'] ?? null, fn (Builder $query, string $date) => $query->whereDate('beneficiaries.created_at', '>=', $date))
+            ->when($filters['included_to'] ?? null, fn (Builder $query, string $date) => $query->whereDate('beneficiaries.created_at', '<=', $date));
 
         return $beneficiaries;
     }

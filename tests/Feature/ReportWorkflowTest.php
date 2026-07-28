@@ -258,13 +258,13 @@ class ReportWorkflowTest extends TestCase
         ];
 
         $first = $this->actingAs($user)->postJson('/beneficiarios', $header + ['beneficiary' => [
-            'age' => 8, 'sex' => 'Mujer', 'national_id' => 'V12345678', 'phone' => null,
+            'full_name' => 'María Gómez', 'age' => 8, 'sex' => 'Mujer', 'national_id' => 'V12345678', 'phone' => null,
             'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'N/A', 'is_recurrent' => false,
         ]])->assertCreated()->assertJsonPath('summary.total', 1);
 
         $reportId = $first->json('report.id');
         $this->assertDatabaseHas('reports', ['id' => $reportId, 'user_id' => $user->id, 'total_beneficiaries' => 1]);
-        $this->assertDatabaseHas('beneficiaries', ['report_id' => $reportId, 'full_name' => null]);
+        $this->assertDatabaseHas('beneficiaries', ['report_id' => $reportId, 'full_name' => 'María Gómez']);
 
         $this->actingAs($user)->postJson('/beneficiarios', $header + ['report_id' => $reportId, 'beneficiary' => [
             'full_name' => 'Carlos Ruiz', 'age' => 34, 'sex' => 'Hombre', 'national_id' => null, 'phone' => '04140000000',
@@ -285,6 +285,13 @@ class ReportWorkflowTest extends TestCase
         $this->assertDatabaseCount('reports', 2);
         $this->assertDatabaseHas('reports', ['id' => $reportId, 'place_name' => 'Comunidad El Carmen', 'total_beneficiaries' => 2]);
         $this->assertDatabaseHas('reports', ['place_name' => 'Comunidad El Manantial', 'total_beneficiaries' => 1]);
+
+        $this->actingAs($user)->get('/informe-beneficiarios?reported=0&included_from='.today()->addDay()->toDateString())
+            ->assertOk()
+            ->assertSee('No hay beneficiarios que coincidan con los filtros.');
+        $this->actingAs($user)->get('/informe-beneficiarios?reported=0&included_from='.today()->toDateString().'&included_to='.today()->toDateString())
+            ->assertOk()
+            ->assertSee('Comunidad El Carmen');
     }
 
     public function test_beneficiary_cannot_be_saved_with_coordinates_outside_venezuela(): void

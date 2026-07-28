@@ -25,6 +25,12 @@
         <label>Fecha de atención hasta
             <input type="date" name="to" value="{{ $filters['to'] ?? '' }}">
         </label>
+        <label>Fecha de registro (inclusión) desde
+            <input type="date" name="included_from" value="{{ $filters['included_from'] ?? '' }}">
+        </label>
+        <label>Fecha de registro (inclusión) hasta
+            <input type="date" name="included_to" value="{{ $filters['included_to'] ?? '' }}">
+        </label>
         <label>Estado
             <select name="state_id" id="summary_state_id"><option value="">Todos</option>@foreach ($states as $state)<option value="{{ $state->id }}" @selected(($filters['state_id'] ?? '') == $state->id)>{{ $state->name }}</option>@endforeach</select>
         </label>
