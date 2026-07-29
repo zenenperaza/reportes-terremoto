@@ -333,6 +333,26 @@ class ReportWorkflowTest extends TestCase
         $this->actingAs($administrator)->get('/informe-beneficiarios')->assertOk()->assertSee('2 registros coinciden');
         $this->actingAs($administrator)->get('/informe-beneficiarios?is_recurrent=1')->assertOk()->assertSee('1 registro coincide');
 
+        $this->actingAs($administrator)->get('/informe-beneficiarios')
+            ->assertOk()
+            ->assertSee('Resultado KOBO')
+            ->assertSee('Resultado 345W')
+            ->assertSee('Lugar de Ana')
+            ->assertSee('Lugar de Luis')
+            ->assertSee('<span>NNA</span><strong>1</strong>', false)
+            ->assertSee('<span>Adultos</span><strong>2</strong>', false)
+            ->assertSee('<span>Total de personas</span><strong>3</strong>', false)
+            ->assertSee('Total de personas atendidas')
+            ->assertSee('Actividad de prueba');
+
+        $this->actingAs($administrator)->get('/informe-beneficiarios?place_name=Lugar%20de%20Ana')
+            ->assertOk()
+            ->assertSee('Lugar de Ana')
+            ->assertDontSee('<h2>Lugar de Luis</h2>', false)
+            ->assertSee('<span>NNA</span><strong>1</strong>', false)
+            ->assertSee('<span>Adultos</span><strong>0</strong>', false)
+            ->assertSee('<span>Total de personas</span><strong>1</strong>', false);
+
         $this->actingAs($owner)->getJson("/beneficiarios/verificar-recurrencia?activity_id={$activity->id}&national_id=V123")
             ->assertOk()
             ->assertJson(['possible_match' => true, 'matches' => 1]);

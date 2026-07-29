@@ -95,6 +95,12 @@
     @endif
 </section>
 
+<nav class="report-result-tabs" role="tablist" aria-label="Tipo de resultado">
+    <button type="button" class="report-result-tab is-active" id="kobo-tab" role="tab" aria-selected="true" aria-controls="kobo-panel" data-report-tab="kobo-panel">Resultado KOBO</button>
+    <button type="button" class="report-result-tab" id="345w-tab" role="tab" aria-selected="false" aria-controls="345w-panel" data-report-tab="345w-panel">Resultado 345W</button>
+</nav>
+
+<div class="report-result-panel" id="kobo-panel" role="tabpanel" aria-labelledby="kobo-tab">
 <section class="content-card summary-card" id="beneficiary-results-section">
     <div class="card-heading"><div><h2>Resultados</h2><p class="muted">{{ number_format($reportCount) }} {{ $reportCount === 1 ? 'registro coincide' : 'registros coinciden' }} con los filtros seleccionados.</p></div></div>
     @php
@@ -146,12 +152,28 @@
         @endif
     </section>
 @endif
+</div>
+
+<div class="report-result-panel" id="345w-panel" role="tabpanel" aria-labelledby="345w-tab" hidden>
+    <div id="beneficiary-results-345w">
+        @include('beneficiaries.partials.results-345w')
+    </div>
+</div>
 
 <script>
 const summarySelect = (id) => document.getElementById(id);
 const setSummaryOptions = (element, items, placeholder) => { element.innerHTML = `<option value="">${placeholder}</option>` + items.map(item => `<option value="${item.id}">${item.name || item.title}</option>`).join(''); };
 const loadSummaryOptions = async (element, url, placeholder) => { const response = await fetch(url, {headers: {'Accept': 'application/json'}}); setSummaryOptions(element, await response.json(), placeholder); };
 const summaryState = summarySelect('summary_state_id'), summaryMunicipality = summarySelect('summary_municipality_id'), summaryParish = summarySelect('summary_parish_id'), summarySector = summarySelect('summary_sector_id'), summaryActivity = summarySelect('summary_activity_id');
+const activateReportTab = (tab) => {
+    document.querySelectorAll('[data-report-tab]').forEach(button => {
+        const isActive = button === tab;
+        button.classList.toggle('is-active', isActive);
+        button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        document.getElementById(button.dataset.reportTab).hidden = !isActive;
+    });
+};
+document.querySelectorAll('[data-report-tab]').forEach(tab => tab.addEventListener('click', () => activateReportTab(tab)));
 summaryState.addEventListener('change', async () => { setSummaryOptions(summaryMunicipality, [], 'Cargando municipios'); setSummaryOptions(summaryParish, [], 'Todas'); if (summaryState.value) await loadSummaryOptions(summaryMunicipality, `/ubicaciones/estados/${summaryState.value}/municipios`, 'Todos'); });
 summaryMunicipality.addEventListener('change', async () => { setSummaryOptions(summaryParish, [], 'Cargando parroquias'); if (summaryMunicipality.value) await loadSummaryOptions(summaryParish, `/ubicaciones/municipios/${summaryMunicipality.value}/parroquias`, 'Todas'); });
 summarySector.addEventListener('change', async () => { setSummaryOptions(summaryActivity, [], 'Cargando actividades'); await loadSummaryOptions(summaryActivity, summarySector.value ? `/sectores/${summarySector.value}/actividades` : `{{ route('activities.all') }}`, 'Todas'); });
@@ -223,6 +245,7 @@ summarySector.addEventListener('change', async () => { setSummaryOptions(summary
             const source = await reportDocument(url);
             replaceReportSection(source, 'donor-report-section');
             replaceReportSection(source, 'beneficiary-results-section');
+            replaceReportSection(source, 'beneficiary-results-345w');
             document.getElementById('beneficiary-results-section')?.scrollIntoView({behavior: 'smooth', block: 'start'});
         } catch (error) {
             window.location.href = url;
@@ -287,6 +310,7 @@ summarySector.addEventListener('change', async () => { setSummaryOptions(summary
             replaceReportSection(source, 'beneficiary-groups-section');
             replaceReportSection(source, 'donor-report-section');
             replaceReportSection(source, 'beneficiary-results-section');
+            replaceReportSection(source, 'beneficiary-results-345w');
             initializeBeneficiaryTable();
 
             if (typeof Swal !== 'undefined') {

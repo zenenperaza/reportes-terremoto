@@ -49,7 +49,9 @@ class BeneficiaryReportController extends Controller
 
         $beneficiaryQuery = $this->filteredBeneficiaries($request, $filters);
         $pendingBeneficiaryCount = (clone $beneficiaryQuery)->whereNull('reported_at')->count();
-        $beneficiaries = (clone $beneficiaryQuery)->get(['age', 'sex', 'disability', 'ethnicity', 'pregnant_lactating']);
+        $beneficiaries = (clone $beneficiaryQuery)
+            ->with(['report:id,place_name,activity_id', 'report.activity:id,title'])
+            ->get(['id', 'report_id', 'age', 'sex', 'disability', 'ethnicity', 'pregnant_lactating']);
         $showReportedAt = $reported === true;
         $groupedBeneficiaries = $this->groupedBeneficiaries($beneficiaryQuery, $showReportedAt);
 
@@ -60,6 +62,7 @@ class BeneficiaryReportController extends Controller
         return view('beneficiaries.summary', [
             'filters' => $filters,
             'summary' => $this->summary($beneficiaries),
+            'summary345w' => $this->summary345w($beneficiaries),
             'reportCount' => $reports->count(),
             'pendingBeneficiaryCount' => $pendingBeneficiaryCount,
             'groupedBeneficiaries' => $groupedBeneficiaries,
@@ -404,6 +407,72 @@ class BeneficiaryReportController extends Controller
             'disability' => $beneficiaries->filter(fn (Beneficiary $beneficiary) => filled($beneficiary->disability) && $beneficiary->disability !== 'Ninguna')->count(),
             'ethnicity' => $beneficiaries->filter(fn (Beneficiary $beneficiary) => filled($beneficiary->ethnicity) && $beneficiary->ethnicity !== 'Ninguna')->count(),
             'pregnancy' => $beneficiaries->where('pregnant_lactating', 'Sí')->count(),
+        ];
+    }
+
+    /** @param \Illuminate\Support\Collection<int, Beneficiary> $beneficiaries */
+    private function summary345w($beneficiaries): array
+    {
+        $ranges = [
+            'girls_0_5' => ['Mujer', 0, 5],
+            'boys_0_5' => ['Hombre', 0, 5],
+            'girls_6_9' => ['Mujer', 6, 9],
+            'boys_6_9' => ['Hombre', 6, 9],
+            'girls_10_11' => ['Mujer', 10, 11],
+            'boys_10_11' => ['Hombre', 10, 11],
+            'boys_12_14' => ['Hombre', 12, 14],
+            'girls_12_14' => ['Mujer', 12, 14],
+            'boys_15_17' => ['Hombre', 15, 17],
+            'girls_15_17' => ['Mujer', 15, 17],
+            'women_18_59' => ['Mujer', 18, 59],
+            'men_18_59' => ['Hombre', 18, 59],
+            'women_60_plus' => ['Mujer', 60, null],
+            'men_60_plus' => ['Hombre', 60, null],
+        ];
+
+        $breakdown = function ($items) use ($ranges): array {
+            $values = [];
+            foreach ($ranges as $key => [$sex, $minimumAge, $maximumAge]) {
+                $values[$key] = $items->filter(
+                    fn (Beneficiary $beneficiary): bool => $beneficiary->sex === $sex
+                        && $beneficiary->age >= $minimumAge
+                        && ($maximumAge === null || $beneficiary->age <= $maximumAge),
+                )->count();
+            }
+
+            return $values;
+        };
+
+        $places = $beneficiaries
+            ->groupBy(fn (Beneficiary $beneficiary): string => $beneficiary->report?->place_name ?: 'Lugar sin especificar')
+            ->map(function ($placeBeneficiaries, string $place) use ($breakdown): array {
+                $services = $placeBeneficiaries
+                    ->groupBy(fn (Beneficiary $beneficiary): string => $beneficiary->report?->activity?->title ?: 'Actividad sin especificar')
+                    ->map(fn ($serviceBeneficiaries, string $service): array => [
+                        'name' => $service,
+                        'values' => $breakdown($serviceBeneficiaries),
+                        'total' => $serviceBeneficiaries->count(),
+                    ])
+                    ->values()
+                    ->all();
+
+                return [
+                    'place' => $place,
+                    'services' => $services,
+                    'total' => $placeBeneficiaries->count(),
+                ];
+            })
+            ->values()
+            ->all();
+
+        $values = $breakdown($beneficiaries);
+
+        return [
+            'values' => $values,
+            'places' => $places,
+            'total_nna' => array_sum(array_slice($values, 0, 10)),
+            'total_adults' => array_sum(array_slice($values, 10)),
+            'total' => $beneficiaries->count(),
         ];
     }
 }
