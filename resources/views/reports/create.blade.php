@@ -117,8 +117,10 @@
                                 {{ $placeName->name }}</option>
                         @endforeach
                     </select>
-                    <small>¿No aparece? <a href="{{ route('place-names.index') }}" target="_blank" rel="noopener">Crear o
-                            administrar nombres de lugares</a>.</small>
+                    @if(auth()->user()->isAdministrator())
+                        <small>¿No aparece? <a href="{{ route('place-names.index') }}" target="_blank" rel="noopener">Crear o
+                                administrar nombres de lugares</a>.</small>
+                    @endif
                     <small id="place-location-summary" class="place-location-summary" hidden></small>
                 </label>
                 </div>

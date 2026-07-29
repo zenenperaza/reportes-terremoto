@@ -216,9 +216,10 @@ class ReportWorkflowTest extends TestCase
         $this->actingAs($reporter)->get('/usuarios')->assertForbidden();
     }
 
-    public function test_any_authenticated_user_can_manage_place_names(): void
+    public function test_only_administrators_can_manage_place_names(): void
     {
         $reporter = User::factory()->create(['role' => 'reporter']);
+        $administrator = User::factory()->create(['role' => 'admin']);
         $state = State::create(['code' => 'VE01', 'name' => 'Distrito Capital']);
         $municipality = Municipality::create(['state_id' => $state->id, 'code' => 'VE0101', 'name' => 'Libertador']);
         $parish = Parish::create(['municipality_id' => $municipality->id, 'code' => 'VE010101', 'name' => 'Altagracia']);
@@ -234,20 +235,29 @@ class ReportWorkflowTest extends TestCase
         ];
 
         $this->actingAs($reporter)->get('/nombres-del-lugar')
+            ->assertForbidden();
+        $this->actingAs($reporter)->get('/reportes/nuevo')
+            ->assertOk()
+            ->assertDontSee('administrar nombres de lugares');
+
+        $this->actingAs($administrator)->get('/nombres-del-lugar')
             ->assertOk()
             ->assertSee('Nombres específicos del lugar');
+        $this->actingAs($administrator)->get('/reportes/nuevo')
+            ->assertOk()
+            ->assertSee('administrar nombres de lugares');
 
-        $this->actingAs($reporter)->post('/nombres-del-lugar', ['name' => 'Escuela Nueva'] + $location)
+        $this->actingAs($administrator)->post('/nombres-del-lugar', ['name' => 'Escuela Nueva'] + $location)
             ->assertRedirect(route('place-names.index'));
         $placeName = PlaceName::where('name', 'Escuela Nueva')->firstOrFail();
-        $this->assertSame($reporter->id, $placeName->created_by);
+        $this->assertSame($administrator->id, $placeName->created_by);
         $this->assertSame('10.0760788', $placeName->latitude);
 
-        $this->actingAs($reporter)->put("/nombres-del-lugar/{$placeName->id}", ['name' => 'Escuela Renovada'] + $location)
+        $this->actingAs($administrator)->put("/nombres-del-lugar/{$placeName->id}", ['name' => 'Escuela Renovada'] + $location)
             ->assertRedirect(route('place-names.index'));
         $this->assertDatabaseHas('place_names', ['id' => $placeName->id, 'name' => 'Escuela Renovada']);
 
-        $this->actingAs($reporter)->delete("/nombres-del-lugar/{$placeName->id}")
+        $this->actingAs($administrator)->delete("/nombres-del-lugar/{$placeName->id}")
             ->assertRedirect(route('place-names.index'));
         $this->assertDatabaseMissing('place_names', ['id' => $placeName->id]);
     }
