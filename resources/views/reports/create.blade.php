@@ -231,26 +231,6 @@
             </div>
         </section>
 
-        @unless($editing)
-        <section class="form-section">
-            <div class="section-heading"><span>4</span>
-                <div>
-                    <h2>Información adicional</h2>
-                    <p>Las notas y evidencias se guardan junto al próximo beneficiario.</p>
-                </div>
-            </div>
-            <div class="form-grid two-cols"><label class="span-two">Detalle cualitativo / notas de campo
-                    <textarea name="qualitative_notes" rows="5" maxlength="5000"
-                        placeholder="Describa brevemente logros, desafíos u observaciones relevantes.">{{ old('qualitative_notes', $editing ? $report->qualitative_notes : null) }}</textarea>
-                </label><label>Medio de verificación 1<input type="file" name="evidence_1"
-                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xlsx"><small>PDF, imagen, Word o Excel; máximo 10
-                        MB.@if($editing && $report->evidences->firstWhere('slot', 1)) Actual: {{ $report->evidences->firstWhere('slot', 1)->original_name }}.@endif</small></label><label>Medio de verificación 2 (opcional)<input type="file"
-                        name="evidence_2" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xlsx"><small>Máximo 10
-                        MB.@if($editing && $report->evidences->firstWhere('slot', 2)) Actual: {{ $report->evidences->firstWhere('slot', 2)->original_name }}.@endif</small></label><label>Medio de verificación 3 (opcional)<input type="file"
-                        name="evidence_3" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xlsx"><small>Máximo 10
-                        MB.@if($editing && $report->evidences->firstWhere('slot', 3)) Actual: {{ $report->evidences->firstWhere('slot', 3)->original_name }}.@endif</small></label></div>
-        </section>
-        @endunless
         <div class="form-actions"><a class="button button-ghost" href="{{ $editing ? route('reports.show', $report) : route('dashboard') }}">Cancelar</a>
             @if($editing)<button class="button button-primary" type="button" id="save-report-changes">Guardar cambios del registro</button>@endif
             <a class="button button-secondary" id="current-report-link" href="{{ $editing ? route('reports.show', $report) : '#' }}" @if(!$editing) hidden @endif>Ver registro guardado</a>

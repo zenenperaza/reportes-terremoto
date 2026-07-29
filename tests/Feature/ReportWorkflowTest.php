@@ -60,6 +60,9 @@ class ReportWorkflowTest extends TestCase
             ->assertSee('data-state-id="'.$state->id.'"', false)
             ->assertSee('data-latitude="10.0760788"', false)
             ->assertDontSee('Usar mi ubicación actual')
+            ->assertDontSee('Información adicional')
+            ->assertDontSee('name="qualitative_notes"', false)
+            ->assertDontSee('name="evidence_1"', false)
             ->assertDontSee('Enviar reporte');
 
         $response = $this->actingAs($user)->post('/reportes', [
