@@ -137,8 +137,8 @@
             <fieldset class="beneficiary-entry">
                 <legend id="beneficiary-entry-title">Registrar beneficiario</legend>
                 <div class="form-grid beneficiary-form-grid">
-                    <label>Nombre y apellido *<input type="text" id="beneficiary_full_name"
-                            maxlength="150" autocomplete="name" required></label>
+                    <label>Nombre y apellido<input type="text" id="beneficiary_full_name"
+                            maxlength="150" autocomplete="name"></label>
                     <label>Edad *<input type="number" id="beneficiary_age" min="0" max="120"
                             inputmode="numeric"></label>
                     <label>Sexo *<select id="beneficiary_sex">
@@ -382,7 +382,6 @@
         };
         const beneficiaryValidationMessage = beneficiary => {
             const labels = {
-                full_name: 'nombre y apellido',
                 age: 'edad',
                 sex: 'sexo',
                 is_recurrent: 'recurrente'

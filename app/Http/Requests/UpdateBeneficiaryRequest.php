@@ -18,7 +18,7 @@ class UpdateBeneficiaryRequest extends FormRequest
         $beneficiaryOptions = config('reports.beneficiary_options');
 
         return [
-            'full_name' => ['required', 'string', 'max:150'],
+            'full_name' => ['nullable', 'string', 'max:150'],
             'age' => ['required', 'integer', 'min:0', 'max:120'],
             'sex' => ['required', Rule::in($beneficiaryOptions['sexes'])],
             'national_id' => ['nullable', 'string', 'max:30'],

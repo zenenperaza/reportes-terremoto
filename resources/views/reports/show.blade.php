@@ -31,14 +31,14 @@
         <div class="table-wrap">
             <table class="beneficiary-table">
                 <thead><tr><th>Nombre y apellido</th><th>Edad</th><th>Sexo</th><th>Cédula</th><th>Teléfono</th><th>Discapacidad</th><th>Indígena</th><th>Emb./lact.</th><th>Recurrente</th><th>Reportado</th><th>Fecha de reporte</th>@if($canEditBeneficiaries)<th>Acciones</th>@endif</tr></thead>
-                <tbody>@foreach($report->beneficiaries as $beneficiary)<tr><td>{{ $beneficiary->full_name }}</td><td>{{ $beneficiary->age }}</td><td>{{ $beneficiary->sex }}</td><td>{{ $beneficiary->national_id ?: '—' }}</td><td>{{ $beneficiary->phone ?: '—' }}</td><td>{{ $beneficiary->disability ?: 'Ninguna' }}</td><td>{{ $beneficiary->ethnicity ?: 'Ninguna' }}</td><td>{{ $beneficiary->pregnant_lactating ?: 'Ninguna' }}</td><td>{{ $beneficiary->is_recurrent ? 'Sí' : 'No' }}</td><td>{{ $beneficiary->reported_at ? 'Sí' : 'No' }}</td><td>{{ $beneficiary->reported_at?->format('d/m/Y') ?: '—' }}</td>@if($canEditBeneficiaries)<td><a class="table-action" href="{{ route('reports.edit', ['report' => $report, 'beneficiary' => $beneficiary->id]) }}">Editar</a></td>@endif</tr>@endforeach</tbody>
+                <tbody>@foreach($report->beneficiaries as $beneficiary)<tr><td>{{ $beneficiary->full_name ?: 'Sin nombre registrado' }}</td><td>{{ $beneficiary->age }}</td><td>{{ $beneficiary->sex }}</td><td>{{ $beneficiary->national_id ?: '—' }}</td><td>{{ $beneficiary->phone ?: '—' }}</td><td>{{ $beneficiary->disability ?: 'Ninguna' }}</td><td>{{ $beneficiary->ethnicity ?: 'Ninguna' }}</td><td>{{ $beneficiary->pregnant_lactating ?: 'Ninguna' }}</td><td>{{ $beneficiary->is_recurrent ? 'Sí' : 'No' }}</td><td>{{ $beneficiary->reported_at ? 'Sí' : 'No' }}</td><td>{{ $beneficiary->reported_at?->format('d/m/Y') ?: '—' }}</td>@if($canEditBeneficiaries)<td><a class="table-action" href="{{ route('reports.edit', ['report' => $report, 'beneficiary' => $beneficiary->id]) }}">Editar</a></td>@endif</tr>@endforeach</tbody>
             </table>
         </div>
         @if($canEditBeneficiaries)
             <form id="beneficiary-edit-form" class="beneficiary-entry beneficiary-detail-editor" hidden>
                 <div class="card-heading"><div><h2>Editar beneficiario</h2><p class="muted">Actualice los datos y guarde los cambios.</p></div><button type="button" class="button button-secondary" id="cancel-beneficiary-edit">Cancelar</button></div>
                 <div class="form-grid beneficiary-form-grid">
-                    <label>Nombre y apellido *<input name="full_name" maxlength="150" required></label>
+                    <label>Nombre y apellido<input name="full_name" maxlength="150"></label>
                     <label>Edad *<input name="age" type="number" min="0" max="120" required></label>
                     <label>Sexo *<select name="sex" required>@foreach($beneficiaryOptions['sexes'] as $option)<option value="{{ $option }}">{{ $option }}</option>@endforeach</select></label>
                     <label>Cédula<input name="national_id" maxlength="30"></label>
