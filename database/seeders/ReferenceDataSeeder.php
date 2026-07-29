@@ -8,6 +8,7 @@ use App\Models\Parish;
 use App\Models\Sector;
 use App\Models\State;
 use Illuminate\Database\Seeder;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use RuntimeException;
 use ZipArchive;
 
@@ -32,6 +33,14 @@ class ReferenceDataSeeder extends Seeder
         }
         $stateIds = State::pluck('id', 'code')->all();
         $municipalityIds = [];
+        $coordinateSheet = IOFactory::load(database_path('reference/parroquias-coordenadas.xlsx'))->getActiveSheet();
+        $parishCoordinates = [];
+        for ($row = 2; $row <= $coordinateSheet->getHighestRow(); $row++) {
+            $parishCoordinates[trim((string) $coordinateSheet->getCell("F{$row}")->getValue())] = [
+                'latitude' => round((float) $coordinateSheet->getCell("H{$row}")->getValue(), 7),
+                'longitude' => round((float) $coordinateSheet->getCell("I{$row}")->getValue(), 7),
+            ];
+        }
 
         for ($row = 72; $row <= 1206; $row++) {
             $stateCode = $locations['K'.$row] ?? null;
@@ -58,7 +67,12 @@ class ReferenceDataSeeder extends Seeder
 
             Parish::updateOrCreate(
                 ['code' => $parishCode],
-                ['municipality_id' => $municipalityIds[$municipalityCode], 'name' => $parishName],
+                [
+                    'municipality_id' => $municipalityIds[$municipalityCode],
+                    'name' => $parishName,
+                    'latitude' => $parishCoordinates[$parishCode]['latitude'] ?? null,
+                    'longitude' => $parishCoordinates[$parishCode]['longitude'] ?? null,
+                ],
             );
         }
 

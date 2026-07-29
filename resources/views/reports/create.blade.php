@@ -93,6 +93,12 @@
                 </div>
             </div>
             <div class="form-grid">
+                <label class="checkbox-label community-location-toggle">
+                    <input type="checkbox" name="is_community_location" id="is_community_location" value="1"
+                        @checked(old('is_community_location', $communityLocation))>
+                    No es un centro o espacio de atención formal o provisional
+                </label>
+                <div id="formal-place-fields">
                 <label>Nombre específico del lugar *
                     <select name="place_name" id="place_name" required>
                         <option value="">Seleccione el nombre del lugar</option>
@@ -115,6 +121,41 @@
                             administrar nombres de lugares</a>.</small>
                     <small id="place-location-summary" class="place-location-summary" hidden></small>
                 </label>
+                </div>
+                <div class="form-grid three-cols community-location-fields" id="community-location-fields" hidden>
+                    <label>Estado *
+                        <select id="community_state_id">
+                            <option value="">Seleccione el estado</option>
+                            @foreach($states as $stateOption)
+                                <option value="{{ $stateOption->id }}" @selected(old('state_id', $editing ? $report->state_id : null) == $stateOption->id)>{{ $stateOption->name }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+                    <label>Municipio *
+                        <select id="community_municipality_id">
+                            <option value="">Seleccione el municipio</option>
+                            @foreach($communityMunicipalities as $municipalityOption)
+                                <option value="{{ $municipalityOption->id }}" @selected(old('municipality_id', $editing ? $report->municipality_id : null) == $municipalityOption->id)>{{ $municipalityOption->name }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+                    <label>Parroquia *
+                        <select id="community_parish_id">
+                            <option value="">Seleccione la parroquia</option>
+                            @foreach($communityParishes as $parishOption)
+                                <option value="{{ $parishOption->id }}"
+                                    data-latitude="{{ $parishOption->latitude }}"
+                                    data-longitude="{{ $parishOption->longitude }}"
+                                    @selected(old('parish_id', $editing ? $report->parish_id : null) == $parishOption->id)>{{ $parishOption->name }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+                    <div class="community-location-summary span-two" id="community-location-summary" hidden>
+                        <strong id="community-generated-name"></strong>
+                        <span>Latitud: <b id="community-latitude"></b></span>
+                        <span>Longitud: <b id="community-longitude"></b></span>
+                    </div>
+                </div>
             </div>
             <input type="hidden" name="state_id" id="state_id" value="{{ old('state_id', $editing ? $report->state_id : null) }}">
             <input type="hidden" name="municipality_id" id="municipality_id" value="{{ old('municipality_id', $editing ? $report->municipality_id : null) }}">
@@ -283,6 +324,91 @@
         };
         placeName.addEventListener('change', syncPlaceLocation);
         if (placeName.value) syncPlaceLocation();
+        const communityLocationToggle = select('is_community_location'),
+            formalPlaceFields = select('formal-place-fields'),
+            communityLocationFields = select('community-location-fields'),
+            communityState = select('community_state_id'),
+            communityMunicipality = select('community_municipality_id'),
+            communityParish = select('community_parish_id'),
+            communityLocationSummary = select('community-location-summary'),
+            communityGeneratedName = select('community-generated-name'),
+            communityLatitude = select('community-latitude'),
+            communityLongitude = select('community-longitude');
+        const setCommunityOptions = (element, items, placeholder) => {
+            element.innerHTML = `<option value="">${placeholder}</option>` + items.map(item =>
+                `<option value="${item.id}" data-latitude="${item.latitude ?? ''}" data-longitude="${item.longitude ?? ''}">${item.name}</option>`
+            ).join('');
+        };
+        const clearCommunityLocation = () => {
+            state.value = '';
+            municipality.value = '';
+            parish.value = '';
+            select('installation_type').value = '';
+            select('latitude').value = '';
+            select('longitude').value = '';
+            select('altitude').value = '';
+            select('gps_accuracy').value = '';
+            placeName.querySelector('option[data-community-generated]')?.remove();
+            placeName.value = '';
+            communityLocationSummary.hidden = true;
+            communityGeneratedName.textContent = '';
+            communityLatitude.textContent = '';
+            communityLongitude.textContent = '';
+        };
+        const syncCommunityLocation = () => {
+            clearCommunityLocation();
+            const option = communityParish.selectedOptions[0];
+            if (!communityState.value || !communityMunicipality.value || !communityParish.value) return;
+            const generatedName = `Comunidad ${option.textContent.trim()}`;
+            const generatedOption = document.createElement('option');
+            generatedOption.value = generatedName;
+            generatedOption.textContent = generatedName;
+            generatedOption.dataset.communityGenerated = '1';
+            placeName.appendChild(generatedOption);
+            placeName.value = generatedName;
+            state.value = communityState.value;
+            municipality.value = communityMunicipality.value;
+            parish.value = communityParish.value;
+            select('installation_type').value = 'Comunidad / Espacio Comunitario';
+            select('latitude').value = option.dataset.latitude || '';
+            select('longitude').value = option.dataset.longitude || '';
+            communityLocationSummary.hidden = false;
+            communityGeneratedName.textContent = `Nombre del lugar: ${generatedName}`;
+            communityLatitude.textContent = option.dataset.latitude || 'No definida';
+            communityLongitude.textContent = option.dataset.longitude || 'No definida';
+        };
+        const syncCommunityMode = () => {
+            const enabled = communityLocationToggle.checked;
+            formalPlaceFields.hidden = enabled;
+            communityLocationFields.hidden = !enabled;
+            placeName.required = !enabled;
+            [communityState, communityMunicipality, communityParish].forEach(element => element.required = enabled);
+            if (enabled) syncCommunityLocation();
+            else {
+                clearCommunityLocation();
+                syncPlaceLocation();
+            }
+        };
+        communityState.addEventListener('change', async () => {
+            clearCommunityLocation();
+            setCommunityOptions(communityMunicipality, [], 'Cargando municipios');
+            setCommunityOptions(communityParish, [], 'Seleccione la parroquia');
+            if (communityState.value) {
+                const response = await fetch(`/ubicaciones/estados/${communityState.value}/municipios`, {headers: {'Accept': 'application/json'}});
+                setCommunityOptions(communityMunicipality, await response.json(), 'Seleccione el municipio');
+            }
+        });
+        communityMunicipality.addEventListener('change', async () => {
+            clearCommunityLocation();
+            setCommunityOptions(communityParish, [], 'Cargando parroquias');
+            if (communityMunicipality.value) {
+                const response = await fetch(`/ubicaciones/municipios/${communityMunicipality.value}/parroquias`, {headers: {'Accept': 'application/json'}});
+                setCommunityOptions(communityParish, await response.json(), 'Seleccione la parroquia');
+            }
+        });
+        communityParish.addEventListener('change', syncCommunityLocation);
+        communityLocationToggle.addEventListener('change', syncCommunityMode);
+        syncCommunityMode();
         const validateCoordinates = async () => true;
 
         const beneficiaryFields = ['full_name', 'age', 'sex', 'national_id', 'phone', 'disability', 'ethnicity',
@@ -357,7 +483,13 @@
             const missing = requiredHeaderFields.find(([field]) => !form.elements[field].value.trim());
             if (!missing) return true;
             setMessage(entryError, `Antes de guardar, complete ${missing[1]}.`);
-            form.elements[missing[0]].focus();
+            const communityField = {
+                state_id: communityState,
+                municipality_id: communityMunicipality,
+                parish_id: communityParish,
+                place_name: communityParish
+            }[missing[0]];
+            (communityLocationToggle.checked && communityField ? communityField : form.elements[missing[0]]).focus();
             return false;
         };
         const beneficiaryValidationMessage = beneficiary => {

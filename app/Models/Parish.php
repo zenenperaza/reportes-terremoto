@@ -9,7 +9,15 @@ class Parish extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['municipality_id', 'code', 'name'];
+    protected $fillable = ['municipality_id', 'code', 'name', 'latitude', 'longitude'];
+
+    protected function casts(): array
+    {
+        return [
+            'latitude' => 'decimal:7',
+            'longitude' => 'decimal:7',
+        ];
+    }
 
     public function municipality()
     {

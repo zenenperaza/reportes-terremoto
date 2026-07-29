@@ -76,6 +76,10 @@ class ReportController extends Controller
             'selectedSectorId' => $selectedSectorId,
             'activities' => $sector ? $sector->activities()->where('active', true)->orderBy('sort_order')->get(['id', 'title']) : collect(),
             'organizations' => config('reports.organizations'),
+            'states' => State::orderBy('name')->get(['id', 'name']),
+            'communityLocation' => false,
+            'communityMunicipalities' => collect(),
+            'communityParishes' => collect(),
             'placeNames' => PlaceName::query()
                 ->with(['state:id,name', 'municipality:id,name', 'parish:id,name'])
                 ->whereNotNull('state_id')->whereNotNull('municipality_id')->whereNotNull('parish_id')
@@ -100,6 +104,7 @@ class ReportController extends Controller
 
         $selectedSectorId = old('sector_id', $report->sector_id);
         $sector = Sector::find($selectedSectorId);
+        $communityLocation = ! PlaceName::where('name', $report->place_name)->exists();
 
         return view('reports.create', [
             'report' => $report,
@@ -108,6 +113,14 @@ class ReportController extends Controller
             'selectedSectorId' => $selectedSectorId,
             'activities' => $sector ? $sector->activities()->where('active', true)->orderBy('sort_order')->get(['id', 'title']) : collect(),
             'organizations' => config('reports.organizations'),
+            'states' => State::orderBy('name')->get(['id', 'name']),
+            'communityLocation' => $communityLocation,
+            'communityMunicipalities' => $communityLocation
+                ? State::find($report->state_id)?->municipalities()->orderBy('name')->get(['id', 'name']) ?? collect()
+                : collect(),
+            'communityParishes' => $communityLocation
+                ? Municipality::find($report->municipality_id)?->parishes()->orderBy('name')->get(['id', 'name', 'latitude', 'longitude']) ?? collect()
+                : collect(),
             'placeNames' => PlaceName::query()
                 ->with(['state:id,name', 'municipality:id,name', 'parish:id,name'])
                 ->whereNotNull('state_id')->whereNotNull('municipality_id')->whereNotNull('parish_id')

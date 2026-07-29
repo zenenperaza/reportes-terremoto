@@ -21,7 +21,7 @@ class LocationController extends Controller
 
     public function parishes(Municipality $municipality)
     {
-        return $municipality->parishes()->orderBy('name')->get(['id', 'name']);
+        return $municipality->parishes()->orderBy('name')->get(['id', 'name', 'latitude', 'longitude']);
     }
 
     public function activities(Sector $sector)

@@ -421,6 +421,71 @@ class ReportWorkflowTest extends TestCase
             ->assertSee('Comunidad El Carmen');
     }
 
+    public function test_community_location_uses_parish_data_without_creating_a_catalog_place(): void
+    {
+        $user = User::factory()->create(['role' => 'reporter']);
+        $state = State::create(['code' => 'VE01', 'name' => 'Distrito Capital']);
+        $municipality = Municipality::create(['state_id' => $state->id, 'code' => 'VE0101', 'name' => 'Libertador']);
+        $parish = Parish::create([
+            'municipality_id' => $municipality->id,
+            'code' => 'VE010101',
+            'name' => 'Altagracia',
+            'latitude' => 10.5100000,
+            'longitude' => -66.9100000,
+        ]);
+        $sector = Sector::create(['name' => 'Protección', 'slug' => 'proteccion', 'sort_order' => 1]);
+        $activity = Activity::create(['sector_id' => $sector->id, 'code' => 'TEST-01', 'title' => 'Actividad de prueba', 'sort_order' => 1]);
+
+        $this->actingAs($user)->get('/reportes/nuevo')
+            ->assertOk()
+            ->assertSee('No es un centro o espacio de atención formal o provisional')
+            ->assertSee('id="community_state_id"', false)
+            ->assertSee('id="community_municipality_id"', false)
+            ->assertSee('id="community_parish_id"', false)
+            ->assertSee('Latitud:')
+            ->assertSee('Longitud:');
+
+        $this->actingAs($user)->getJson("/ubicaciones/municipios/{$municipality->id}/parroquias")
+            ->assertOk()
+            ->assertJsonPath('0.latitude', '10.5100000')
+            ->assertJsonPath('0.longitude', '-66.9100000');
+
+        $this->actingAs($user)->postJson('/beneficiarios', [
+            'report_date' => today()->toDateString(),
+            'reporter_first_name' => 'Ana',
+            'reporter_last_name' => 'Pérez',
+            'reporter_email' => 'ana@example.test',
+            'organization' => 'ASONACOP',
+            'is_community_location' => true,
+            'state_id' => $state->id,
+            'municipality_id' => $municipality->id,
+            'parish_id' => $parish->id,
+            'place_name' => 'Texto manipulado',
+            'installation_type' => 'Centro de Salud',
+            'latitude' => 1,
+            'longitude' => 1,
+            'sector_id' => $sector->id,
+            'activity_id' => $activity->id,
+            'beneficiary' => [
+                'full_name' => null,
+                'age' => 20,
+                'sex' => 'Mujer',
+                'is_recurrent' => false,
+            ],
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('reports', [
+            'place_name' => 'Comunidad Altagracia',
+            'installation_type' => 'Comunidad / Espacio Comunitario',
+            'state_id' => $state->id,
+            'municipality_id' => $municipality->id,
+            'parish_id' => $parish->id,
+            'latitude' => 10.5100000,
+            'longitude' => -66.9100000,
+        ]);
+        $this->assertDatabaseMissing('place_names', ['name' => 'Comunidad Altagracia']);
+    }
+
     public function test_beneficiary_cannot_be_saved_with_coordinates_outside_venezuela(): void
     {
         RateLimiter::clear('nominatim-reverse-geocode');

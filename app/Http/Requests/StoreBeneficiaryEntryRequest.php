@@ -22,6 +22,10 @@ class StoreBeneficiaryEntryRequest extends FormRequest
     public function rules(): array
     {
         $beneficiaryOptions = config('reports.beneficiary_options');
+        $placeNameRules = ['required', 'string', 'max:200'];
+        if (! $this->boolean('is_community_location')) {
+            $placeNameRules[] = Rule::exists('place_names', 'name');
+        }
 
         return [
             'report_id' => ['nullable', 'integer', 'exists:reports,id'],
@@ -36,9 +40,10 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             'municipality_id' => ['required', 'integer', 'exists:municipalities,id'],
             'parish_id' => ['required', 'integer', 'exists:parishes,id'],
             'installation_type' => ['required', Rule::in(config('reports.installation_types'))],
-            'place_name' => ['required', 'string', 'max:200', Rule::exists('place_names', 'name')],
-            'latitude' => ['nullable', 'required_with:longitude', 'numeric', 'between:-90,90'],
-            'longitude' => ['nullable', 'required_with:latitude', 'numeric', 'between:-180,180'],
+            'is_community_location' => ['nullable', 'boolean'],
+            'place_name' => $placeNameRules,
+            'latitude' => ['nullable', 'required_if:is_community_location,1', 'required_with:longitude', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'required_if:is_community_location,1', 'required_with:latitude', 'numeric', 'between:-180,180'],
             'altitude' => ['nullable', 'numeric', 'between:-500,10000'],
             'gps_accuracy' => ['nullable', 'numeric', 'min:0', 'max:100000'],
 
@@ -61,6 +66,24 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             'beneficiary.pregnant_lactating' => ['nullable', Rule::in($beneficiaryOptions['pregnant_lactating'])],
             'beneficiary.is_recurrent' => ['required', 'boolean'],
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if (! $this->boolean('is_community_location')) {
+            return;
+        }
+
+        $parish = Parish::find($this->input('parish_id'));
+        $this->merge([
+            'is_community_location' => true,
+            'place_name' => $parish ? 'Comunidad '.$parish->name : null,
+            'installation_type' => 'Comunidad / Espacio Comunitario',
+            'latitude' => $parish?->latitude,
+            'longitude' => $parish?->longitude,
+            'altitude' => null,
+            'gps_accuracy' => null,
+        ]);
     }
 
     /** @return array<string, string> */
@@ -102,7 +125,9 @@ class StoreBeneficiaryEntryRequest extends FormRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator): void {
-            $this->validateCoordinatesAreInVenezuela($validator);
+            if (! $this->boolean('is_community_location')) {
+                $this->validateCoordinatesAreInVenezuela($validator);
+            }
 
             $municipality = Municipality::find($this->integer('municipality_id'));
             if ($municipality && $municipality->state_id !== $this->integer('state_id')) {
@@ -119,7 +144,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
                 $validator->errors()->add('activity_id', 'La actividad no corresponde al sector seleccionado.');
             }
 
-            $place = PlaceName::where('name', $this->input('place_name'))->first();
+            $place = $this->boolean('is_community_location') ? null : PlaceName::where('name', $this->input('place_name'))->first();
             if ($place && $place->state_id && (
                 $place->state_id !== $this->integer('state_id')
                 || $place->municipality_id !== $this->integer('municipality_id')
