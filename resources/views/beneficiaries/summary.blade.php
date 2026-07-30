@@ -60,7 +60,9 @@
         </label>
         <div class="filter-actions">
             <button class="button button-primary" type="submit">Generar informe</button>
-            <a class="button button-excel" href="{{ route('beneficiaries.export', request()->query()) }}">
+            <a class="button button-excel" id="beneficiary-export-button"
+                data-export-url="{{ route('beneficiaries.export') }}"
+                href="{{ route('beneficiaries.export', request()->query()) }}">
                 <svg class="excel-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M13 3h8v18h-8v-3h5v-2h-5v-2h5v-2h-5v-2h5V8h-5V6h5V5h-5V3Z" fill="currentColor" opacity=".72"/>
                     <path d="M3 5.2 14 3v18L3 18.8V5.2Zm3.2 3.1 2 3.6-2.2 3.8h2.1l1.2-2.3 1.3 2.3h2.1l-2.2-3.9 2-3.5h-2L9.4 10.4 8.2 8.3h-2Z" fill="currentColor"/>
@@ -177,6 +179,16 @@ const summarySelect = (id) => document.getElementById(id);
 const setSummaryOptions = (element, items, placeholder) => { element.innerHTML = `<option value="">${placeholder}</option>` + items.map(item => `<option value="${item.id}">${item.name || item.title}</option>`).join(''); };
 const loadSummaryOptions = async (element, url, placeholder) => { const response = await fetch(url, {headers: {'Accept': 'application/json'}}); setSummaryOptions(element, await response.json(), placeholder); };
 const summaryState = summarySelect('summary_state_id'), summaryMunicipality = summarySelect('summary_municipality_id'), summaryParish = summarySelect('summary_parish_id'), summarySector = summarySelect('summary_sector_id'), summaryActivity = summarySelect('summary_activity_id');
+const beneficiaryFilterForm = document.getElementById('beneficiary-report-filters');
+const beneficiaryExportButton = document.getElementById('beneficiary-export-button');
+const syncBeneficiaryExportUrl = () => {
+    const exportUrl = new URL(beneficiaryExportButton.dataset.exportUrl, window.location.origin);
+    exportUrl.search = new URLSearchParams(new FormData(beneficiaryFilterForm)).toString();
+    beneficiaryExportButton.href = exportUrl.toString();
+};
+beneficiaryFilterForm.addEventListener('change', syncBeneficiaryExportUrl);
+beneficiaryFilterForm.addEventListener('input', syncBeneficiaryExportUrl);
+beneficiaryExportButton.addEventListener('click', syncBeneficiaryExportUrl);
 const activateReportTab = (tab) => {
     document.querySelectorAll('[data-report-tab]').forEach(button => {
         const isActive = button === tab;

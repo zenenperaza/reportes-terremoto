@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use Tests\TestCase;
 
 class ReportWorkflowTest extends TestCase
@@ -357,6 +358,8 @@ class ReportWorkflowTest extends TestCase
             ->assertSee('beneficiary-attention-table', false)
             ->assertSee('vendor/datatables/jquery-3.7.1.min.js', false)
             ->assertSee('vendor/datatables/dataTables.min.js', false)
+            ->assertSee('id="beneficiary-export-button"', false)
+            ->assertSee('syncBeneficiaryExportUrl', false)
             ->assertSee('Copiar');
 
         $excelExport = $this->actingAs($owner)->get('/informe-beneficiarios/exportar?state_id='.$state->id);
@@ -368,6 +371,17 @@ class ReportWorkflowTest extends TestCase
 
         $this->actingAs($administrator)->get('/informe-beneficiarios')->assertOk()->assertSee('2 registros coinciden');
         $this->actingAs($administrator)->get('/informe-beneficiarios?is_recurrent=1')->assertOk()->assertSee('1 registro coincide');
+
+        $allBeneficiariesPage = $this->actingAs($administrator)->get('/informe-beneficiarios?reported=');
+        $allBeneficiariesPage
+            ->assertOk()
+            ->assertSee('Total de beneficiarios alcanzados')
+            ->assertSee('<th>3</th>', false);
+        $allBeneficiariesExport = $this->actingAs($administrator)->get('/informe-beneficiarios/exportar?reported=');
+        $exportPath = tempnam(sys_get_temp_dir(), 'beneficiary-export-');
+        file_put_contents($exportPath, $allBeneficiariesExport->streamedContent());
+        $this->assertSame(4, IOFactory::load($exportPath)->getActiveSheet()->getHighestDataRow());
+        unlink($exportPath);
 
         $this->actingAs($administrator)->get('/informe-beneficiarios')
             ->assertOk()
