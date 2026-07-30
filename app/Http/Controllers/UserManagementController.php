@@ -14,7 +14,7 @@ class UserManagementController extends Controller
     public function index(): View
     {
         return view('users.index', [
-            'users' => User::query()->withCount('reports')->orderBy('name')->paginate(20),
+            'users' => User::query()->withCount(['reports', 'beneficiaries'])->orderBy('name')->paginate(20),
             'roleLabels' => User::roleLabels(),
         ]);
     }
@@ -43,12 +43,15 @@ class UserManagementController extends Controller
     {
         $data = $request->validated();
 
-        if ($this->wouldRemoveLastAdministrator($user, $data['role'])) {
-            return back()->withInput()->with('error', 'Debe conservar al menos una cuenta administradora.');
+        if ($this->wouldRemoveLastActiveAdministrator($user, $data['role'], (bool) $data['is_active'])) {
+            return back()->withInput()->with('error', 'Debe conservar al menos una cuenta administradora activa.');
         }
 
         if ($user->is($request->user()) && $data['role'] !== 'admin') {
             return back()->withInput()->with('error', 'No puede quitar el rol administrador de su propia cuenta.');
+        }
+        if ($user->is($request->user()) && ! $data['is_active']) {
+            return back()->withInput()->with('error', 'No puede desactivar su propia cuenta.');
         }
 
         if (blank($data['password'] ?? null)) {
@@ -70,15 +73,20 @@ class UserManagementController extends Controller
             return back()->with('error', 'Debe conservar al menos una cuenta administradora.');
         }
 
+        if ($user->beneficiaries()->exists()) {
+            return back()->with('error', 'No puede eliminar este usuario porque ya ha cargado beneficiarios. Puede marcarlo como Inactivo.');
+        }
+
         $user->delete();
 
-        return redirect()->route('users.index')->with('success', 'Usuario eliminado correctamente. Sus registros históricos se conservan.');
+        return redirect()->route('users.index')->with('success', 'Usuario eliminado correctamente.');
     }
 
-    private function wouldRemoveLastAdministrator(User $user, string $newRole): bool
+    private function wouldRemoveLastActiveAdministrator(User $user, string $newRole, bool $isActive): bool
     {
         return $user->isAdministrator()
-            && $newRole !== 'admin'
-            && User::query()->where('role', 'admin')->count() <= 1;
+            && $user->is_active
+            && ($newRole !== 'admin' || ! $isActive)
+            && User::query()->where('role', 'admin')->where('is_active', true)->count() <= 1;
     }
 }

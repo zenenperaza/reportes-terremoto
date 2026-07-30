@@ -17,18 +17,20 @@
         <div class="empty-state"><p>No hay usuarios registrados.</p></div>
     @else
         <div class="table-wrap"><table>
-            <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Registros</th><th>Creado</th><th></th></tr></thead>
+            <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Registros</th><th>Beneficiarios</th><th>Creado</th><th></th></tr></thead>
             <tbody>
             @foreach ($users as $managedUser)
                 <tr>
                     <td>{{ $managedUser->name }} @if ($managedUser->is(auth()->user()))<small>(usted)</small>@endif</td>
                     <td>{{ $managedUser->email }}</td>
                     <td><span class="role role-{{ $managedUser->role }}">{{ $roleLabels[$managedUser->role] ?? $managedUser->role }}</span></td>
+                    <td><span class="status {{ $managedUser->is_active ? 'status-active' : 'status-inactive' }}">{{ $managedUser->is_active ? 'Activo' : 'Inactivo' }}</span></td>
                     <td>{{ number_format($managedUser->reports_count) }}</td>
+                    <td>{{ number_format($managedUser->beneficiaries_count) }}</td>
                     <td>{{ $managedUser->created_at->format('d/m/Y') }}</td>
                     <td class="row-actions">
                         <a href="{{ route('users.edit', $managedUser) }}">Editar</a>
-                        @if (! $managedUser->is(auth()->user()))
+                        @if (! $managedUser->is(auth()->user()) && $managedUser->beneficiaries_count === 0)
                             <form action="{{ route('users.destroy', $managedUser) }}" method="post" onsubmit="return confirm('¿Eliminar esta cuenta?');">
                                 @csrf
                                 @method('DELETE')

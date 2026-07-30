@@ -186,6 +186,7 @@ class ReportWorkflowTest extends TestCase
             'name' => 'Mariana Rodríguez',
             'email' => 'mariana@example.test',
             'role' => 'reporter',
+            'is_active' => '1',
             'password' => 'password-segura',
             'password_confirmation' => 'password-segura',
         ])->assertRedirect();
@@ -197,11 +198,21 @@ class ReportWorkflowTest extends TestCase
             'name' => 'Mariana Rodríguez Pérez',
             'email' => 'mariana@example.test',
             'role' => 'coordinator',
+            'is_active' => '0',
             'password' => '',
             'password_confirmation' => '',
         ])->assertRedirect('/usuarios');
 
-        $this->assertDatabaseHas('users', ['id' => $managedUser->id, 'role' => 'coordinator']);
+        $this->assertDatabaseHas('users', ['id' => $managedUser->id, 'role' => 'coordinator', 'is_active' => false]);
+
+        $this->actingAs($managedUser)->get('/panel')
+            ->assertRedirect(route('login'))
+            ->assertSessionHas('error', 'Su cuenta está inactiva. Contacte al Administrador.');
+
+        $this->post('/ingresar', [
+            'email' => 'mariana@example.test',
+            'password' => 'password-segura',
+        ])->assertSessionHasErrors(['email' => 'Su cuenta está inactiva. Contacte al Administrador.']);
 
         $this->actingAs($administrator)->delete("/usuarios/{$managedUser->id}")
             ->assertRedirect('/usuarios');
@@ -279,6 +290,11 @@ class ReportWorkflowTest extends TestCase
         $ownBeneficiary = Beneficiary::create(['report_id' => $ownReport->id, 'full_name' => 'Ana Niño', 'age' => 4, 'sex' => 'Mujer', 'national_id' => 'V-123', 'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'N/A', 'is_recurrent' => false]);
         Beneficiary::create(['report_id' => $otherReport->id, 'full_name' => 'Luis Mayor', 'age' => 65, 'sex' => 'Hombre', 'national_id' => null, 'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'N/A', 'is_recurrent' => true]);
         Beneficiary::create(['report_id' => $otherReport->id, 'full_name' => 'Luis Segundo', 'age' => 32, 'sex' => 'Hombre', 'national_id' => null, 'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'N/A', 'is_recurrent' => false]);
+
+        $this->actingAs($administrator)->delete("/usuarios/{$owner->id}")
+            ->assertRedirect()
+            ->assertSessionHas('error', 'No puede eliminar este usuario porque ya ha cargado beneficiarios. Puede marcarlo como Inactivo.');
+        $this->assertNotSoftDeleted('users', ['id' => $owner->id]);
 
         $this->actingAs($owner)->get("/reportes/{$ownReport->id}")
             ->assertOk()

@@ -19,8 +19,15 @@ class AuthController extends Controller
 
     public function login(LoginRequest $request): RedirectResponse
     {
-        $credentials = $request->safe()->only(['email', 'password']);
+        $credentials = array_merge(
+            $request->safe()->only(['email', 'password']),
+            ['is_active' => true],
+        );
         if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+            if (User::where('email', $request->string('email'))->where('is_active', false)->exists()) {
+                return back()->withErrors(['email' => 'Su cuenta está inactiva. Contacte al Administrador.'])->onlyInput('email');
+            }
+
             return back()->withErrors(['email' => 'Las credenciales no son válidas.'])->onlyInput('email');
         }
 

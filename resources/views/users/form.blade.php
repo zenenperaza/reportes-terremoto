@@ -12,6 +12,12 @@
             @endforeach
         </select>
     </label>
+    <label>Estado *
+        <select name="is_active" required>
+            <option value="1" @selected((string) old('is_active', $managedUser?->is_active ?? true) === '1')>Activo</option>
+            <option value="0" @selected((string) old('is_active', $managedUser?->is_active ?? true) === '0')>Inactivo</option>
+        </select>
+    </label>
     <label>{{ $managedUser ? 'Nueva contraseña (opcional)' : 'Contraseña *' }}
         <input type="password" name="password" autocomplete="new-password" @required(! $managedUser)>
     </label>

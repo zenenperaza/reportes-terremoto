@@ -20,6 +20,7 @@ class StoreManagedUserRequest extends FormRequest
             'name' => ['required', 'string', 'min:3', 'max:120'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'role' => ['required', Rule::in(array_keys(User::roleLabels()))],
+            'is_active' => ['required', 'boolean'],
             'password' => ['required', 'confirmed', Password::min(8)],
         ];
     }

@@ -25,6 +25,10 @@ class TemporaryMaintenanceController extends Controller
                 '--path' => 'database/migrations/2026_07_29_121000_import_parish_coordinates.php',
                 '--force' => true,
             ]],
+            ['name' => 'migrate', 'parameters' => [
+                '--path' => 'database/migrations/2026_07_30_120000_add_is_active_to_users_table.php',
+                '--force' => true,
+            ]],
             ['name' => 'route:cache', 'parameters' => []],
             ['name' => 'view:cache', 'parameters' => []],
         ];
