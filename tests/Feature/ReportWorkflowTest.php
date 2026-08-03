@@ -183,6 +183,11 @@ class ReportWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('Usuarios del sistema');
 
+        $this->actingAs($administrator)->get("/usuarios/{$administrator->id}/editar")
+            ->assertOk()
+            ->assertSee('Asignaciones geogr&aacute;ficas', false)
+            ->assertSee('Todo el pa&iacute;s', false);
+
         $this->actingAs($administrator)->post('/usuarios', [
             'name' => 'Mariana Rodríguez',
             'email' => 'mariana@example.test',
@@ -617,6 +622,7 @@ class ReportWorkflowTest extends TestCase
         $otherUser = User::factory()->create(['role' => 'reporter']);
         $coordinator = User::factory()->create(['role' => 'coordinator']);
         $state = State::create(['code' => 'VE01', 'name' => 'Distrito Capital']);
+        $coordinator->assignedStates()->attach($state);
         $municipality = Municipality::create(['state_id' => $state->id, 'code' => 'VE0101', 'name' => 'Libertador']);
         $parish = Parish::create(['municipality_id' => $municipality->id, 'code' => 'VE010101', 'name' => 'Altagracia']);
         $sector = Sector::create(['name' => 'Protección', 'slug' => 'proteccion', 'sort_order' => 1]);
@@ -659,6 +665,52 @@ class ReportWorkflowTest extends TestCase
             ->assertSee('Lugar de Ana')
             ->assertSee('Fecha de reporte')
             ->assertDontSee('Reporte al donante');
+    }
+
+    public function test_coordinator_can_access_multiple_states_and_specific_municipalities(): void
+    {
+        $owner = User::factory()->create(['role' => 'reporter']);
+        $coordinator = User::factory()->create(['role' => 'coordinator']);
+        $sector = Sector::create(['name' => 'Protección', 'slug' => 'proteccion-geografica', 'sort_order' => 1]);
+        $activity = Activity::create(['sector_id' => $sector->id, 'code' => 'GEO-01', 'title' => 'Actividad geográfica', 'sort_order' => 1]);
+
+        $locations = collect([
+            ['VE10', 'Estado Completo', 'VE1001', 'Municipio Uno', 'VE100101', 'Parroquia Uno'],
+            ['VE11', 'Estado Parcial', 'VE1101', 'Municipio Permitido', 'VE110101', 'Parroquia Dos'],
+            ['VE12', 'Estado Oculto', 'VE1201', 'Municipio Oculto', 'VE120101', 'Parroquia Tres'],
+        ])->map(function (array $values) use ($owner, $sector, $activity): array {
+            [$stateCode, $stateName, $municipalityCode, $municipalityName, $parishCode, $parishName] = $values;
+            $state = State::create(['code' => $stateCode, 'name' => $stateName]);
+            $municipality = Municipality::create(['state_id' => $state->id, 'code' => $municipalityCode, 'name' => $municipalityName]);
+            $parish = Parish::create(['municipality_id' => $municipality->id, 'code' => $parishCode, 'name' => $parishName]);
+            $report = $this->makeReport($owner, $state, $municipality, $parish, $sector, $activity, $municipalityName);
+
+            return compact('state', 'municipality', 'report');
+        });
+
+        $coordinator->assignedStates()->attach($locations[0]['state']);
+        $coordinator->assignedMunicipalities()->attach($locations[1]['municipality']);
+
+        $visibleIds = $coordinator->constrainVisibleReports(Report::query())->pluck('id')->all();
+
+        $this->assertContains($locations[0]['report']->id, $visibleIds);
+        $this->assertContains($locations[1]['report']->id, $visibleIds);
+        $this->assertNotContains($locations[2]['report']->id, $visibleIds);
+        $this->assertTrue($coordinator->canViewReport($locations[0]['report']));
+        $this->assertTrue($coordinator->canViewReport($locations[1]['report']));
+        $this->assertFalse($coordinator->canViewReport($locations[2]['report']));
+
+        $groupReporter = User::factory()->create(['role' => 'reporter']);
+        $groupReporter->assignedMunicipalities()->attach($locations[1]['municipality']);
+        $reporterVisibleIds = $groupReporter->constrainVisibleReports(Report::query())->pluck('id')->all();
+
+        $this->assertSame([$locations[1]['report']->id], $reporterVisibleIds);
+        $this->assertTrue($groupReporter->canViewReport($locations[1]['report']));
+        $this->assertFalse($groupReporter->canViewReport($locations[0]['report']));
+
+        $groupReporter->update(['countrywide_access' => true]);
+        $this->assertCount(3, $groupReporter->constrainVisibleReports(Report::query())->get());
+        $this->assertTrue($groupReporter->canViewReport($locations[2]['report']));
     }
 
     private function makeReport(User $user, State $state, Municipality $municipality, Parish $parish, Sector $sector, Activity $activity, string $placeName): Report

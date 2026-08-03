@@ -225,10 +225,7 @@ class BeneficiaryReportController extends Controller
     private function visibleReports(Request $request): Builder
     {
         $query = Report::query();
-
-        if (! $request->user()->isCoordinator()) {
-            $query->where('user_id', $request->user()->id);
-        }
+        $request->user()->constrainVisibleReports($query);
 
         return $query;
     }
@@ -264,10 +261,7 @@ class BeneficiaryReportController extends Controller
     {
         $beneficiaries = Beneficiary::query()
             ->whereHas('report', function (Builder $query) use ($request, $filters): void {
-                if (! $request->user()->isCoordinator()) {
-                    $query->where('user_id', $request->user()->id);
-                }
-
+                $request->user()->constrainVisibleReports($query);
                 $this->applyReportFilters($query, $filters);
             });
 

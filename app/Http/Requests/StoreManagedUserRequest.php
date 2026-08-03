@@ -9,6 +9,16 @@ use Illuminate\Validation\Rules\Password;
 
 class StoreManagedUserRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        $states = $this->input('state_ids', []);
+        $countrywide = in_array('countrywide', is_array($states) ? $states : [], true);
+        $this->merge([
+            'countrywide_access' => $countrywide,
+            'state_ids' => array_values(array_filter(is_array($states) ? $states : [], fn ($id) => $id !== 'countrywide')),
+        ]);
+    }
+
     public function authorize(): bool
     {
         return $this->user()?->isAdministrator() ?? false;
@@ -22,6 +32,11 @@ class StoreManagedUserRequest extends FormRequest
             'role' => ['required', Rule::in(array_keys(User::roleLabels()))],
             'is_active' => ['required', 'boolean'],
             'password' => ['required', 'confirmed', Password::min(8)],
+            'countrywide_access' => ['required', 'boolean'],
+            'state_ids' => ['nullable', 'array'],
+            'state_ids.*' => ['integer', 'distinct', 'exists:states,id'],
+            'municipality_ids' => ['nullable', 'array'],
+            'municipality_ids.*' => ['integer', 'distinct', 'exists:municipalities,id'],
         ];
     }
 }

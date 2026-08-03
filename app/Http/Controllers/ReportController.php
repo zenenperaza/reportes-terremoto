@@ -323,6 +323,7 @@ class ReportController extends Controller
     public function review(Request $request, Report $report): RedirectResponse
     {
         abort_unless($request->user()->isCoordinator(), 403);
+        $this->ensureVisible($request, $report);
         $report->update([
             'status' => 'reviewed',
             'reviewed_at' => now(),
@@ -378,9 +379,7 @@ class ReportController extends Controller
     private function filteredReports(Request $request): Builder
     {
         $query = Report::query();
-        if (! $request->user()->isCoordinator()) {
-            $query->where('user_id', $request->user()->id);
-        }
+        $request->user()->constrainVisibleReports($query);
 
         $reported = $request->input('reported');
         if ($reported === '1') {
@@ -403,8 +402,8 @@ class ReportController extends Controller
 
         return Beneficiary::query()
             ->whereHas('report', function (Builder $reports) use ($request): void {
-                $reports
-                    ->when($request->integer('state_id'), fn (Builder $query, int $stateId) => $query->where('state_id', $stateId))
+                $request->user()->constrainVisibleReports($reports);
+                $reports->when($request->integer('state_id'), fn (Builder $query, int $stateId) => $query->where('state_id', $stateId))
                     ->when($request->input('from'), fn (Builder $query, string $from) => $query->whereDate('report_date', '>=', $from))
                     ->when($request->input('to'), fn (Builder $query, string $to) => $query->whereDate('report_date', '<=', $to));
             })
@@ -414,7 +413,7 @@ class ReportController extends Controller
 
     private function ensureVisible(Request $request, Report $report): void
     {
-        abort_unless($request->user()->isCoordinator() || $report->user_id === $request->user()->id, 403);
+        abort_unless($request->user()->canViewReport($report), 403);
     }
 
     /** @param array<string, mixed> $data */

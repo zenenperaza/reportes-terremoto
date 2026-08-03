@@ -52,9 +52,7 @@ class LocationController extends Controller
             ->whereNotNull('place_name')
             ->where('place_name', '!=', '');
 
-        if (! $request->user()->isCoordinator()) {
-            $places->where('user_id', $request->user()->id);
-        }
+        $request->user()->constrainVisibleReports($places);
 
         return $places
             ->when($filters['state_id'] ?? null, fn ($query, int $stateId) => $query->where('state_id', $stateId))

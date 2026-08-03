@@ -14,14 +14,10 @@ class DashboardController extends Controller
     public function __invoke(Request $request): View
     {
         $reports = $this->visibleReports($request);
-        $visibleBeneficiaries = Beneficiary::query()
-            ->when(
-                ! $request->user()->isCoordinator(),
-                fn (Builder $query) => $query->whereHas(
-                    'report',
-                    fn (Builder $reports) => $reports->where('user_id', $request->user()->id),
-                ),
-            );
+        $visibleBeneficiaries = Beneficiary::query()->whereHas(
+            'report',
+            fn (Builder $reports) => $request->user()->constrainVisibleReports($reports),
+        );
         $activityChart = (clone $visibleBeneficiaries)
             ->join('reports as dashboard_reports', 'beneficiaries.report_id', '=', 'dashboard_reports.id')
             ->join('sectors as dashboard_sectors', 'dashboard_reports.sector_id', '=', 'dashboard_sectors.id')
@@ -55,10 +51,7 @@ class DashboardController extends Controller
     private function visibleReports(Request $request): Builder
     {
         $query = Report::query();
-
-        if (! $request->user()->isCoordinator()) {
-            $query->where('user_id', $request->user()->id);
-        }
+        $request->user()->constrainVisibleReports($query);
 
         return $query;
     }

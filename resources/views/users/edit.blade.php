@@ -5,7 +5,7 @@
 @section('content')
 <section class="page-heading compact-heading">
     <div>
-        <p class="eyebrow">Administración</p>
+        <p class="eyebrow">Administraci&oacute;n</p>
         <h1>Editar usuario</h1>
         <p class="muted">Actualice los datos o el nivel de acceso de {{ $managedUser->name }}.</p>
     </div>

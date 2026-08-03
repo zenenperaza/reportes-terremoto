@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -29,6 +30,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'countrywide_access',
         'is_active',
     ];
 
@@ -53,6 +55,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'countrywide_access' => 'boolean',
         ];
     }
 
@@ -64,6 +67,54 @@ class User extends Authenticatable
     public function beneficiaries()
     {
         return $this->hasManyThrough(Beneficiary::class, Report::class);
+    }
+
+    public function assignedStates()
+    {
+        return $this->belongsToMany(State::class, 'state_user');
+    }
+
+    public function assignedMunicipalities()
+    {
+        return $this->belongsToMany(Municipality::class, 'municipality_user');
+    }
+
+    public function constrainVisibleReports(Builder $query): Builder
+    {
+        if ($this->isAdministrator() || $this->countrywide_access) {
+            return $query;
+        }
+
+        $stateIds = $this->assignedStates()->pluck('states.id');
+        $municipalityIds = $this->assignedMunicipalities()->pluck('municipalities.id');
+
+        if ($stateIds->isEmpty() && $municipalityIds->isEmpty()) {
+            return $this->isCoordinator()
+                ? $query->whereRaw('1 = 0')
+                : $query->where('user_id', $this->id);
+        }
+
+        return $query->where(function (Builder $locations) use ($stateIds, $municipalityIds): void {
+            $locations->whereIn('state_id', $stateIds)
+                ->orWhereIn('municipality_id', $municipalityIds);
+        });
+    }
+
+    public function canViewReport(Report $report): bool
+    {
+        if ($this->isAdministrator() || $this->countrywide_access) {
+            return true;
+        }
+
+        $hasAssignments = $this->assignedStates()->exists() || $this->assignedMunicipalities()->exists();
+        if (! $hasAssignments) {
+            return ! $this->isCoordinator() && $report->user_id === $this->id;
+        }
+
+        return (
+            $this->assignedStates()->whereKey($report->state_id)->exists()
+            || $this->assignedMunicipalities()->whereKey($report->municipality_id)->exists()
+        );
     }
 
     public function isCoordinator(): bool

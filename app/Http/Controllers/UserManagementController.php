@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreManagedUserRequest;
 use App\Http\Requests\UpdateManagedUserRequest;
 use App\Models\User;
+use App\Models\State;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -14,19 +15,21 @@ class UserManagementController extends Controller
     public function index(): View
     {
         return view('users.index', [
-            'users' => User::query()->withCount(['reports', 'beneficiaries'])->orderBy('name')->paginate(20),
+            'users' => User::query()->with(['assignedStates', 'assignedMunicipalities.state'])->withCount(['reports', 'beneficiaries'])->orderBy('name')->paginate(20),
             'roleLabels' => User::roleLabels(),
         ]);
     }
 
     public function create(): View
     {
-        return view('users.create', ['roleLabels' => User::roleLabels()]);
+        return view('users.create', $this->formData());
     }
 
     public function store(StoreManagedUserRequest $request): RedirectResponse
     {
-        $user = User::create($request->validated());
+        $data = $request->validated();
+        $user = User::create(collect($data)->except(['state_ids', 'municipality_ids'])->all());
+        $this->syncLocations($user, $data);
 
         return redirect()->route('users.edit', $user)->with('success', 'Usuario creado correctamente.');
     }
@@ -36,7 +39,7 @@ class UserManagementController extends Controller
         return view('users.edit', [
             'managedUser' => $user,
             'roleLabels' => User::roleLabels(),
-        ]);
+        ] + $this->formData());
     }
 
     public function update(UpdateManagedUserRequest $request, User $user): RedirectResponse
@@ -58,7 +61,9 @@ class UserManagementController extends Controller
             unset($data['password']);
         }
 
-        $user->update($data);
+        $locations = $data;
+        $user->update(collect($data)->except(['state_ids', 'municipality_ids'])->all());
+        $this->syncLocations($user, $locations);
 
         return redirect()->route('users.index')->with('success', 'Usuario actualizado correctamente.');
     }
@@ -88,5 +93,25 @@ class UserManagementController extends Controller
             && $user->is_active
             && ($newRole !== 'admin' || ! $isActive)
             && User::query()->where('role', 'admin')->where('is_active', true)->count() <= 1;
+    }
+
+    private function formData(): array
+    {
+        return [
+            'roleLabels' => User::roleLabels(),
+            'states' => State::query()->with(['municipalities' => fn ($query) => $query->orderBy('name')])->orderBy('name')->get(),
+        ];
+    }
+
+    private function syncLocations(User $user, array $data): void
+    {
+        if ($user->isAdministrator() || $user->countrywide_access) {
+            $user->assignedStates()->sync([]);
+            $user->assignedMunicipalities()->sync([]);
+            return;
+        }
+
+        $user->assignedStates()->sync($data['state_ids'] ?? []);
+        $user->assignedMunicipalities()->sync($data['municipality_ids'] ?? []);
     }
 }
