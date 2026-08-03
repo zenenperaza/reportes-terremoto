@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -21,6 +22,13 @@ class Beneficiary extends Model
             'reported' => 'boolean',
             'reported_at' => 'date',
         ];
+    }
+
+    protected function fullName(): Attribute
+    {
+        return Attribute::make(
+            set: fn ($value) => $value === null ? null : mb_strtoupper(trim($value), 'UTF-8'),
+        );
     }
 
     public function report()

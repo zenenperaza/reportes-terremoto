@@ -100,10 +100,10 @@ class ReportWorkflowTest extends TestCase
             'place_name' => 'Comunidad El Carmen', 'total_beneficiaries' => 2, 'recurrence_status' => 'mixto',
             'people_with_disabilities' => 1, 'indigenous_people' => 1, 'pregnant_or_lactating_women' => 1,
         ]);
-        $this->assertDatabaseHas('beneficiaries', ['full_name' => 'Carla Rojas', 'ethnicity' => 'Wayúu', 'is_recurrent' => 1]);
+        $this->assertDatabaseHas('beneficiaries', ['full_name' => 'CARLA ROJAS', 'ethnicity' => 'Wayúu', 'is_recurrent' => 1]);
         $this->assertDatabaseHas('evidences', ['original_name' => 'evidencia.pdf', 'slot' => 1]);
         Storage::disk('local')->assertExists(Evidence::firstOrFail()->path);
-        $this->get($response->headers->get('Location'))->assertOk()->assertSee('Actividad de prueba')->assertSee('Carla Rojas');
+        $this->get($response->headers->get('Location'))->assertOk()->assertSee('Actividad de prueba')->assertSee('CARLA ROJAS');
 
         $report = Report::firstOrFail();
         $firstBeneficiary = $report->beneficiaries()->firstOrFail();
@@ -326,7 +326,7 @@ class ReportWorkflowTest extends TestCase
 
         $this->assertDatabaseHas('beneficiaries', [
             'id' => $ownBeneficiary->id,
-            'full_name' => 'Ana Niño',
+            'full_name' => 'ANA NIÑO',
             'age' => 4,
             'phone' => '04140000000',
             'is_recurrent' => false,
@@ -335,9 +335,9 @@ class ReportWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee($owner->name)
             ->assertSee($otherUser->name)
-            ->assertSee('Ana Niño')
-            ->assertSee('Luis Mayor')
-            ->assertSee('Luis Segundo')
+            ->assertSee('ANA NIÑO')
+            ->assertSee('LUIS MAYOR')
+            ->assertSee('LUIS SEGUNDO')
             ->assertSee('activity-records-table', false)
             ->assertSee('/vendor/datatables/jquery-3.7.1.min.js', false)
             ->assertSee('activityRowsLabel = "beneficiarios"', false);
@@ -437,7 +437,7 @@ class ReportWorkflowTest extends TestCase
 
         $reportId = $first->json('report.id');
         $this->assertDatabaseHas('reports', ['id' => $reportId, 'user_id' => $user->id, 'total_beneficiaries' => 1]);
-        $this->assertDatabaseHas('beneficiaries', ['report_id' => $reportId, 'full_name' => 'María Gómez']);
+        $this->assertDatabaseHas('beneficiaries', ['report_id' => $reportId, 'full_name' => 'MARÍA GÓMEZ']);
 
         $this->actingAs($user)->postJson('/beneficiarios', $header + ['report_id' => $reportId, 'beneficiary' => [
             'full_name' => '', 'age' => 34, 'sex' => 'Hombre', 'national_id' => null, 'phone' => '04140000000',

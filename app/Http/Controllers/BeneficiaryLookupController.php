@@ -53,9 +53,9 @@ class BeneficiaryLookupController extends Controller
             $matches->whereRaw("REPLACE(REPLACE(UPPER(national_id), ' ', ''), '-', '') = ?", [$nationalId]);
             $matchedBy = 'cédula y actividad';
         } else {
-            $normalizedName = mb_strtolower(trim(preg_replace('/\s+/', ' ', $data['full_name'])));
+            $normalizedName = mb_strtoupper(trim(preg_replace('/\s+/', ' ', $data['full_name'])), 'UTF-8');
             $matches
-                ->whereRaw('LOWER(TRIM(full_name)) = ?', [$normalizedName])
+                ->whereRaw('TRIM(full_name) = ?', [$normalizedName])
                 ->where('age', $data['age'])
                 ->where('sex', $data['sex']);
             $matchedBy = 'nombre, edad, sexo, ubicación y actividad';
