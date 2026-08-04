@@ -28,10 +28,10 @@
             </label>
             <div class="span-two">
                 <h3>Coordenadas manuales</h3>
-                <p class="muted">Ingrese latitud y longitud juntas. Altitud y precisión son opcionales.</p>
+                <p class="muted">Latitud y longitud son obligatorias y se validarán contra el Estado y Municipio seleccionados. Altitud y precisión son opcionales.</p>
                 <div class="form-grid four-cols">
-                    <label>Latitud<input type="number" name="latitude" value="{{ old('latitude', $placeName->latitude) }}" step="0.0000001" min="0.5" max="12.7"></label>
-                    <label>Longitud<input type="number" name="longitude" value="{{ old('longitude', $placeName->longitude) }}" step="0.0000001" min="-74" max="-59"></label>
+                    <label>Latitud *<input type="number" name="latitude" value="{{ old('latitude', $placeName->latitude) }}" step="0.0000001" min="0.5" max="12.7" required></label>
+                    <label>Longitud *<input type="number" name="longitude" value="{{ old('longitude', $placeName->longitude) }}" step="0.0000001" min="-74" max="-59" required></label>
                     <label>Altitud (m)<input type="number" name="altitude" value="{{ old('altitude', $placeName->altitude) }}" step="0.01" min="-500" max="10000"></label>
                     <label>Precisión (m)<input type="number" name="gps_accuracy" value="{{ old('gps_accuracy', $placeName->gps_accuracy) }}" step="0.01" min="0" max="100000"></label>
                 </div>

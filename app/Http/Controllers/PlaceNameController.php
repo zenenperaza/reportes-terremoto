@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\ReverseGeocodingException;
+use App\Models\Municipality;
 use App\Models\PlaceName;
 use App\Models\State;
+use App\Services\ReverseGeocoder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -67,7 +71,8 @@ class PlaceNameController extends Controller
     {
         $request->merge(['name' => trim((string) $request->input('name'))]);
 
-        return $request->validate(
+        $validator = Validator::make(
+            $request->all(),
             [
                 'name' => ['required', 'string', 'max:200', Rule::unique('place_names', 'name')->ignore($placeName)],
                 'state_id' => ['required', 'integer', 'exists:states,id'],
@@ -80,8 +85,8 @@ class PlaceNameController extends Controller
                     Rule::exists('parishes', 'id')->where('municipality_id', $request->input('municipality_id')),
                 ],
                 'installation_type' => ['required', Rule::in(config('reports.installation_types'))],
-                'latitude' => ['nullable', 'required_with:longitude', 'numeric', 'between:0.5,12.7'],
-                'longitude' => ['nullable', 'required_with:latitude', 'numeric', 'between:-74,-59'],
+                'latitude' => ['required', 'numeric', 'between:0.5,12.7'],
+                'longitude' => ['required', 'numeric', 'between:-74,-59'],
                 'altitude' => ['nullable', 'numeric', 'between:-500,10000'],
                 'gps_accuracy' => ['nullable', 'numeric', 'min:0', 'max:100000'],
             ],
@@ -92,9 +97,53 @@ class PlaceNameController extends Controller
                 'municipality_id.required' => 'Seleccione el municipio.',
                 'parish_id.required' => 'Seleccione la parroquia.',
                 'installation_type.required' => 'Seleccione el tipo de instalación.',
-                'latitude.required_with' => 'Ingrese la latitud junto con la longitud.',
-                'longitude.required_with' => 'Ingrese la longitud junto con la latitud.',
+                'latitude.required' => 'Ingrese la latitud.',
+                'longitude.required' => 'Ingrese la longitud.',
             ],
         );
+
+        $validator->after(function ($validator) use ($request): void {
+            $this->validateCoordinatesForLocation($validator, $request);
+        });
+
+        return $validator->validate();
+    }
+
+    private function validateCoordinatesForLocation($validator, Request $request): void
+    {
+        if (
+            $validator->errors()->has('latitude')
+            || $validator->errors()->has('longitude')
+            || $validator->errors()->has('state_id')
+            || $validator->errors()->has('municipality_id')
+        ) {
+            return;
+        }
+
+        $state = State::find((int) $request->input('state_id'));
+        $municipality = Municipality::find((int) $request->input('municipality_id'));
+
+        if (! $state || ! $municipality) {
+            return;
+        }
+
+        try {
+            $reverseGeocoder = app(ReverseGeocoder::class);
+            $address = $reverseGeocoder->resolve((float) $request->input('latitude'), (float) $request->input('longitude'));
+        } catch (ReverseGeocodingException $exception) {
+            $validator->errors()->add('latitude', $exception->getMessage());
+
+            return;
+        }
+
+        if (! $reverseGeocoder->isInVenezuela($address)) {
+            $validator->errors()->add('latitude', 'Las coordenadas deben corresponder al territorio venezolano.');
+
+            return;
+        }
+
+        if ($reverseGeocoder->matchesAdministrativeLocation($address, $state->name, $municipality->name) === false) {
+            $validator->errors()->add('latitude', 'Las coordenadas no coinciden con el Estado y Municipio seleccionados.');
+        }
     }
 }

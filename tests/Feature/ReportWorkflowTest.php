@@ -305,6 +305,15 @@ class ReportWorkflowTest extends TestCase
             'altitude' => 100,
             'gps_accuracy' => 83,
         ];
+        Http::fake([
+            '*' => Http::response([
+                'address' => [
+                    'country_code' => 've',
+                    'state' => 'Distrito Capital',
+                    'municipality' => 'Libertador',
+                ],
+            ]),
+        ]);
 
         $this->actingAs($reporter)->get('/nombres-del-lugar')
             ->assertForbidden();
@@ -319,6 +328,14 @@ class ReportWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('administrar nombres de lugares');
 
+        $this->actingAs($administrator)->post('/nombres-del-lugar', [
+            'name' => 'Escuela sin coordenadas',
+            'state_id' => $state->id,
+            'municipality_id' => $municipality->id,
+            'parish_id' => $parish->id,
+            'installation_type' => 'Comunidad / Espacio Comunitario',
+        ])->assertSessionHasErrors(['latitude', 'longitude']);
+
         $this->actingAs($administrator)->post('/nombres-del-lugar', ['name' => 'Escuela Nueva'] + $location)
             ->assertRedirect(route('place-names.index'));
         $placeName = PlaceName::where('name', 'Escuela Nueva')->firstOrFail();
@@ -332,6 +349,15 @@ class ReportWorkflowTest extends TestCase
         $this->actingAs($administrator)->delete("/nombres-del-lugar/{$placeName->id}")
             ->assertRedirect(route('place-names.index'));
         $this->assertDatabaseMissing('place_names', ['id' => $placeName->id]);
+
+        $mismatchedLocation = array_replace($location, ['latitude' => 10.1111111, 'longitude' => -69.3111111]);
+        $reverseGeocoder = \Mockery::mock(\App\Services\ReverseGeocoder::class);
+        $reverseGeocoder->shouldReceive('resolve')->once()->andReturn(['country_code' => 've']);
+        $reverseGeocoder->shouldReceive('isInVenezuela')->once()->andReturn(true);
+        $reverseGeocoder->shouldReceive('matchesAdministrativeLocation')->once()->andReturn(false);
+        app()->instance(\App\Services\ReverseGeocoder::class, $reverseGeocoder);
+        $response = $this->actingAs($administrator)->post('/nombres-del-lugar', ['name' => 'Escuela fuera de ubicación'] + $mismatchedLocation);
+        $response->assertSessionHasErrors('latitude');
     }
 
     public function test_reports_and_beneficiary_summary_are_scoped_to_the_user_except_for_administrators(): void
