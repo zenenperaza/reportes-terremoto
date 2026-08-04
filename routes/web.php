@@ -58,6 +58,7 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function (): void {
     Route::post('/reportes', [ReportController::class, 'store'])->name('reports.store');
     Route::get('/reportes/{report}/editar', [ReportController::class, 'edit'])->name('reports.edit');
     Route::put('/reportes/{report}', [ReportController::class, 'update'])->name('reports.update');
+    Route::delete('/reportes/{report}', [ReportController::class, 'destroy'])->name('reports.destroy');
     Route::get('/reportes/{report}', [ReportController::class, 'show'])->name('reports.show');
     Route::post('/reportes/{report}/revisar', [ReportController::class, 'review'])->name('reports.review');
     Route::get('/evidencias/{evidence}/descargar', [ReportController::class, 'downloadEvidence'])->name('evidences.download');

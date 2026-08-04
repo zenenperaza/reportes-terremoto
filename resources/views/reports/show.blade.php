@@ -9,12 +9,133 @@
         <h1>{{ $report->sector->name }}</h1>
         <p class="muted">{{ $report->activity->title }}</p>
     </div>
-    <div class="heading-actions"><span class="status status-{{ $report->status }}">{{ $report->status === 'reviewed' ? 'Revisado' : 'Enviado' }}</span>@if($canEditBeneficiaries)<a class="button button-primary" href="{{ route('reports.edit', $report) }}">Editar registro</a>@endif<a class="button button-secondary" href="{{ route('reports.index') }}">Volver a registros</a></div>
+    <div class="heading-actions">
+        <span class="status status-{{ $report->status }}">{{ $report->status === 'reviewed' ? 'Revisado' : 'Enviado' }}</span>
+        @if($canEditBeneficiaries)<a class="button button-primary" href="{{ route('reports.edit', $report) }}">Editar registro</a>@endif
+        @if($canDeleteReport)
+            <form method="post" action="{{ route('reports.destroy', $report) }}" class="report-delete-form">
+                @csrf
+                @method('DELETE')
+                <button class="button button-danger" type="submit">Eliminar registro</button>
+            </form>
+        @else
+            <button class="button button-danger report-delete-authorization" type="button">Eliminar registro</button>
+        @endif
+        <a class="button button-secondary" href="{{ route('reports.index') }}">Volver a registros</a>
+    </div>
 </section>
 
 @if($isCoordinator && $report->status !== 'reviewed')
     <form method="post" action="{{ route('reports.review', $report) }}" class="review-banner">@csrf<span>Confirme cuando haya comprobado los datos y evidencias del registro.</span><button class="button button-small" type="submit">Marcar como revisado</button></form>
 @endif
+
+@push('styles')
+    <style>
+        .button-danger { background: var(--danger); color: #fff; }
+        .button-danger:hover { background: #8f1e15; color: #fff; }
+        .heading-actions form { margin: 0; }
+
+        @media (max-width: 1500px) {
+            .beneficiary-table { min-width: 0; }
+            .beneficiary-table,
+            .beneficiary-table tbody { display: block; width: 100%; }
+            .beneficiary-table thead { display: none; }
+            .beneficiary-table tbody { display: grid; gap: 14px; }
+            .beneficiary-table tr {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                overflow: hidden;
+                border: 1px solid var(--line);
+                border-radius: 7px;
+            }
+            .beneficiary-table td,
+            .beneficiary-table td:first-child,
+            .beneficiary-table td:last-child {
+                display: grid;
+                grid-template-columns: minmax(120px, 42%) minmax(0, 1fr);
+                gap: 10px;
+                min-width: 0;
+                padding: 10px 12px;
+                border-bottom: 1px solid #e8eef1;
+                overflow-wrap: anywhere;
+            }
+            .beneficiary-table td::before {
+                content: attr(data-label);
+                color: var(--muted);
+                font-size: 12px;
+                font-weight: 700;
+                letter-spacing: .03em;
+                text-transform: uppercase;
+            }
+            .beneficiary-table td[data-label="Acciones"] {
+                grid-column: 1 / -1;
+                display: flex;
+                align-items: center;
+                border-bottom: 0;
+            }
+            .beneficiary-table td[data-label="Acciones"]::before { flex: 0 0 120px; }
+            .beneficiary-table td[data-label="Acciones"] .table-action + .table-action { margin-left: 8px; }
+        }
+
+        @media (max-width: 640px) {
+            .beneficiary-table tr { grid-template-columns: 1fr; }
+            .beneficiary-table td,
+            .beneficiary-table td:first-child,
+            .beneficiary-table td:last-child { grid-template-columns: 1fr; gap: 3px; }
+            .beneficiary-table td[data-label="Acciones"] { display: grid; }
+            .beneficiary-table td[data-label="Acciones"]::before { flex-basis: auto; }
+            .beneficiary-table td[data-label="Acciones"] .table-action + .table-action { margin-left: 0; }
+        }
+    </style>
+@endpush
+
+@push('scripts')
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        (() => {
+            const authorizationButton = document.querySelector('.report-delete-authorization');
+            const deleteForm = document.querySelector('.report-delete-form');
+            const showAuthorizationAlert = () => {
+                const options = {
+                    icon: 'warning',
+                    title: 'Autorizaci\u00f3n requerida',
+                    text: 'Solicite autorizaci\u00f3n a un administrador para eliminar este registro.',
+                    confirmButtonText: 'Entendido',
+                };
+
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire(options);
+                } else {
+                    window.alert(`${options.title}: ${options.text}`);
+                }
+            };
+
+            authorizationButton?.addEventListener('click', showAuthorizationAlert);
+
+            deleteForm?.addEventListener('submit', (event) => {
+                event.preventDefault();
+                const options = {
+                    icon: 'warning',
+                    title: 'Eliminar registro',
+                    text: 'Esta acci\u00f3n eliminar\u00e1 el registro, sus beneficiarios y evidencias. No se puede deshacer.',
+                    showCancelButton: true,
+                    confirmButtonText: 'S\u00ed, eliminar',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#b42318',
+                };
+
+                if (typeof Swal === 'undefined') {
+                    if (window.confirm('Eliminar este registro? Esta acci\u00f3n no se puede deshacer.')) deleteForm.submit();
+                    return;
+                }
+
+                Swal.fire(options).then((result) => {
+                    if (result.isConfirmed) deleteForm.submit();
+                });
+            });
+        })();
+    </script>
+@endpush
 
 <div class="details-grid">
     <section class="content-card"><h2>Quién implementa</h2><dl class="detail-list"><div><dt>Persona que registra</dt><dd>{{ $report->reporter_first_name }} {{ $report->reporter_last_name }}</dd></div><div><dt>Correo</dt><dd>{{ $report->reporter_email }}</dd></div><div><dt>Organización</dt><dd>{{ $report->organization }}{{ $report->other_organization ? ' · '.$report->other_organization : '' }}</dd></div></dl></section>
@@ -31,7 +152,7 @@
         <div class="table-wrap">
             <table class="beneficiary-table">
                 <thead><tr><th>Nombre y apellido</th><th>Edad</th><th>Sexo</th><th>Cédula</th><th>Teléfono</th><th>Discapacidad</th><th>Indígena</th><th>Emb./lact.</th><th>Recurrente</th><th>Reportado</th><th>Fecha de reporte</th>@if($canEditBeneficiaries)<th>Acciones</th>@endif</tr></thead>
-                <tbody>@foreach($report->beneficiaries as $beneficiary)<tr><td>{{ $beneficiary->full_name ?: 'Sin nombre registrado' }}</td><td>{{ $beneficiary->age }}</td><td>{{ $beneficiary->sex }}</td><td>{{ $beneficiary->national_id ?: '—' }}</td><td>{{ $beneficiary->phone ?: '—' }}</td><td>{{ $beneficiary->disability ?: 'Ninguna' }}</td><td>{{ $beneficiary->ethnicity ?: 'Ninguna' }}</td><td>{{ $beneficiary->pregnant_lactating ?: 'Ninguna' }}</td><td>{{ $beneficiary->is_recurrent ? 'Sí' : 'No' }}</td><td>{{ $beneficiary->reported_at ? 'Sí' : 'No' }}</td><td>{{ $beneficiary->reported_at?->format('d/m/Y') ?: '—' }}</td>@if($canEditBeneficiaries)<td><a class="table-action" href="{{ route('reports.edit', ['report' => $report, 'beneficiary' => $beneficiary->id]) }}">Editar</a></td>@endif</tr>@endforeach</tbody>
+                <tbody>@foreach($report->beneficiaries as $beneficiary)<tr><td data-label="Nombre y apellido">{{ $beneficiary->full_name ?: 'Sin nombre registrado' }}</td><td data-label="Edad">{{ $beneficiary->age }}</td><td data-label="Sexo">{{ $beneficiary->sex }}</td><td data-label="C&eacute;dula">{{ $beneficiary->national_id ?: '—' }}</td><td data-label="Tel&eacute;fono">{{ $beneficiary->phone ?: '—' }}</td><td data-label="Discapacidad">{{ $beneficiary->disability ?: 'Ninguna' }}</td><td data-label="Ind&iacute;gena">{{ $beneficiary->ethnicity ?: 'Ninguna' }}</td><td data-label="Emb./lact.">{{ $beneficiary->pregnant_lactating ?: 'Ninguna' }}</td><td data-label="Recurrente">{{ $beneficiary->is_recurrent ? 'Sí' : 'No' }}</td><td data-label="Reportado">{{ $beneficiary->reported_at ? 'Sí' : 'No' }}</td><td data-label="Fecha de reporte">{{ $beneficiary->reported_at?->format('d/m/Y') ?: '—' }}</td>@if($canEditBeneficiaries)<td data-label="Acciones"><button class="table-action beneficiary-edit-button" type="button" data-beneficiary-id="{{ $beneficiary->id }}">Editar</button><button class="table-action danger-action beneficiary-delete-button" type="button" data-beneficiary-id="{{ $beneficiary->id }}">Eliminar</button></td>@endif</tr>@endforeach</tbody>
             </table>
         </div>
         @if($canEditBeneficiaries)
@@ -79,6 +200,47 @@
                     error.hidden = true;
                     form.hidden = false;
                     form.scrollIntoView({behavior: 'smooth', block: 'center'});
+                }));
+
+                document.querySelectorAll('.beneficiary-delete-button').forEach((button) => button.addEventListener('click', async () => {
+                    const confirmation = typeof Swal !== 'undefined'
+                        ? await Swal.fire({
+                            icon: 'warning',
+                            title: 'Eliminar beneficiario',
+                            text: 'Esta acci\u00f3n no se puede deshacer.',
+                            showCancelButton: true,
+                            confirmButtonText: 'S\u00ed, eliminar',
+                            cancelButtonText: 'Cancelar',
+                            confirmButtonColor: '#b42318',
+                        })
+                        : {isConfirmed: window.confirm('Eliminar este beneficiario? Esta acci\u00f3n no se puede deshacer.')};
+
+                    if (!confirmation.isConfirmed) return;
+
+                    button.disabled = true;
+                    try {
+                        const response = await fetch(`{{ url('/beneficiarios') }}/${button.dataset.beneficiaryId}`, {
+                            method: 'DELETE',
+                            headers: {'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content},
+                        });
+                        const data = await response.json();
+
+                        if (!response.ok) throw new Error(data.message || 'No se pudo eliminar el beneficiario.');
+
+                        if (data.report_deleted) {
+                            window.location.assign(`{{ route('reports.index') }}`);
+                            return;
+                        }
+
+                        window.location.reload();
+                    } catch (exception) {
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({icon: 'error', title: 'No se pudo eliminar', text: exception.message});
+                        } else {
+                            window.alert(exception.message);
+                        }
+                        button.disabled = false;
+                    }
                 }));
 
                 document.getElementById('cancel-beneficiary-edit').addEventListener('click', () => {

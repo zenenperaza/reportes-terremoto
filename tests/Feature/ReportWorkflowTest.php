@@ -233,6 +233,61 @@ class ReportWorkflowTest extends TestCase
         $this->actingAs($reporter)->get('/usuarios')->assertForbidden();
     }
 
+    public function test_only_administrator_can_delete_a_report(): void
+    {
+        $administrator = User::factory()->create(['role' => 'admin']);
+        $reporter = User::factory()->create(['role' => 'reporter']);
+        $state = State::create(['code' => 'VE20', 'name' => 'Estado de prueba']);
+        $municipality = Municipality::create(['state_id' => $state->id, 'code' => 'VE2001', 'name' => 'Municipio de prueba']);
+        $parish = Parish::create(['municipality_id' => $municipality->id, 'code' => 'VE200101', 'name' => 'Parroquia de prueba']);
+        $sector = Sector::create(['name' => 'Sector de prueba', 'slug' => 'sector-eliminar', 'sort_order' => 1]);
+        $activity = Activity::create(['sector_id' => $sector->id, 'code' => 'DELETE-01', 'title' => 'Actividad de prueba', 'sort_order' => 1]);
+        $report = $this->makeReport($reporter, $state, $municipality, $parish, $sector, $activity, 'Lugar de prueba');
+        $beneficiary = $report->beneficiaries()->create([
+            'full_name' => 'Persona de prueba',
+            'age' => 25,
+            'sex' => 'Mujer',
+            'is_recurrent' => false,
+        ]);
+        $secondBeneficiary = $report->beneficiaries()->create([
+            'full_name' => 'Segunda persona de prueba',
+            'age' => 30,
+            'sex' => 'Hombre',
+            'is_recurrent' => false,
+        ]);
+
+        $this->actingAs($reporter)->get(route('reports.show', $report))
+            ->assertOk()
+            ->assertSee('report-delete-authorization', false)
+            ->assertSee('beneficiary-delete-button', false)
+            ->assertSee('data-label="Nombre y apellido"', false)
+            ->assertDontSee('<form method="post" action="'.route('reports.destroy', $report).'" class="report-delete-form">', false);
+
+        $this->actingAs($reporter)->delete(route('reports.destroy', $report))->assertForbidden();
+        $this->assertDatabaseHas('reports', ['id' => $report->id]);
+
+        $this->actingAs($reporter)->deleteJson(route('beneficiaries.destroy', $secondBeneficiary))
+            ->assertOk()
+            ->assertJsonPath('report_deleted', false);
+        $this->assertDatabaseMissing('beneficiaries', ['id' => $secondBeneficiary->id]);
+
+        $this->actingAs($reporter)->deleteJson(route('beneficiaries.destroy', $beneficiary))
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Solo un administrador puede eliminar el último beneficiario, ya que esta acción elimina el registro completo.');
+        $this->assertDatabaseHas('beneficiaries', ['id' => $beneficiary->id]);
+
+        $this->actingAs($administrator)->get(route('reports.show', $report))
+            ->assertOk()
+            ->assertSee(route('reports.destroy', $report), false);
+
+        $this->actingAs($administrator)->delete(route('reports.destroy', $report))
+            ->assertRedirect(route('reports.index'))
+            ->assertSessionHas('success', 'El registro y sus beneficiarios fueron eliminados correctamente.');
+
+        $this->assertDatabaseMissing('reports', ['id' => $report->id]);
+        $this->assertDatabaseMissing('beneficiaries', ['id' => $beneficiary->id]);
+    }
+
     public function test_only_administrators_can_manage_place_names(): void
     {
         $reporter = User::factory()->create(['role' => 'reporter']);

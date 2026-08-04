@@ -272,6 +272,13 @@ class ReportController extends Controller
     {
         $report = $beneficiary->report;
         $this->ensureEditable($request, $report);
+
+        if ($report->beneficiaries()->count() === 1 && ! $request->user()->isAdministrator()) {
+            return response()->json([
+                'message' => 'Solo un administrador puede eliminar el último beneficiario, ya que esta acción elimina el registro completo.',
+            ], 403);
+        }
+
         $beneficiary->delete();
 
         if (! $report->beneficiaries()->exists()) {
@@ -304,6 +311,7 @@ class ReportController extends Controller
                 $report->user_id === $request->user()->id
                 || $request->user()->isAdministrator()
             ) && $report->status !== 'reviewed',
+            'canDeleteReport' => $request->user()->isAdministrator(),
             'beneficiaryOptions' => config('reports.beneficiary_options'),
             'beneficiaryEditData' => $report->beneficiaries->keyBy('id')->map(fn (Beneficiary $beneficiary): array => [
                 'id' => $beneficiary->id,
@@ -318,6 +326,21 @@ class ReportController extends Controller
                 'is_recurrent' => $beneficiary->is_recurrent,
             ]),
         ]);
+    }
+
+    public function destroy(Request $request, Report $report): RedirectResponse
+    {
+        abort_unless($request->user()->isAdministrator(), 403);
+
+        $reportId = $report->id;
+
+        DB::transaction(function () use ($report): void {
+            $report->delete();
+        });
+
+        Storage::disk('local')->deleteDirectory("reports/{$reportId}");
+
+        return redirect()->route('reports.index')->with('success', 'El registro y sus beneficiarios fueron eliminados correctamente.');
     }
 
     public function review(Request $request, Report $report): RedirectResponse
