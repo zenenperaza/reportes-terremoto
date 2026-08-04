@@ -36,8 +36,13 @@
                         <a href="{{ route('reports.index') }}">Registros</a>
                         <a href="{{ route('beneficiaries.summary') }}">Informe de beneficiarios</a>
                         @if (auth()->user()->isAdministrator())
-                            <a href="{{ route('place-names.index') }}">Lugares</a>
-                            <a href="{{ route('users.index') }}">Usuarios</a>
+                            <details class="nav-submenu">
+                                <summary>Configuraci&oacute;n</summary>
+                                <div class="nav-submenu-links">
+                                    <a href="{{ route('users.index') }}">Usuarios</a>
+                                    <a href="{{ route('place-names.index') }}">Lugares</a>
+                                </div>
+                            </details>
                         @endif
                         <a class="button button-small" href="{{ route('reports.create') }}">+ Nuevo registro</a>
                         <div class="current-user" aria-label="Usuario conectado">
