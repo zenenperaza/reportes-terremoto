@@ -14,7 +14,12 @@ class ProgressiveWebAppTest extends TestCase
         $this->assertFileExists(public_path('service-worker.js'));
         $this->assertFileExists(public_path('offline.html'));
         $this->assertFileExists(public_path('js/pwa.js'));
+        $this->assertFileExists(public_path('css/pwa.css'));
         $this->assertFileExists(public_path('icons/asonacop-app.png'));
+        $this->assertStringContainsString(
+            'No estás conectado a Internet',
+            file_get_contents(public_path('offline.html'))
+        );
 
         $manifest = json_decode(file_get_contents($manifestPath), true, flags: JSON_THROW_ON_ERROR);
 
@@ -29,6 +34,16 @@ class ProgressiveWebAppTest extends TestCase
             ->assertOk()
             ->assertSee('manifest.webmanifest', false)
             ->assertSee('js/pwa.js', false)
+            ->assertSee('css/pwa.css', false)
             ->assertSee('theme-color', false);
+    }
+
+    public function test_network_status_script_contains_the_offline_message(): void
+    {
+        $script = file_get_contents(public_path('js/pwa.js'));
+
+        $this->assertStringContainsString('No estás conectado a Internet', $script);
+        $this->assertStringContainsString('addEventListener("offline"', $script);
+        $this->assertStringContainsString('addEventListener("online"', $script);
     }
 }

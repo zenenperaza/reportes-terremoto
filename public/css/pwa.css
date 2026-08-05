@@ -1,0 +1,30 @@
+.network-status-banner {
+    position: fixed;
+    z-index: 1100;
+    left: 50%;
+    bottom: 1.25rem;
+    width: max-content;
+    max-width: calc(100% - 2rem);
+    transform: translateX(-50%);
+    padding: 0.85rem 1.25rem;
+    border: 1px solid #7f1212;
+    border-radius: 0.6rem;
+    background: #a61b1b;
+    box-shadow: 0 0.75rem 1.75rem rgba(61, 8, 8, 0.28);
+    color: #ffffff;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.35;
+    text-align: center;
+}
+
+.network-status-banner[hidden] {
+    display: none;
+}
+
+@media (max-width: 575.98px) {
+    .network-status-banner {
+        bottom: 0.75rem;
+        width: calc(100% - 1.5rem);
+    }
+}

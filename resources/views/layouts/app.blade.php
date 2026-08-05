@@ -24,6 +24,7 @@
     <link rel="stylesheet" href="{{ asset('css/user-management.css') }}">
     <link rel="stylesheet" href="{{ asset('css/beneficiary-summary.css') }}">
     <link rel="stylesheet" href="{{ asset('css/donor-report.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/pwa.css') }}">
     @stack('styles')
 </head>
 <body>
