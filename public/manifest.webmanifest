@@ -1,0 +1,30 @@
+{
+    "id": "/",
+    "name": "Respuesta ASONACOP Venezuela",
+    "short_name": "ASONACOP",
+    "description": "Registro de beneficiarios y respuesta al terremoto en Venezuela.",
+    "lang": "es",
+    "dir": "ltr",
+    "start_url": "/panel?source=pwa",
+    "scope": "/",
+    "display": "standalone",
+    "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+    "orientation": "any",
+    "background_color": "#ffffff",
+    "theme_color": "#004b87",
+    "categories": ["government", "productivity", "utilities"],
+    "icons": [
+        {
+            "src": "/icons/asonacop-app.png",
+            "sizes": "1254x1254",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/icons/asonacop-app.png",
+            "sizes": "1254x1254",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}
