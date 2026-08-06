@@ -2,6 +2,17 @@
     <label>Nombre completo *
         <input type="text" name="name" value="{{ old('name', $managedUser?->name) }}" autocomplete="name" required autofocus>
     </label>
+    @php
+        $selectedProjects = array_map('strval', old('project_ids', $managedUser?->projects()->pluck('proyectos.id')->all() ?? []));
+    @endphp
+    <label class="span-two">Proyectos asignados *
+        <select name="project_ids[]" id="assigned-project-ids" multiple required data-placeholder="Busque y seleccione uno o varios proyectos">
+            @foreach($projects as $project)
+                <option value="{{ $project->id }}" @selected(in_array((string)$project->id, $selectedProjects, true))>{{ $project->codigo }} — {{ $project->descripcion }} ({{ $project->donante->nombre }})</option>
+            @endforeach
+        </select>
+        <small>Escriba para buscar. Puede seleccionar uno o varios proyectos.</small>
+    </label>
     <label>Correo electr&oacute;nico *
         <input type="email" name="email" value="{{ old('email', $managedUser?->email) }}" autocomplete="email" required>
     </label>
@@ -88,6 +99,19 @@
     assignedStates.addEventListener('change', syncMunicipalityOptions);
     syncMunicipalityOptions();
 </script>
+@push('scripts')
+<script>
+    $('#assigned-project-ids').select2({
+        width: '100%',
+        placeholder: $('#assigned-project-ids').data('placeholder'),
+        closeOnSelect: false,
+        language: {
+            noResults: () => 'No se encontraron proyectos',
+            searching: () => 'Buscando…'
+        }
+    });
+</script>
+@endpush
 <div class="form-actions">
     <a class="button button-secondary" href="{{ route('users.index') }}">Cancelar</a>
     <button class="button button-primary" type="submit">{{ $submitLabel }}</button>

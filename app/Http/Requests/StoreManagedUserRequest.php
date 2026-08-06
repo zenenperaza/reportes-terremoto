@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\User;
+use App\Models\Proyecto;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
@@ -37,6 +38,8 @@ class StoreManagedUserRequest extends FormRequest
             'state_ids.*' => ['integer', 'distinct', 'exists:states,id'],
             'municipality_ids' => ['nullable', 'array'],
             'municipality_ids.*' => ['integer', 'distinct', 'exists:municipalities,id'],
+            'project_ids' => [Rule::requiredIf(fn () => Proyecto::exists()), 'array', 'min:1'],
+            'project_ids.*' => ['integer', 'distinct', 'exists:proyectos,id'],
         ];
     }
 }

@@ -15,20 +15,25 @@ class TemporaryMaintenanceController extends Controller
         abort_if($token === '', 503, 'Falta configurar SERVER_MAINTENANCE_TOKEN en el archivo .env.');
         abort_unless(hash_equals($token, (string) request('token')), 403);
 
-        $results = [];
         $commands = [
             ['name' => 'optimize:clear', 'parameters' => []],
             ['name' => 'migrate', 'parameters' => [
-                '--path' => 'database/migrations/2026_08_03_120000_create_user_geographic_assignments.php',
+                '--path' => 'database/migrations/2026_08_05_120000_create_donantes_proyectos_indicadores_tables.php',
+                '--force' => true,
+            ]],
+            ['name' => 'db:seed', 'parameters' => [
+                '--class' => 'Database\\Seeders\\IndicadorSeeder',
                 '--force' => true,
             ]],
             ['name' => 'migrate', 'parameters' => [
-                '--path' => 'database/migrations/2026_08_03_130000_add_countrywide_access_to_users.php',
+                '--path' => 'database/migrations/2026_08_06_120000_link_users_projects_and_reports.php',
                 '--force' => true,
             ]],
             ['name' => 'route:cache', 'parameters' => []],
             ['name' => 'view:cache', 'parameters' => []],
         ];
+
+        $results = [];
         $exitCode = 1;
 
         try {
@@ -45,7 +50,7 @@ class TemporaryMaintenanceController extends Controller
 
             return response(
                 '<pre>'.e(implode("\n\n", $results)).'</pre>',
-                $exitCode === 0 ? 200 : 500
+                $exitCode === 0 ? 200 : 500,
             );
         } catch (Throwable $exception) {
             return response('<pre>ERROR: '.e($exception->getMessage()).'</pre>', 500);
@@ -63,5 +68,4 @@ class TemporaryMaintenanceController extends Controller
 
         return trim($matches[1], " \t\n\r\0\x0B\"'");
     }
-
 }

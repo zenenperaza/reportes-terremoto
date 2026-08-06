@@ -79,6 +79,11 @@ class User extends Authenticatable
         return $this->belongsToMany(Municipality::class, 'municipality_user');
     }
 
+    public function projects()
+    {
+        return $this->belongsToMany(Proyecto::class, 'proyecto_user')->withTimestamps();
+    }
+
     public function constrainVisibleReports(Builder $query): Builder
     {
         if ($this->isAdministrator() || $this->countrywide_access) {

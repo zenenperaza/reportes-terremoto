@@ -17,7 +17,7 @@
         <div class="empty-state"><p>No hay usuarios registrados.</p></div>
     @else
         <div class="table-wrap"><table>
-            <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Ubicaciones asignadas</th><th>Registros</th><th>Beneficiarios</th><th>Creado</th><th></th></tr></thead>
+            <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Proyectos</th><th>Ubicaciones asignadas</th><th>Registros</th><th>Beneficiarios</th><th>Creado</th><th></th></tr></thead>
             <tbody>
             @foreach ($users as $managedUser)
                 <tr>
@@ -25,6 +25,7 @@
                     <td>{{ $managedUser->email }}</td>
                     <td><span class="role role-{{ $managedUser->role }}">{{ $roleLabels[$managedUser->role] ?? $managedUser->role }}</span></td>
                     <td><span class="status {{ $managedUser->is_active ? 'status-active' : 'status-inactive' }}">{{ $managedUser->is_active ? 'Activo' : 'Inactivo' }}</span></td>
+                    <td>{{ $managedUser->projects->pluck('codigo')->join(', ') ?: 'Sin asignación' }}</td>
                     <td>
                         @if ($managedUser->isAdministrator())
                             Todo el pa&iacute;s

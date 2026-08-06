@@ -30,18 +30,15 @@
                 </div>
             </div>
             <div class="form-grid two-cols">
-                <label>Sector programático *<select name="sector_id" id="sector_id" required>
-                        <option value="">Seleccione el sector principal</option>
-                        @foreach ($sectors as $sector)
-                            <option value="{{ $sector->id }}" @selected((string) $selectedSectorId === (string) $sector->id)>{{ $sector->name }}</option>
+                <label>Proyecto *<select name="proyecto_id" id="proyecto_id" required>
+                        <option value="">Seleccione un proyecto</option>
+                        @foreach ($projects as $project)
+                            <option value="{{ $project->id }}" @selected((string) $selectedProjectId === (string) $project->id)>{{ $project->codigo }} — {{ $project->descripcion }}</option>
                         @endforeach
                     </select>
                 </label><br>
-                <label>Actividad a reportar *<select name="activity_id" id="activity_id" required>
-                        <option value="">Seleccione primero el sector</option>
-                        @foreach ($activities as $activity)
-                            <option value="{{ $activity->id }}" @selected(old('activity_id', $editing ? $report->activity_id : null) == $activity->id)>{{ $activity->title }}</option>
-                        @endforeach
+                <label>Actividad a reportar (Indicador) *<select name="indicador_proyecto_id" id="indicador_proyecto_id" required>
+                        <option value="">Seleccione primero el proyecto</option>
                     </select>
                 </label>
                 <label class="span-two">Detalles adicionales de la actividad
@@ -330,13 +327,13 @@
             state = select('state_id'),
             municipality = select('municipality_id'),
             parish = select('parish_id'),
-            sector = select('sector_id'),
-            activity = select('activity_id');
-        sector.addEventListener('change', async () => {
-            setOptions(activity, [], 'Cargando actividades');
-            if (sector.value) await loadOptions(activity, `/sectores/${sector.value}/actividades`,
-                'Seleccione la actividad');
-        });
+            project = select('proyecto_id'),
+            activity = select('indicador_proyecto_id');
+        const projectIndicators = @json($projects->mapWithKeys(fn($project) => [$project->id => $project->asignacionesIndicadores->map(fn($assignment) => ['id' => $assignment->id, 'title' => $assignment->indicador->codigo.' — '.$assignment->indicador->descripcion])]));
+        const initialIndicator = @json(old('indicador_proyecto_id', $editing ? $report->indicador_proyecto_id : null));
+        const syncProjectIndicators = selected => setOptions(activity, projectIndicators[project.value] || [], project.value ? 'Seleccione el indicador' : 'Seleccione primero el proyecto', selected);
+        project.addEventListener('change', () => syncProjectIndicators(''));
+        syncProjectIndicators(initialIndicator);
         const placeName = select('place_name'),
             installationType = select('installation_type'),
             placeLocationSummary = select('place-location-summary');
@@ -463,7 +460,7 @@
             saveButton = select('save-beneficiary');
         const headerFields = ['report_date', 'reporter_first_name', 'reporter_last_name', 'reporter_email', 'organization',
             'other_organization', 'state_id', 'municipality_id', 'parish_id', 'installation_type', 'place_name',
-            'sector_id', 'activity_id'
+            'proyecto_id', 'indicador_proyecto_id'
         ];
         let beneficiaries = @json($initialBeneficiaries),
             activeReportId = form.dataset.reportId || null,
@@ -661,8 +658,8 @@
             ['parish_id', 'parroquia'],
             ['installation_type', 'tipo de instalación'],
             ['place_name', 'nombre del lugar'],
-            ['sector_id', 'sector programático'],
-            ['activity_id', 'actividad a reportar']
+            ['proyecto_id', 'proyecto'],
+            ['indicador_proyecto_id', 'actividad a reportar']
         ];
         const ensureReportContext = () => {
             const missing = requiredHeaderFields.find(([field]) => !form.elements[field].value.trim());
@@ -763,7 +760,7 @@
             }
             const currentCheck = ++recurrenceCheck;
             const params = new URLSearchParams({
-                activity_id: activity.value,
+                indicador_proyecto_id: activity.value,
                 state_id: state.value,
                 municipality_id: municipality.value,
                 parish_id: parish.value,

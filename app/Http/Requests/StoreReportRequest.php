@@ -4,6 +4,8 @@ namespace App\Http\Requests;
 
 use App\Exceptions\ReverseGeocodingException;
 use App\Models\Activity;
+use App\Models\IndicadorProyecto;
+use App\Models\Proyecto;
 use App\Models\Municipality;
 use App\Models\Parish;
 use App\Models\PlaceName;
@@ -46,8 +48,10 @@ class StoreReportRequest extends FormRequest
             'altitude' => ['nullable', 'numeric', 'between:-500,10000'],
             'gps_accuracy' => ['nullable', 'numeric', 'min:0', 'max:100000'],
 
-            'sector_id' => ['required', 'integer', 'exists:sectors,id'],
-            'activity_id' => ['required', 'integer', 'exists:activities,id'],
+            'proyecto_id' => ['nullable', 'required_without:sector_id', 'integer', 'exists:proyectos,id'],
+            'indicador_proyecto_id' => ['nullable', 'required_with:proyecto_id', 'integer', 'exists:indicador_proyecto,id'],
+            'sector_id' => ['nullable', 'required_without:proyecto_id', 'integer', 'exists:sectors,id'],
+            'activity_id' => ['nullable', 'required_with:sector_id', 'integer', 'exists:activities,id'],
             'activity_details' => ['nullable', 'string', 'max:5000'],
 
             'beneficiaries' => ['required', 'array', 'min:1', 'max:1000'],
@@ -108,6 +112,15 @@ class StoreReportRequest extends FormRequest
                 $validator->errors()->add('activity_id', 'La actividad no corresponde al sector seleccionado.');
             }
 
+            $project = Proyecto::find($this->integer('proyecto_id'));
+            if ($project && ! $this->user()->isAdministrator() && ! $this->user()->projects()->whereKey($project->id)->exists()) {
+                $validator->errors()->add('proyecto_id', 'El proyecto no está asignado a su usuario.');
+            }
+            $assignment = IndicadorProyecto::find($this->integer('indicador_proyecto_id'));
+            if ($assignment && ($assignment->proyecto_id !== $this->integer('proyecto_id') || ! $assignment->estatus)) {
+                $validator->errors()->add('indicador_proyecto_id', 'El indicador no corresponde al proyecto seleccionado.');
+            }
+
             $place = $this->boolean('is_community_location') ? null : PlaceName::where('name', $this->input('place_name'))->first();
             if ($place && $place->state_id && (
                 $place->state_id !== $this->integer('state_id')
@@ -164,6 +177,8 @@ class StoreReportRequest extends FormRequest
             'municipality_id' => 'municipio',
             'parish_id' => 'parroquia',
             'activity_id' => 'actividad a reportar',
+            'proyecto_id' => 'proyecto',
+            'indicador_proyecto_id' => 'actividad a reportar',
             'beneficiaries' => 'beneficiarios',
             'beneficiaries.*.full_name' => 'nombre y apellido del beneficiario',
             'beneficiaries.*.national_id' => 'cédula del beneficiario',

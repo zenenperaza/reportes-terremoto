@@ -6,6 +6,7 @@ use App\Http\Requests\StoreManagedUserRequest;
 use App\Http\Requests\UpdateManagedUserRequest;
 use App\Models\User;
 use App\Models\State;
+use App\Models\Proyecto;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -15,7 +16,7 @@ class UserManagementController extends Controller
     public function index(): View
     {
         return view('users.index', [
-            'users' => User::query()->with(['assignedStates', 'assignedMunicipalities.state'])->withCount(['reports', 'beneficiaries'])->orderBy('name')->paginate(20),
+            'users' => User::query()->with(['assignedStates', 'assignedMunicipalities.state', 'projects'])->withCount(['reports', 'beneficiaries'])->orderBy('name')->paginate(20),
             'roleLabels' => User::roleLabels(),
         ]);
     }
@@ -28,8 +29,9 @@ class UserManagementController extends Controller
     public function store(StoreManagedUserRequest $request): RedirectResponse
     {
         $data = $request->validated();
-        $user = User::create(collect($data)->except(['state_ids', 'municipality_ids'])->all());
+        $user = User::create(collect($data)->except(['state_ids', 'municipality_ids', 'project_ids'])->all());
         $this->syncLocations($user, $data);
+        $user->projects()->sync($data['project_ids'] ?? []);
 
         return redirect()->route('users.edit', $user)->with('success', 'Usuario creado correctamente.');
     }
@@ -62,8 +64,9 @@ class UserManagementController extends Controller
         }
 
         $locations = $data;
-        $user->update(collect($data)->except(['state_ids', 'municipality_ids'])->all());
+        $user->update(collect($data)->except(['state_ids', 'municipality_ids', 'project_ids'])->all());
         $this->syncLocations($user, $locations);
+        $user->projects()->sync($data['project_ids'] ?? []);
 
         return redirect()->route('users.index')->with('success', 'Usuario actualizado correctamente.');
     }
@@ -100,6 +103,7 @@ class UserManagementController extends Controller
         return [
             'roleLabels' => User::roleLabels(),
             'states' => State::query()->with(['municipalities' => fn ($query) => $query->orderBy('name')])->orderBy('name')->get(),
+            'projects' => Proyecto::with('donante')->where('estatus', true)->orderBy('codigo')->get(),
         ];
     }
 

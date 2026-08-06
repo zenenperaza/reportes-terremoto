@@ -13,6 +13,7 @@ use App\Models\PlaceName;
 use App\Models\Report;
 use App\Models\Sector;
 use App\Models\State;
+use App\Models\Proyecto;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
@@ -38,15 +39,14 @@ class ReportController extends Controller
                     'report.state',
                     'report.municipality',
                     'report.parish',
-                    'report.sector',
-                    'report.activity',
+                    'report.sector', 'report.activity', 'report.proyecto', 'report.indicadorProyecto.indicador',
                 ])
                 ->latest('created_at')
                 ->latest('id')
                 ->get();
         } else {
             $reports = $this->filteredReports($request)
-                ->with(['user', 'state', 'municipality', 'parish', 'sector', 'activity'])
+                ->with(['user', 'state', 'municipality', 'parish', 'sector', 'activity', 'proyecto', 'indicadorProyecto.indicador'])
                 ->withCount('beneficiaries')
                 ->withCount(['beneficiaries as unreported_beneficiaries_count' => fn (Builder $query) => $query->whereNull('reported_at')])
                 ->latest('created_at')
@@ -65,16 +65,12 @@ class ReportController extends Controller
 
     public function create(Request $request): View
     {
-        $selectedSectorId = old('sector_id', Sector::where('slug', 'proteccion-ninez')->value('id'));
-        $sector = Sector::find($selectedSectorId);
+        $projects = $this->availableProjects($request);
+        $selectedProjectId = old('proyecto_id', $projects->first()?->id);
 
         return view('reports.create', [
-            'sectors' => Sector::query()
-                ->orderByRaw('CASE WHEN slug = ? THEN 0 ELSE 1 END', ['proteccion-ninez'])
-                ->orderBy('sort_order')
-                ->get(['id', 'name']),
-            'selectedSectorId' => $selectedSectorId,
-            'activities' => $sector ? $sector->activities()->where('active', true)->orderBy('sort_order')->get(['id', 'title']) : collect(),
+            'projects' => $projects,
+            'selectedProjectId' => $selectedProjectId,
             'organizations' => config('reports.organizations'),
             'states' => State::orderBy('name')->get(['id', 'name']),
             'communityLocation' => false,
@@ -102,16 +98,14 @@ class ReportController extends Controller
             ? $requestedBeneficiaryId
             : $report->beneficiaries->first()?->id;
 
-        $selectedSectorId = old('sector_id', $report->sector_id);
-        $sector = Sector::find($selectedSectorId);
+        $projects = $this->availableProjects($request, $report->proyecto_id);
+        $selectedProjectId = old('proyecto_id', $report->proyecto_id);
         $communityLocation = ! PlaceName::where('name', $report->place_name)->exists();
 
         return view('reports.create', [
             'report' => $report,
-            'sectors' => Sector::orderByRaw('CASE WHEN slug = ? THEN 0 ELSE 1 END', ['proteccion-ninez'])
-                ->orderBy('sort_order')->get(['id', 'name']),
-            'selectedSectorId' => $selectedSectorId,
-            'activities' => $sector ? $sector->activities()->where('active', true)->orderBy('sort_order')->get(['id', 'title']) : collect(),
+            'projects' => $projects,
+            'selectedProjectId' => $selectedProjectId,
             'organizations' => config('reports.organizations'),
             'states' => State::orderBy('name')->get(['id', 'name']),
             'communityLocation' => $communityLocation,
@@ -399,6 +393,18 @@ class ReportController extends Controller
         }, 'registro-respuesta-asonacop-'.now()->format('Ymd-His').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
+    private function availableProjects(Request $request, ?int $includeProjectId = null)
+    {
+        return Proyecto::query()
+            ->with(['donante', 'asignacionesIndicadores' => fn ($query) => $query->with('indicador')->where('estatus', true)])
+            ->where(function ($query) use ($includeProjectId): void {
+                $query->where('estatus', true);
+                if ($includeProjectId) $query->orWhereKey($includeProjectId);
+            })
+            ->when(! $request->user()->isAdministrator(), fn ($query) => $query->whereHas('users', fn ($users) => $users->whereKey($request->user()->id)))
+            ->orderBy('codigo')->get();
+    }
+
     private function filteredReports(Request $request): Builder
     {
         $query = Report::query();
@@ -445,7 +451,7 @@ class ReportController extends Controller
         $fields = [
             'report_date', 'reporter_first_name', 'reporter_last_name', 'reporter_email',
             'organization', 'other_organization', 'state_id', 'municipality_id', 'parish_id',
-            'installation_type', 'place_name', 'sector_id', 'activity_id',
+            'installation_type', 'place_name', 'proyecto_id', 'indicador_proyecto_id', 'sector_id', 'activity_id',
         ];
 
         foreach ($fields as $field) {

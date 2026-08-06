@@ -25,6 +25,9 @@
     <link rel="stylesheet" href="{{ asset('css/beneficiary-summary.css') }}">
     <link rel="stylesheet" href="{{ asset('css/donor-report.css') }}">
     <link rel="stylesheet" href="{{ asset('css/pwa.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/catalog-management.css') }}">
+    <link rel="stylesheet" href="{{ asset('vendor/select2/css/select2.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/select2-custom.css') }}">
     @stack('styles')
 </head>
 <body>
@@ -49,6 +52,9 @@
                                 <div class="nav-submenu-links">
                                     <a href="{{ route('users.index') }}">Usuarios</a>
                                     <a href="{{ route('place-names.index') }}">Lugares</a>
+                                    <a href="{{ route('donantes.index') }}">Donantes</a>
+                                    <a href="{{ route('proyectos.index') }}">Proyectos</a>
+                                    <a href="{{ route('indicadores.index') }}">Indicadores</a>
                                 </div>
                             </details>
                         @endif
@@ -82,6 +88,8 @@
         @endif
         @yield('content')
     </main>
+    <script src="{{ asset('vendor/select2/js/jquery.min.js') }}"></script>
+    <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}"></script>
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
     <script src="{{ asset('js/pwa.js') }}" defer></script>
     @stack('scripts')

@@ -67,7 +67,7 @@
                             @if($beneficiary->phone)<br><small>Tel.: {{ $beneficiary->phone }}</small>@endif
                         </td>
                         <td>{{ $report->state->name }}<br><small>{{ $report->municipality->name }}, {{ $report->parish->name }}</small><br><small>{{ $report->place_name }}</small></td>
-                        <td>{{ $report->sector->name }}<br><small>{{ \Illuminate\Support\Str::limit($report->activity->title, 72) }}</small></td>
+                        <td>{{ $report->proyecto?->codigo ?? $report->sector?->name }}<br><small>{{ \Illuminate\Support\Str::limit($report->indicadorProyecto?->indicador?->descripcion ?? $report->activity?->title, 72) }}</small></td>
                         <td><span class="status status-{{ $beneficiary->is_recurrent ? 'submitted' : 'reviewed' }}">{{ $beneficiary->is_recurrent ? 'Sí' : 'No' }}</span></td>
                         <td><span class="status status-{{ $beneficiary->reported_at ? 'reviewed' : 'submitted' }}">{{ $beneficiary->reported_at ? 'Sí' : 'No' }}</span>@if($beneficiary->reported_at)<br><small>{{ $beneficiary->reported_at->format('d/m/Y') }}</small>@endif</td>
                         <td><a href="{{ route('reports.show', $report) }}">Ver</a></td>
@@ -78,7 +78,7 @@
                 <tr>
                     <td data-order="{{ $report->report_date->format('Y-m-d') }}">{{ $report->report_date->format('d/m/Y') }}</td>
                     <td>{{ $report->state->name }}<br><small>{{ $report->municipality->name }}, {{ $report->parish->name }}</small></td>
-                    <td>{{ $report->sector->name }}<br><small>{{ \Illuminate\Support\Str::limit($report->activity->title, 72) }}</small></td>
+                    <td>{{ $report->proyecto?->codigo ?? $report->sector?->name }}<br><small>{{ \Illuminate\Support\Str::limit($report->indicadorProyecto?->indicador?->descripcion ?? $report->activity?->title, 72) }}</small></td>
                     <td data-order="{{ $report->total_beneficiaries }}">{{ number_format($report->total_beneficiaries) }}</td>
                     @php($isReported = $report->beneficiaries_count > 0 && $report->unreported_beneficiaries_count === 0)
                     <td><span class="status status-{{ $isReported ? 'reviewed' : 'submitted' }}">{{ $isReported ? 'Sí' : 'No' }}</span>@if(! $isReported && $report->beneficiaries_count > $report->unreported_beneficiaries_count)<br><small>{{ $report->beneficiaries_count - $report->unreported_beneficiaries_count }} de {{ $report->beneficiaries_count }} beneficiarios reportados</small>@endif</td>

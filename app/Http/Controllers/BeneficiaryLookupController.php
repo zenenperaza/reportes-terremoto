@@ -12,7 +12,8 @@ class BeneficiaryLookupController extends Controller
     public function recurrence(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'activity_id' => ['required', 'integer', 'exists:activities,id'],
+            'activity_id' => ['nullable', 'required_without:indicador_proyecto_id', 'integer', 'exists:activities,id'],
+            'indicador_proyecto_id' => ['nullable', 'required_without:activity_id', 'integer', 'exists:indicador_proyecto,id'],
             'state_id' => ['nullable', 'integer', 'exists:states,id'],
             'municipality_id' => ['nullable', 'integer', 'exists:municipalities,id'],
             'parish_id' => ['nullable', 'integer', 'exists:parishes,id'],
@@ -35,7 +36,11 @@ class BeneficiaryLookupController extends Controller
 
         $matches = Beneficiary::query()
             ->whereHas('report', function ($query) use ($data, $nationalId): void {
-                $query->where('activity_id', $data['activity_id']);
+                if (! empty($data['indicador_proyecto_id'])) {
+                    $query->where('indicador_proyecto_id', $data['indicador_proyecto_id']);
+                } else {
+                    $query->where('activity_id', $data['activity_id']);
+                }
 
                 if ($nationalId === '') {
                     $query

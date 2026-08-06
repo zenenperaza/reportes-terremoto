@@ -4,8 +4,12 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BeneficiaryLookupController;
 use App\Http\Controllers\BeneficiaryReportController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DonanteController;
+use App\Http\Controllers\IndicadorController;
+use App\Http\Controllers\IndicadorProyectoController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\PlaceNameController;
+use App\Http\Controllers\ProyectoController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Middleware\EnsureActiveUser;
@@ -29,6 +33,23 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function (): void {
         Route::get('/{user}/editar', [UserManagementController::class, 'edit'])->name('edit');
         Route::put('/{user}', [UserManagementController::class, 'update'])->name('update');
         Route::delete('/{user}', [UserManagementController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::middleware('admin')->group(function (): void {
+        Route::resource('donantes', DonanteController::class)->except('show');
+        Route::resource('proyectos', ProyectoController::class)->except('show');
+        Route::resource('indicadores', IndicadorController::class)
+            ->parameters(['indicadores' => 'indicador'])->except('show');
+        Route::get('proyectos/{proyecto}/indicadores', [IndicadorProyectoController::class, 'index'])
+            ->name('proyectos.indicadores.index');
+        Route::post('proyectos/{proyecto}/indicadores', [IndicadorProyectoController::class, 'store'])
+            ->name('proyectos.indicadores.store');
+        Route::get('indicadores-proyectos/{indicadorProyecto}/editar', [IndicadorProyectoController::class, 'edit'])
+            ->name('indicador-proyecto.edit');
+        Route::put('indicadores-proyectos/{indicadorProyecto}', [IndicadorProyectoController::class, 'update'])
+            ->name('indicador-proyecto.update');
+        Route::delete('indicadores-proyectos/{indicadorProyecto}', [IndicadorProyectoController::class, 'destroy'])
+            ->name('indicador-proyecto.destroy');
     });
 
     Route::get('/ubicaciones/estados/{state}/municipios', [LocationController::class, 'municipalities'])->name('locations.municipalities');

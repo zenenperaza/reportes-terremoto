@@ -1,4 +1,4 @@
-const CACHE_VERSION = "asonacop-pwa-v2";
+const CACHE_VERSION = "asonacop-pwa-v9";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const OFFLINE_URL = "/offline.html";
 
@@ -18,7 +18,12 @@ const APP_SHELL = [
     "/css/beneficiary-summary.css",
     "/css/donor-report.css",
     "/css/pwa.css",
+    "/css/catalog-management.css",
+    "/css/select2-custom.css",
     "/js/pwa.js",
+    "/vendor/select2/css/select2.min.css",
+    "/vendor/select2/js/jquery.min.js",
+    "/vendor/select2/js/select2.full.min.js",
     "/vendor/bootstrap/css/bootstrap.min.css",
     "/vendor/bootstrap/js/bootstrap.bundle.min.js"
 ];
