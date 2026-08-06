@@ -6,7 +6,7 @@
 <section class="page-heading detail-heading">
     <div>
         <p class="eyebrow">Registro #{{ $report->id }} · {{ $report->report_date->format('d/m/Y') }}</p>
-        <h1>{{ $report->sector->name }}</h1>
+        <h1>{{ $report->proyecto?->codigo ?? $report->sector?->name ?? 'Registro de actividad' }}</h1>
         <p class="muted">{{ $report->indicadorProyecto?->indicador?->descripcion ?? $report->activity?->title }}</p>
     </div>
     <div class="heading-actions">

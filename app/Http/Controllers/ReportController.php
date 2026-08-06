@@ -296,7 +296,7 @@ class ReportController extends Controller
     public function show(Request $request, Report $report): View
     {
         $this->ensureVisible($request, $report);
-        $report->load(['user', 'state', 'municipality', 'parish', 'sector', 'activity', 'beneficiaries', 'evidences', 'reviewer']);
+        $report->load(['user', 'state', 'municipality', 'parish', 'sector', 'activity', 'proyecto', 'indicadorProyecto.indicador', 'beneficiaries', 'evidences', 'reviewer']);
 
         return view('reports.show', [
             'report' => $report,
