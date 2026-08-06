@@ -20,14 +20,17 @@ class DashboardController extends Controller
         );
         $activityChart = (clone $visibleBeneficiaries)
             ->join('reports as dashboard_reports', 'beneficiaries.report_id', '=', 'dashboard_reports.id')
-            ->join('sectors as dashboard_sectors', 'dashboard_reports.sector_id', '=', 'dashboard_sectors.id')
-            ->join('activities as dashboard_activities', 'dashboard_reports.activity_id', '=', 'dashboard_activities.id')
+            ->leftJoin('proyectos as dashboard_projects', 'dashboard_reports.proyecto_id', '=', 'dashboard_projects.id')
+            ->leftJoin('indicador_proyecto as dashboard_assignments', 'dashboard_reports.indicador_proyecto_id', '=', 'dashboard_assignments.id')
+            ->leftJoin('indicadores as dashboard_indicators', 'dashboard_assignments.indicador_id', '=', 'dashboard_indicators.id')
+            ->leftJoin('sectors as dashboard_sectors', 'dashboard_reports.sector_id', '=', 'dashboard_sectors.id')
+            ->leftJoin('activities as dashboard_activities', 'dashboard_reports.activity_id', '=', 'dashboard_activities.id')
             ->select([
-                'dashboard_sectors.name as sector',
-                'dashboard_activities.title as activity',
+                DB::raw("COALESCE(dashboard_projects.codigo, dashboard_sectors.name, 'Sin proyecto') as sector"),
+                DB::raw("COALESCE(dashboard_indicators.descripcion, dashboard_activities.title, 'Sin indicador') as activity"),
                 DB::raw('COUNT(beneficiaries.id) as beneficiary_count'),
             ])
-            ->groupBy('dashboard_sectors.id', 'dashboard_sectors.name', 'dashboard_activities.id', 'dashboard_activities.title')
+            ->groupByRaw("COALESCE(dashboard_projects.codigo, dashboard_sectors.name, 'Sin proyecto'), COALESCE(dashboard_indicators.descripcion, dashboard_activities.title, 'Sin indicador')")
             ->orderByDesc('beneficiary_count')->limit(15)->toBase()->get();
         $placeChart = (clone $visibleBeneficiaries)
             ->join('reports as dashboard_reports', 'beneficiaries.report_id', '=', 'dashboard_reports.id')
@@ -43,7 +46,7 @@ class DashboardController extends Controller
             'unreportedBeneficiaryCount' => (clone $visibleBeneficiaries)->whereNull('reported_at')->count(),
             'activityChart' => $activityChart,
             'placeChart' => $placeChart,
-            'recentReports' => $reports->with(['state', 'municipality', 'sector'])
+            'recentReports' => $reports->with(['state', 'municipality', 'sector', 'activity', 'proyecto', 'indicadorProyecto.indicador'])
                 ->latest('report_date')->latest('id')->limit(6)->get(),
         ]);
     }

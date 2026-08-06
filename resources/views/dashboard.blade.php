@@ -21,7 +21,7 @@
 
 <section class="dashboard-charts" aria-label="Gráficos de beneficiarios">
     <article class="content-card chart-card">
-        <div class="card-heading"><div><h2>Actividad a reportar por Sector</h2><p class="muted">Beneficiarios agrupados por sector y actividad.</p></div></div>
+        <div class="card-heading"><div><h2>Actividad por proyecto</h2><p class="muted">Beneficiarios agrupados por proyecto e indicador.</p></div></div>
         @if($activityChart->isEmpty())
             <div class="empty-state"><p>No hay datos para mostrar.</p></div>
         @else
@@ -44,12 +44,12 @@
         <div class="empty-state"><p>Aún no se han registrado actividades.</p><a class="button button-primary" href="{{ route('reports.create') }}">Crear el primer registro</a></div>
     @else
         <div class="table-wrap"><table>
-            <thead><tr><th>Fecha</th><th>Ubicación</th><th>Sector</th><th>Beneficiarios</th><th>Estado</th><th></th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Ubicación</th><th>Proyecto / Actividad</th><th>Beneficiarios</th><th>Estado</th><th></th></tr></thead>
             <tbody>@foreach ($recentReports as $report)
                 <tr>
                     <td>{{ $report->report_date->format('d/m/Y') }}</td>
                     <td>{{ $report->state->name }} · {{ $report->municipality->name }}</td>
-                    <td>{{ $report->sector->name }}</td>
+                    <td><strong>{{ $report->proyecto?->codigo ?? $report->sector?->name ?? 'Sin proyecto' }}</strong><br><small>{{ \Illuminate\Support\Str::limit($report->indicadorProyecto?->indicador?->descripcion ?? $report->activity?->title ?? 'Sin indicador', 80) }}</small></td>
                     <td>{{ number_format($report->total_beneficiaries) }}</td>
                     <td><span class="status status-{{ $report->status }}">{{ $report->status === 'reviewed' ? 'Revisado' : 'Enviado' }}</span></td>
                     <td><a href="{{ route('reports.show', $report) }}">Abrir</a></td>
