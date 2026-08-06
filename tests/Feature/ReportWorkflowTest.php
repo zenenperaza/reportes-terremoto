@@ -4,10 +4,14 @@ namespace Tests\Feature;
 
 use App\Models\Activity;
 use App\Models\Beneficiary;
+use App\Models\Donante;
 use App\Models\Evidence;
+use App\Models\Indicador;
+use App\Models\IndicadorProyecto;
 use App\Models\Municipality;
 use App\Models\Parish;
 use App\Models\PlaceName;
+use App\Models\Proyecto;
 use App\Models\Report;
 use App\Models\Sector;
 use App\Models\State;
@@ -792,6 +796,79 @@ class ReportWorkflowTest extends TestCase
         $groupReporter->update(['countrywide_access' => true]);
         $this->assertCount(3, $groupReporter->constrainVisibleReports(Report::query())->get());
         $this->assertTrue($groupReporter->canViewReport($locations[2]['report']));
+    }
+
+    public function test_beneficiary_summary_includes_reports_using_project_indicators(): void
+    {
+        $user = User::factory()->create(['role' => 'reporter']);
+        $state = State::create(['code' => 'VE24', 'name' => 'La Guaira']);
+        $municipality = Municipality::create(['state_id' => $state->id, 'code' => 'VE2401', 'name' => 'Vargas']);
+        $parish = Parish::create(['municipality_id' => $municipality->id, 'code' => 'VE240101', 'name' => 'La Guaira']);
+        $donante = Donante::create(['nombre' => 'UNICEF', 'estatus' => true]);
+        $proyecto = Proyecto::create([
+            'donante_id' => $donante->id,
+            'estatus' => true,
+            'codigo' => 'VNZ/PCA202380/PD2023237',
+            'descripcion' => 'Proyecto de respuesta',
+        ]);
+        $indicador = Indicador::create([
+            'codigo' => 'GCLPR/SCA17/IC1/IE1',
+            'descripcion' => 'NNA que reciben asesoramiento y orientación legal',
+            'unidad_conteo' => 'Personas',
+            'espacio_coordinacion' => 'NNA',
+            'poblacion_dirigida' => 'NNA',
+        ]);
+        $asignacion = IndicadorProyecto::create([
+            'proyecto_id' => $proyecto->id,
+            'indicador_id' => $indicador->id,
+            'estatus' => true,
+        ]);
+        $report = Report::create([
+            'user_id' => $user->id,
+            'proyecto_id' => $proyecto->id,
+            'indicador_proyecto_id' => $asignacion->id,
+            'report_date' => today(),
+            'reporter_first_name' => $user->name,
+            'reporter_last_name' => 'Registro',
+            'reporter_email' => $user->email,
+            'organization' => 'ASONACOP',
+            'state_id' => $state->id,
+            'municipality_id' => $municipality->id,
+            'parish_id' => $parish->id,
+            'installation_type' => 'Institución educativa',
+            'place_name' => 'U.E. 10 de Marzo',
+            'recurrence_status' => 'no_recurrente',
+            'total_beneficiaries' => 1,
+            'beneficiary_breakdown' => [],
+        ]);
+        Beneficiary::create([
+            'report_id' => $report->id,
+            'full_name' => 'Beneficiario adulto',
+            'age' => 20,
+            'sex' => 'Hombre',
+            'is_recurrent' => false,
+        ]);
+
+        $this->actingAs($user)->get('/informe-beneficiarios')
+            ->assertOk()
+            ->assertSee('1 registro coincide')
+            ->assertSee('U.E. 10 de Marzo')
+            ->assertSee('NNA que reciben asesoramiento y orientación legal')
+            ->assertSee('indicador_proyecto_id='.$asignacion->id, false);
+
+        $this->actingAs($user)->get('/informe-beneficiarios?indicador_proyecto_id='.$asignacion->id)
+            ->assertOk()
+            ->assertViewHas('summary', fn (array $summary): bool => $summary['men_20_49'] === 1 && $summary['total'] === 1);
+
+        $export = $this->actingAs($user)->get('/informe-beneficiarios/exportar');
+        $path = tempnam(sys_get_temp_dir(), 'project-indicator-export-');
+        file_put_contents($path, $export->streamedContent());
+        $sheet = IOFactory::load($path)->getActiveSheet();
+        unlink($path);
+
+        $this->assertSame(2, $sheet->getHighestDataRow());
+        $this->assertSame('VNZ/PCA202380/PD2023237', $sheet->getCell('I2')->getValue());
+        $this->assertSame('NNA que reciben asesoramiento y orientación legal', $sheet->getCell('J2')->getValue());
     }
 
     private function makeReport(User $user, State $state, Municipality $municipality, Parish $parish, Sector $sector, Activity $activity, string $placeName): Report

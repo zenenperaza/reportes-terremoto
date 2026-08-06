@@ -50,7 +50,12 @@ class BeneficiaryReportController extends Controller
         $beneficiaryQuery = $this->filteredBeneficiaries($request, $filters);
         $pendingBeneficiaryCount = (clone $beneficiaryQuery)->whereNull('reported_at')->count();
         $beneficiaries = (clone $beneficiaryQuery)
-            ->with(['report:id,place_name,activity_id', 'report.activity:id,title'])
+            ->with([
+                'report:id,place_name,activity_id,indicador_proyecto_id',
+                'report.activity:id,title',
+                'report.indicadorProyecto:id,indicador_id',
+                'report.indicadorProyecto.indicador:id,descripcion',
+            ])
             ->get(['id', 'report_id', 'age', 'sex', 'disability', 'ethnicity', 'pregnant_lactating']);
         $showReportedAt = $reported === true;
         $groupedBeneficiaries = $this->groupedBeneficiaries($beneficiaryQuery, $showReportedAt);
@@ -219,7 +224,8 @@ class BeneficiaryReportController extends Controller
             ->when($filters['installation_type'] ?? null, fn (Builder $query, string $type) => $query->where('installation_type', $type))
             ->when($filters['place_name'] ?? null, fn (Builder $query, string $place) => $query->where('place_name', $place))
             ->when($filters['sector_id'] ?? null, fn (Builder $query, int $sectorId) => $query->where('sector_id', $sectorId))
-            ->when($filters['activity_id'] ?? null, fn (Builder $query, int $activityId) => $query->where('activity_id', $activityId));
+            ->when($filters['activity_id'] ?? null, fn (Builder $query, int $activityId) => $query->where('activity_id', $activityId))
+            ->when($filters['indicador_proyecto_id'] ?? null, fn (Builder $query, int $assignmentId) => $query->where('indicador_proyecto_id', $assignmentId));
     }
 
     private function visibleReports(Request $request): Builder
@@ -245,6 +251,7 @@ class BeneficiaryReportController extends Controller
             'place_name' => ['nullable', 'string', 'max:200'],
             'sector_id' => ['nullable', 'integer', 'exists:sectors,id'],
             'activity_id' => ['nullable', 'integer', 'exists:activities,id'],
+            'indicador_proyecto_id' => ['nullable', 'integer', 'exists:indicador_proyecto,id'],
             'is_recurrent' => ['nullable', Rule::in(['0', '1', 0, 1])],
             'reported' => ['nullable', Rule::in(['0', '1', 0, 1])],
         ]);
@@ -290,8 +297,11 @@ class BeneficiaryReportController extends Controller
             ->join('states as export_states', 'export_reports.state_id', '=', 'export_states.id')
             ->join('municipalities as export_municipalities', 'export_reports.municipality_id', '=', 'export_municipalities.id')
             ->join('parishes as export_parishes', 'export_reports.parish_id', '=', 'export_parishes.id')
-            ->join('sectors as export_sectors', 'export_reports.sector_id', '=', 'export_sectors.id')
-            ->join('activities as export_activities', 'export_reports.activity_id', '=', 'export_activities.id')
+            ->leftJoin('sectors as export_sectors', 'export_reports.sector_id', '=', 'export_sectors.id')
+            ->leftJoin('activities as export_activities', 'export_reports.activity_id', '=', 'export_activities.id')
+            ->leftJoin('proyectos as export_projects', 'export_reports.proyecto_id', '=', 'export_projects.id')
+            ->leftJoin('indicador_proyecto as export_indicator_projects', 'export_reports.indicador_proyecto_id', '=', 'export_indicator_projects.id')
+            ->leftJoin('indicadores as export_indicators', 'export_indicator_projects.indicador_id', '=', 'export_indicators.id')
             ->leftJoin('users as export_users', 'export_reports.user_id', '=', 'export_users.id')
             ->select([
                 'beneficiaries.id as beneficiary_id', 'beneficiaries.full_name', 'beneficiaries.age', 'beneficiaries.sex',
@@ -300,7 +310,9 @@ class BeneficiaryReportController extends Controller
                 'beneficiaries.created_at as beneficiary_created_at', 'export_states.name as state_name',
                 'export_municipalities.name as municipality_name', 'export_parishes.name as parish_name',
                 'export_reports.installation_type', 'export_reports.place_name', 'export_reports.latitude',
-                'export_reports.longitude', 'export_sectors.name as sector_name', 'export_activities.title as activity_title',
+                'export_reports.longitude',
+                DB::raw('COALESCE(export_projects.codigo, export_sectors.name) as sector_name'),
+                DB::raw('COALESCE(export_indicators.descripcion, export_activities.title) as activity_title'),
                 'export_reports.activity_details', 'export_reports.report_date', 'export_users.name as user_name',
                 'export_reports.reporter_first_name', 'export_reports.reporter_last_name',
             ])
@@ -317,12 +329,16 @@ class BeneficiaryReportController extends Controller
             'grouped_reports.report_date', 'states.id as state_id', 'states.name as state_name',
             'municipalities.id as municipality_id', 'municipalities.name as municipality_name',
             'parishes.id as parish_id', 'parishes.name as parish_name', 'grouped_reports.place_name',
-            'activities.id as activity_id', 'activities.title as activity_title',
+            'grouped_reports.activity_id',
+            'grouped_reports.indicador_proyecto_id',
+            DB::raw('COALESCE(indicadores.descripcion, activities.title) as activity_title'),
             DB::raw('COUNT(beneficiaries.id) as beneficiary_count'),
         ];
         $groupBy = [
             'grouped_reports.report_date', 'states.id', 'states.name', 'municipalities.id', 'municipalities.name',
-            'parishes.id', 'parishes.name', 'grouped_reports.place_name', 'activities.id', 'activities.title',
+            'parishes.id', 'parishes.name', 'grouped_reports.place_name',
+            'grouped_reports.indicador_proyecto_id', 'grouped_reports.activity_id', 'indicators_assignment.id',
+            'indicadores.descripcion', 'activities.id', 'activities.title',
         ];
 
         if ($includeReportedAt) {
@@ -335,14 +351,16 @@ class BeneficiaryReportController extends Controller
             ->join('states', 'grouped_reports.state_id', '=', 'states.id')
             ->join('municipalities', 'grouped_reports.municipality_id', '=', 'municipalities.id')
             ->join('parishes', 'grouped_reports.parish_id', '=', 'parishes.id')
-            ->join('activities', 'grouped_reports.activity_id', '=', 'activities.id')
+            ->leftJoin('activities', 'grouped_reports.activity_id', '=', 'activities.id')
+            ->leftJoin('indicador_proyecto as indicators_assignment', 'grouped_reports.indicador_proyecto_id', '=', 'indicators_assignment.id')
+            ->leftJoin('indicadores', 'indicators_assignment.indicador_id', '=', 'indicadores.id')
             ->select($select)
             ->groupBy($groupBy)
             ->orderByDesc('grouped_reports.report_date')
             ->orderBy('states.name')
             ->orderBy('municipalities.name')
             ->orderBy('parishes.name')
-            ->orderBy('activities.title')
+            ->orderByRaw('COALESCE(indicadores.descripcion, activities.title)')
             ->toBase()
             ->get();
     }
@@ -449,7 +467,9 @@ class BeneficiaryReportController extends Controller
             ->groupBy(fn (Beneficiary $beneficiary): string => $beneficiary->report?->place_name ?: 'Lugar sin especificar')
             ->map(function ($placeBeneficiaries, string $place) use ($breakdown): array {
                 $services = $placeBeneficiaries
-                    ->groupBy(fn (Beneficiary $beneficiary): string => $beneficiary->report?->activity?->title ?: 'Actividad sin especificar')
+                    ->groupBy(fn (Beneficiary $beneficiary): string => $beneficiary->report?->indicadorProyecto?->indicador?->descripcion
+                        ?: $beneficiary->report?->activity?->title
+                        ?: 'Actividad sin especificar')
                     ->map(fn ($serviceBeneficiaries, string $service): array => [
                         'name' => $service,
                         'values' => $breakdown($serviceBeneficiaries),

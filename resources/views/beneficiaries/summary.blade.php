@@ -87,7 +87,9 @@
                         'from' => $group->report_date, 'to' => $group->report_date,
                         'state_id' => $group->state_id, 'municipality_id' => $group->municipality_id,
                         'parish_id' => $group->parish_id, 'place_name' => $group->place_name,
-                        'activity_id' => $group->activity_id,
+                        $group->indicador_proyecto_id
+                            ? 'indicador_proyecto_id'
+                            : 'activity_id' => $group->indicador_proyecto_id ?: $group->activity_id,
                     ]);
                     $groupUrl = route('beneficiaries.summary', array_filter($groupFilters, static fn ($value) => $value !== null && $value !== ''));
                 @endphp
