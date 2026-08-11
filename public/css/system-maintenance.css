@@ -1,0 +1,78 @@
+.maintenance-control {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 32px;
+    border-top: 5px solid #1cabe2;
+}
+
+.maintenance-control h2 {
+    margin: 4px 0 10px;
+}
+
+.maintenance-control .button-danger {
+    border-color: #b42318;
+    background: #b42318;
+    color: #fff;
+}
+
+.maintenance-control .button-danger:hover {
+    border-color: #8f1e15;
+    background: #8f1e15;
+    color: #fff;
+}
+
+.maintenance-page {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    margin: 0;
+    padding: 24px;
+    background: #eef5f8;
+    color: #12344b;
+}
+
+.maintenance-message {
+    width: min(650px, 100%);
+    padding: 44px;
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 18px 55px rgba(17, 52, 75, .16);
+    text-align: center;
+}
+
+.maintenance-brand {
+    color: #064b75;
+    font-size: 29px;
+    font-weight: 800;
+}
+
+.maintenance-icon {
+    margin: 18px 0 8px;
+    color: #1cabe2;
+    font-size: 52px;
+}
+
+.maintenance-message h1 {
+    margin: 6px 0 14px;
+    color: #073f63;
+}
+
+.maintenance-message > p:not(.eyebrow) {
+    font-size: 18px;
+    line-height: 1.55;
+}
+
+.maintenance-message .maintenance-help {
+    color: #627987;
+    font-size: 14px;
+}
+
+.maintenance-message form {
+    margin-top: 18px;
+}
+
+@media (max-width: 700px) {
+    .maintenance-control { align-items: stretch; flex-direction: column; }
+    .maintenance-message { padding: 30px 22px; }
+}

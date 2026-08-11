@@ -15,6 +15,7 @@ use App\Http\Controllers\PlaceNameController;
 use App\Http\Controllers\ProyectoController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ServicioController;
+use App\Http\Controllers\SystemMaintenanceController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Middleware\EnsureActiveUser;
 use Illuminate\Support\Facades\Route;
@@ -26,7 +27,7 @@ Route::middleware('guest')->group(function (): void {
     Route::post('/ingresar', [AuthController::class, 'login'])->name('login.store');
 });
 
-Route::middleware(['auth', EnsureActiveUser::class])->group(function (): void {
+Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance'])->group(function (): void {
     Route::get('/panel', DashboardController::class)->name('dashboard');
     Route::post('/salir', [AuthController::class, 'logout'])->name('logout');
 
@@ -48,6 +49,8 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function (): void {
             ->parameters(['actividades' => 'actividad'])->names('actividades')->except('show');
         Route::resource('configuracion/servicios', ServicioController::class)
             ->parameters(['servicios' => 'servicio'])->names('servicios')->except('show');
+        Route::get('configuracion/mantenimiento', [SystemMaintenanceController::class, 'index'])->name('system-maintenance.index');
+        Route::put('configuracion/mantenimiento', [SystemMaintenanceController::class, 'update'])->name('system-maintenance.update');
         Route::get('proyectos/{proyecto}/indicadores', [IndicadorProyectoController::class, 'index'])
             ->name('proyectos.indicadores.index');
         Route::post('proyectos/{proyecto}/indicadores', [IndicadorProyectoController::class, 'store'])

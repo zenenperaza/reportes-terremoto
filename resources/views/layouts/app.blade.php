@@ -58,6 +58,7 @@
                                     <a href="{{ route('indicadores.index') }}">Indicadores</a>
                                     <a href="{{ route('actividades.index') }}">Actividades</a>
                                     <a href="{{ route('servicios.index') }}">Servicios</a>
+                                    <a href="{{ route('system-maintenance.index') }}">Mantenimiento</a>
                                 </div>
                             </details>
                         @endif
