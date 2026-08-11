@@ -96,6 +96,12 @@ class CatalogManagementTest extends TestCase
     public function test_indicator_uses_a_valid_age_range(): void
     {
         $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $this->actingAs($admin)->get(route('indicadores.create'))
+            ->assertOk()
+            ->assertSee('name="unidad_conteo"', false)
+            ->assertSee('Productos / Informes / Análisis')
+            ->assertSee('Comités o mecanismos comunitarios')
+            ->assertSee('Actividades de incidencia');
         $data = [
             'codigo' => 'IND-EDAD-01',
             'descripcion' => 'Indicador para personas adultas',
@@ -115,6 +121,10 @@ class CatalogManagementTest extends TestCase
             'codigo' => 'IND-EDAD-INVALIDO', 'edad_desde' => 50, 'edad_hasta' => 20,
         ]))->assertSessionHasErrors('edad_hasta');
         $this->assertDatabaseMissing('indicadores', ['codigo' => 'IND-EDAD-INVALIDO']);
+
+        $this->actingAs($admin)->post(route('indicadores.store'), array_replace($data, [
+            'codigo' => 'IND-UNIDAD-INVALIDA', 'unidad_conteo' => 'Otra unidad',
+        ]))->assertSessionHasErrors('unidad_conteo');
     }
 
     public function test_indicator_pagination_uses_bootstrap_controls(): void

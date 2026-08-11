@@ -427,6 +427,9 @@ class ReportController extends Controller
                 return [
                     'id' => $assignment->id,
                     'title' => $assignment->indicador->descripcion,
+                    'unit' => $assignment->indicador->unidad_conteo,
+                    'ageFrom' => $assignment->indicador->edad_desde,
+                    'ageTo' => $assignment->indicador->edad_hasta,
                     'activities' => $assignment->asignacionesActividades->map(function ($projectActivity): array {
                         return [
                             'id' => $projectActivity->id,

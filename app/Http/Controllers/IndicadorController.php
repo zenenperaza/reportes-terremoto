@@ -52,6 +52,7 @@ class IndicadorController extends Controller
     {
         return [
             'espacios' => Indicador::ESPACIOS_COORDINACION,
+            'unidadesConteo' => Indicador::UNIDADES_CONTEO,
         ];
     }
 
@@ -60,7 +61,7 @@ class IndicadorController extends Controller
         return $request->validate([
             'codigo' => ['required', 'string', 'max:50', Rule::unique('indicadores')->ignore($indicador)],
             'descripcion' => ['required', 'string', 'max:255'],
-            'unidad_conteo' => ['required', 'string', 'max:100'],
+            'unidad_conteo' => ['required', Rule::in(Indicador::UNIDADES_CONTEO)],
             'espacio_coordinacion' => ['required', Rule::in(Indicador::ESPACIOS_COORDINACION)],
             'edad_desde' => ['required', 'integer', 'min:0', 'max:120'],
             'edad_hasta' => ['required', 'integer', 'min:0', 'max:120', 'gte:edad_desde'],

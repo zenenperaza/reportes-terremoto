@@ -39,6 +39,25 @@ class UpdateBeneficiaryRequest extends FormRequest
         ];
     }
 
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator): void {
+            $beneficiary = $this->route('beneficiary');
+            $indicator = $beneficiary?->report?->indicadorProyecto?->indicador;
+            if ($indicator?->unidad_conteo !== 'Personas') {
+                return;
+            }
+
+            $edad = $this->input('age');
+            if (is_numeric($edad) && ((int) $edad < $indicator->edad_desde || (int) $edad > $indicator->edad_hasta)) {
+                $validator->errors()->add(
+                    'age',
+                    "La edad debe estar entre {$indicator->edad_desde} y {$indicator->edad_hasta} años para el indicador seleccionado."
+                );
+            }
+        });
+    }
+
     public function attributes(): array
     {
         return [

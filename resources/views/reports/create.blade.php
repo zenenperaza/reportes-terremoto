@@ -214,7 +214,7 @@
                 <div class="form-grid beneficiary-form-grid">
                     <label>Nombre y apellido<input type="text" id="beneficiary_full_name"
                             maxlength="150" autocomplete="name" style="text-transform: uppercase"></label>
-                    <label>Edad *<input type="number" id="beneficiary_age" min="0" max="120"
+                    <label>Edad * <small id="beneficiary-age-range" class="beneficiary-age-range" hidden></small><input type="number" id="beneficiary_age" min="0" max="120"
                             inputmode="numeric"></label>
                     <label>Sexo *<select id="beneficiary_sex">
                             <option value="">Seleccione</option>
@@ -341,6 +341,7 @@
             project = select('proyecto_id'),
             activity = select('indicador_proyecto_id'),
             indicatorDescription = select('selected-indicator-description'),
+            beneficiaryAgeRange = select('beneficiary-age-range'),
             reportedActivity = select('actividad_indicador_id'),
             services = select('servicio_actividad_ids'),
             servicesField = select('report-services-field');
@@ -349,6 +350,19 @@
         const initialActivity = @json(old('actividad_indicador_id', $editing ? $report->actividad_indicador_id : null));
         const initialServices = @json(old('servicio_actividad_ids', $editing ? $report->serviciosActividad->pluck('id')->all() : []));
         const selectedIndicator = () => (projectIndicators[project.value] || []).find(item => String(item.id) === String(activity.value));
+        const selectedIndicatorAgeRange = () => {
+            const indicator = selectedIndicator();
+            if (!indicator || indicator.unit !== 'Personas') return null;
+            return {from: Number(indicator.ageFrom), to: Number(indicator.ageTo)};
+        };
+        const syncBeneficiaryAgeRange = () => {
+            const range = selectedIndicatorAgeRange();
+            const ageInput = select('beneficiary_age');
+            ageInput.min = range ? String(range.from) : '0';
+            ageInput.max = range ? String(range.to) : '120';
+            beneficiaryAgeRange.textContent = range ? `Rango permitido: ${range.from} a ${range.to} años` : '';
+            beneficiaryAgeRange.hidden = !range;
+        };
         const syncIndicatorDescription = () => {
             const description = selectedIndicator()?.title || '';
             indicatorDescription.textContent = description;
@@ -365,6 +379,7 @@
         };
         const syncIndicatorActivities = (selected = '', selectedServices = []) => {
             syncIndicatorDescription();
+            syncBeneficiaryAgeRange();
             setOptions(reportedActivity, selectedIndicator()?.activities || [], activity.value ? 'Seleccione una actividad' : 'Seleccione primero el indicador', selected);
             syncServices(selectedServices);
         };
@@ -746,8 +761,9 @@
             const errors = missing.length ? [
                 `Complete los campos obligatorios: ${missing.map(field => labels[field]).join(', ')}.`
             ] : [];
-            if (beneficiary.age !== '' && (!Number.isInteger(Number(beneficiary.age)) || Number(beneficiary.age) < 0 ||
-                    Number(beneficiary.age) > 120)) errors.push('Indique una edad válida entre 0 y 120 años.');
+            const ageRange = selectedIndicatorAgeRange() || {from: 0, to: 120};
+            if (beneficiary.age !== '' && (!Number.isInteger(Number(beneficiary.age)) || Number(beneficiary.age) < ageRange.from ||
+                    Number(beneficiary.age) > ageRange.to)) errors.push(`La edad debe estar entre ${ageRange.from} y ${ageRange.to} años para el indicador seleccionado.`);
             return errors.join(' ');
         };
         const updateSummary = summary => {

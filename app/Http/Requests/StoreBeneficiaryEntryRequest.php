@@ -160,9 +160,17 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             if ($project && ! $this->user()->isAdministrator() && ! $this->user()->projects()->whereKey($project->id)->exists()) {
                 $validator->errors()->add('proyecto_id', 'El proyecto no está asignado a su usuario.');
             }
-            $assignment = IndicadorProyecto::find($this->integer('indicador_proyecto_id'));
+            $assignment = IndicadorProyecto::with('indicador')->find($this->integer('indicador_proyecto_id'));
             if ($assignment && ($assignment->proyecto_id !== $this->integer('proyecto_id') || ! $assignment->estatus)) {
                 $validator->errors()->add('indicador_proyecto_id', 'El indicador no corresponde al proyecto seleccionado.');
+            }
+            if ($assignment?->indicador?->unidad_conteo === 'Personas') {
+                $edadDesde = $assignment->indicador->edad_desde;
+                $edadHasta = $assignment->indicador->edad_hasta;
+                $edad = $this->input('beneficiary.age');
+                if (is_numeric($edad) && ((int) $edad < $edadDesde || (int) $edad > $edadHasta)) {
+                    $validator->errors()->add('beneficiary.age', "La edad debe estar entre $edadDesde y $edadHasta años para el indicador seleccionado.");
+                }
             }
             $projectActivity = ActividadIndicador::find($this->integer('actividad_indicador_id'));
             if ($projectActivity && ($projectActivity->indicador_proyecto_id !== $this->integer('indicador_proyecto_id') || ! $projectActivity->estatus)) {
