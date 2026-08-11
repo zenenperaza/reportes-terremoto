@@ -70,6 +70,7 @@ class ReportController extends Controller
 
         return view('reports.create', [
             'projects' => $projects,
+            'projectIndicatorOptions' => $this->projectIndicatorOptions($projects),
             'selectedProjectId' => $selectedProjectId,
             'organizations' => config('reports.organizations'),
             'states' => State::orderBy('name')->get(['id', 'name']),
@@ -92,7 +93,7 @@ class ReportController extends Controller
     public function edit(Request $request, Report $report): View
     {
         $this->ensureEditable($request, $report);
-        $report->load(['beneficiaries', 'evidences']);
+        $report->load(['beneficiaries', 'evidences', 'serviciosActividad']);
         $requestedBeneficiaryId = $request->integer('beneficiary');
         $editBeneficiaryId = $requestedBeneficiaryId && $report->beneficiaries->contains('id', $requestedBeneficiaryId)
             ? $requestedBeneficiaryId
@@ -105,6 +106,7 @@ class ReportController extends Controller
         return view('reports.create', [
             'report' => $report,
             'projects' => $projects,
+            'projectIndicatorOptions' => $this->projectIndicatorOptions($projects),
             'selectedProjectId' => $selectedProjectId,
             'organizations' => config('reports.organizations'),
             'states' => State::orderBy('name')->get(['id', 'name']),
@@ -133,10 +135,13 @@ class ReportController extends Controller
     {
         $this->ensureEditable($request, $report);
         $data = $request->validated();
+        $serviceIds = $data['servicio_actividad_ids'] ?? [];
+        unset($data['servicio_actividad_ids']);
         unset($data['evidence_1'], $data['evidence_2'], $data['evidence_3']);
 
-        DB::transaction(function () use ($request, $report, $data): void {
+        DB::transaction(function () use ($request, $report, $data, $serviceIds): void {
             $report->update($data);
+            $report->serviciosActividad()->sync($serviceIds);
             $this->storeEvidence($report, $request);
             $this->syncBeneficiarySummary($report);
         });
@@ -155,7 +160,8 @@ class ReportController extends Controller
     {
         $data = $request->validated();
         $beneficiaries = $data['beneficiaries'];
-        unset($data['beneficiaries'], $data['evidence_1'], $data['evidence_2'], $data['evidence_3']);
+        $serviceIds = $data['servicio_actividad_ids'] ?? [];
+        unset($data['beneficiaries'], $data['servicio_actividad_ids'], $data['evidence_1'], $data['evidence_2'], $data['evidence_3']);
 
         $summary = $this->beneficiarySummary($beneficiaries);
         $data['user_id'] = $request->user()->id;
@@ -166,8 +172,9 @@ class ReportController extends Controller
         $data['indigenous_people'] = $summary['indigenous_people'];
         $data['pregnant_or_lactating_women'] = $summary['pregnant_or_lactating_women'];
 
-        $report = DB::transaction(function () use ($data, $beneficiaries, $request): Report {
+        $report = DB::transaction(function () use ($data, $beneficiaries, $request, $serviceIds): Report {
             $report = Report::create($data);
+            $report->serviciosActividad()->sync($serviceIds);
             $report->beneficiaries()->createMany($beneficiaries);
 
             foreach ([1, 2, 3] as $slot) {
@@ -198,13 +205,14 @@ class ReportController extends Controller
         $data = $request->validated();
         $beneficiaryData = $data['beneficiary'];
         $reportId = $data['report_id'] ?? null;
-        unset($data['beneficiary'], $data['report_id'], $data['evidence_1'], $data['evidence_2'], $data['evidence_3']);
+        $serviceIds = $data['servicio_actividad_ids'] ?? [];
+        unset($data['beneficiary'], $data['report_id'], $data['servicio_actividad_ids'], $data['evidence_1'], $data['evidence_2'], $data['evidence_3']);
 
-        [$report, $beneficiary, $summary, $createdReport] = DB::transaction(function () use ($request, $data, $beneficiaryData, $reportId): array {
+        [$report, $beneficiary, $summary, $createdReport] = DB::transaction(function () use ($request, $data, $beneficiaryData, $reportId, $serviceIds): array {
             if ($reportId) {
                 $report = Report::findOrFail($reportId);
                 $this->ensureEditable($request, $report);
-                abort_unless($this->headersMatch($report, $data), 409, 'Los encabezados cambiaron. Guarde el beneficiario como un nuevo registro.');
+                abort_unless($this->headersMatch($report, $data, $serviceIds), 409, 'Los encabezados cambiaron. Guarde el beneficiario como un nuevo registro.');
 
                 $report->update([
                     'latitude' => $data['latitude'] ?? null,
@@ -226,6 +234,7 @@ class ReportController extends Controller
                     'indigenous_people' => $summary['indigenous_people'],
                     'pregnant_or_lactating_women' => $summary['pregnant_or_lactating_women'],
                 ]));
+                $report->serviciosActividad()->sync($serviceIds);
                 $createdReport = true;
             }
 
@@ -296,7 +305,7 @@ class ReportController extends Controller
     public function show(Request $request, Report $report): View
     {
         $this->ensureVisible($request, $report);
-        $report->load(['user', 'state', 'municipality', 'parish', 'sector', 'activity', 'proyecto', 'indicadorProyecto.indicador', 'beneficiaries', 'evidences', 'reviewer']);
+        $report->load(['user', 'state', 'municipality', 'parish', 'sector', 'activity', 'proyecto', 'indicadorProyecto.indicador', 'actividadIndicador.actividad', 'serviciosActividad.servicio', 'beneficiaries', 'evidences', 'reviewer']);
 
         return view('reports.show', [
             'report' => $report,
@@ -396,13 +405,41 @@ class ReportController extends Controller
     private function availableProjects(Request $request, ?int $includeProjectId = null)
     {
         return Proyecto::query()
-            ->with(['donante', 'asignacionesIndicadores' => fn ($query) => $query->with('indicador')->where('estatus', true)])
+            ->with(['donante', 'asignacionesIndicadores' => fn ($query) => $query
+                ->with([
+                    'indicador',
+                    'asignacionesActividades' => fn ($activities) => $activities
+                        ->with(['actividad', 'asignacionesServicios' => fn ($services) => $services->with('servicio')->where('estatus', true)])
+                        ->where('estatus', true),
+                ])->where('estatus', true)])
             ->where(function ($query) use ($includeProjectId): void {
                 $query->where('estatus', true);
-                if ($includeProjectId) $query->orWhereKey($includeProjectId);
+                if ($includeProjectId) $query->orWhere('proyectos.id', $includeProjectId);
             })
             ->when(! $request->user()->isAdministrator(), fn ($query) => $query->whereHas('users', fn ($users) => $users->whereKey($request->user()->id)))
             ->orderBy('codigo')->get();
+    }
+
+    private function projectIndicatorOptions($projects): array
+    {
+        return $projects->mapWithKeys(function (Proyecto $project): array {
+            return [$project->id => $project->asignacionesIndicadores->map(function ($assignment): array {
+                return [
+                    'id' => $assignment->id,
+                    'title' => $assignment->indicador->descripcion,
+                    'activities' => $assignment->asignacionesActividades->map(function ($projectActivity): array {
+                        return [
+                            'id' => $projectActivity->id,
+                            'title' => $projectActivity->actividad->codigo.' — '.$projectActivity->actividad->descripcion,
+                            'services' => $projectActivity->asignacionesServicios->map(fn ($projectService): array => [
+                                'id' => $projectService->id,
+                                'title' => $projectService->servicio->nombre,
+                            ])->values()->all(),
+                        ];
+                    })->values()->all(),
+                ];
+            })->values()->all()];
+        })->all();
     }
 
     private function filteredReports(Request $request): Builder
@@ -446,12 +483,12 @@ class ReportController extends Controller
     }
 
     /** @param array<string, mixed> $data */
-    private function headersMatch(Report $report, array $data): bool
+    private function headersMatch(Report $report, array $data, array $serviceIds = []): bool
     {
         $fields = [
             'report_date', 'reporter_first_name', 'reporter_last_name', 'reporter_email',
             'organization', 'other_organization', 'state_id', 'municipality_id', 'parish_id',
-            'installation_type', 'place_name', 'proyecto_id', 'indicador_proyecto_id', 'sector_id', 'activity_id',
+            'installation_type', 'place_name', 'proyecto_id', 'indicador_proyecto_id', 'actividad_indicador_id', 'sector_id', 'activity_id',
         ];
 
         foreach ($fields as $field) {
@@ -459,6 +496,13 @@ class ReportController extends Controller
             if ($this->headerValue($current) !== $this->headerValue($data[$field] ?? null)) {
                 return false;
             }
+        }
+
+        $currentServiceIds = $report->serviciosActividad()->pluck('servicio_actividad.id')->map(fn ($id) => (int) $id)->sort()->values()->all();
+        $incomingServiceIds = collect($serviceIds)->map(fn ($id) => (int) $id)->sort()->values()->all();
+
+        if ($currentServiceIds !== $incomingServiceIds) {
+            return false;
         }
 
         return true;

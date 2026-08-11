@@ -21,12 +21,28 @@ class TemporaryMaintenanceController extends Controller
                 '--path' => 'database/migrations/2026_08_05_120000_create_donantes_proyectos_indicadores_tables.php',
                 '--force' => true,
             ]],
-            ['name' => 'db:seed', 'parameters' => [
-                '--class' => 'Database\\Seeders\\IndicadorSeeder',
+            ['name' => 'migrate', 'parameters' => [
+                '--path' => 'database/migrations/2026_08_06_120000_link_users_projects_and_reports.php',
                 '--force' => true,
             ]],
             ['name' => 'migrate', 'parameters' => [
-                '--path' => 'database/migrations/2026_08_06_120000_link_users_projects_and_reports.php',
+                '--path' => 'database/migrations/2026_08_06_130000_create_actividades_servicios_tables.php',
+                '--force' => true,
+            ]],
+            ['name' => 'migrate', 'parameters' => [
+                '--path' => 'database/migrations/2026_08_07_090000_replace_indicator_population_with_age_range.php',
+                '--force' => true,
+            ]],
+            ['name' => 'migrate', 'parameters' => [
+                '--path' => 'database/migrations/2026_08_07_100000_link_reports_to_activities_and_services.php',
+                '--force' => true,
+            ]],
+            ['name' => 'db:seed', 'parameters' => [
+                '--class' => 'Database\\Seeders\\ActividadSeeder',
+                '--force' => true,
+            ]],
+            ['name' => 'db:seed', 'parameters' => [
+                '--class' => 'Database\\Seeders\\ServicioSeeder',
                 '--force' => true,
             ]],
             ['name' => 'route:cache', 'parameters' => []],

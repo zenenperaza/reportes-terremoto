@@ -20,6 +20,7 @@ class IndicadorProyectoController extends Controller
             'proyecto' => $proyecto,
             'asignaciones' => $proyecto->asignacionesIndicadores()
                 ->with('indicador')
+                ->withCount('asignacionesActividades')
                 ->orderBy('id')
                 ->paginate(20),
             'indicadoresDisponibles' => Indicador::whereNotIn(

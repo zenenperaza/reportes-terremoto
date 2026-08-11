@@ -1,16 +1,20 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ActividadController;
+use App\Http\Controllers\ActividadIndicadorServicioController;
 use App\Http\Controllers\BeneficiaryLookupController;
 use App\Http\Controllers\BeneficiaryReportController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DonanteController;
 use App\Http\Controllers\IndicadorController;
 use App\Http\Controllers\IndicadorProyectoController;
+use App\Http\Controllers\IndicadorProyectoActividadController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\PlaceNameController;
 use App\Http\Controllers\ProyectoController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ServicioController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Middleware\EnsureActiveUser;
 use Illuminate\Support\Facades\Route;
@@ -37,9 +41,13 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function (): void {
 
     Route::middleware('admin')->group(function (): void {
         Route::resource('donantes', DonanteController::class)->except('show');
-        Route::resource('proyectos', ProyectoController::class)->except('show');
+        Route::resource('proyectos', ProyectoController::class);
         Route::resource('indicadores', IndicadorController::class)
             ->parameters(['indicadores' => 'indicador'])->except('show');
+        Route::resource('configuracion/actividades', ActividadController::class)
+            ->parameters(['actividades' => 'actividad'])->names('actividades')->except('show');
+        Route::resource('configuracion/servicios', ServicioController::class)
+            ->parameters(['servicios' => 'servicio'])->names('servicios')->except('show');
         Route::get('proyectos/{proyecto}/indicadores', [IndicadorProyectoController::class, 'index'])
             ->name('proyectos.indicadores.index');
         Route::post('proyectos/{proyecto}/indicadores', [IndicadorProyectoController::class, 'store'])
@@ -50,6 +58,14 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function (): void {
             ->name('indicador-proyecto.update');
         Route::delete('indicadores-proyectos/{indicadorProyecto}', [IndicadorProyectoController::class, 'destroy'])
             ->name('indicador-proyecto.destroy');
+        Route::get('indicadores-proyectos/{indicadorProyecto}/actividades', [IndicadorProyectoActividadController::class, 'index'])->name('indicador-proyecto.actividades.index');
+        Route::post('indicadores-proyectos/{indicadorProyecto}/actividades', [IndicadorProyectoActividadController::class, 'store'])->name('indicador-proyecto.actividades.store');
+        Route::put('actividades-indicadores/{actividadIndicador}', [IndicadorProyectoActividadController::class, 'update'])->name('actividad-indicador.update');
+        Route::delete('actividades-indicadores/{actividadIndicador}', [IndicadorProyectoActividadController::class, 'destroy'])->name('actividad-indicador.destroy');
+        Route::get('actividades-indicadores/{actividadIndicador}/servicios', [ActividadIndicadorServicioController::class, 'index'])->name('actividad-indicador.servicios.index');
+        Route::post('actividades-indicadores/{actividadIndicador}/servicios', [ActividadIndicadorServicioController::class, 'store'])->name('actividad-indicador.servicios.store');
+        Route::put('servicios-actividades/{servicioActividad}', [ActividadIndicadorServicioController::class, 'update'])->name('servicio-actividad.update');
+        Route::delete('servicios-actividades/{servicioActividad}', [ActividadIndicadorServicioController::class, 'destroy'])->name('servicio-actividad.destroy');
     });
 
     Route::get('/ubicaciones/estados/{state}/municipios', [LocationController::class, 'municipalities'])->name('locations.municipalities');

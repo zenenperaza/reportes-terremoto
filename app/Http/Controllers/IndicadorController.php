@@ -52,7 +52,6 @@ class IndicadorController extends Controller
     {
         return [
             'espacios' => Indicador::ESPACIOS_COORDINACION,
-            'poblaciones' => Indicador::POBLACIONES_DIRIGIDAS,
         ];
     }
 
@@ -63,7 +62,8 @@ class IndicadorController extends Controller
             'descripcion' => ['required', 'string', 'max:255'],
             'unidad_conteo' => ['required', 'string', 'max:100'],
             'espacio_coordinacion' => ['required', Rule::in(Indicador::ESPACIOS_COORDINACION)],
-            'poblacion_dirigida' => ['required', Rule::in(Indicador::POBLACIONES_DIRIGIDAS)],
+            'edad_desde' => ['required', 'integer', 'min:0', 'max:120'],
+            'edad_hasta' => ['required', 'integer', 'min:0', 'max:120', 'gte:edad_desde'],
         ]);
     }
 }

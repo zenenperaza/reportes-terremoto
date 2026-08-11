@@ -20,7 +20,7 @@ class ProjectIndicatorSchemaTest extends TestCase
             'id', 'donante_id', 'estatus', 'codigo', 'descripcion', 'inicio', 'fin', 'created_at', 'updated_at',
         ]));
         $this->assertTrue(Schema::hasColumns('indicadores', [
-            'id', 'codigo', 'descripcion', 'unidad_conteo', 'espacio_coordinacion', 'poblacion_dirigida',
+            'id', 'codigo', 'descripcion', 'unidad_conteo', 'espacio_coordinacion', 'edad_desde', 'edad_hasta',
             'created_at', 'updated_at',
         ]));
         $this->assertTrue(Schema::hasColumns('indicador_proyecto', [
@@ -50,7 +50,8 @@ class ProjectIndicatorSchemaTest extends TestCase
             'descripcion' => 'Indicador de prueba',
             'unidad_conteo' => 'Personas',
             'espacio_coordinacion' => 'NNA',
-            'poblacion_dirigida' => 'AMBOS',
+            'edad_desde' => 0,
+            'edad_hasta' => 120,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

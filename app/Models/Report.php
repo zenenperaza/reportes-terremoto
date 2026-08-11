@@ -10,7 +10,7 @@ class Report extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id', 'proyecto_id', 'indicador_proyecto_id', 'report_date', 'reporter_first_name', 'reporter_last_name', 'reporter_email',
+        'user_id', 'proyecto_id', 'indicador_proyecto_id', 'actividad_indicador_id', 'report_date', 'reporter_first_name', 'reporter_last_name', 'reporter_email',
         'organization', 'other_organization', 'state_id', 'municipality_id', 'parish_id',
         'installation_type', 'place_name', 'latitude', 'longitude', 'altitude', 'gps_accuracy',
         'sector_id', 'activity_id', 'activity_details', 'recurrence_status', 'total_beneficiaries',
@@ -35,6 +35,8 @@ class Report extends Model
     public function activity() { return $this->belongsTo(Activity::class); }
     public function proyecto() { return $this->belongsTo(Proyecto::class); }
     public function indicadorProyecto() { return $this->belongsTo(IndicadorProyecto::class); }
+    public function actividadIndicador() { return $this->belongsTo(ActividadIndicador::class); }
+    public function serviciosActividad() { return $this->belongsToMany(ServicioActividad::class, 'report_servicio_actividad')->withTimestamps(); }
     public function beneficiaries() { return $this->hasMany(Beneficiary::class)->orderBy('id'); }
     public function evidences() { return $this->hasMany(Evidence::class)->orderBy('slot'); }
     public function reviewer() { return $this->belongsTo(User::class, 'reviewed_by')->withTrashed(); }

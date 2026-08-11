@@ -29,7 +29,7 @@
                     <p>{{ $editing ? 'Puede modificar estos datos sin crear un registro nuevo.' : 'Si cambia cualquiera de estos encabezados, el próximo beneficiario iniciará un nuevo registro.' }}</p>
                 </div>
             </div>
-            <div class="form-grid two-cols">
+            <div class="form-grid ">
                 <label>Proyecto *<select name="proyecto_id" id="proyecto_id" required>
                         <option value="">Seleccione un proyecto</option>
                         @foreach ($projects as $project)
@@ -37,9 +37,17 @@
                         @endforeach
                     </select>
                 </label><br>
-                <label>Actividad a reportar (Indicador) *<select name="indicador_proyecto_id" id="indicador_proyecto_id" required>
+                <label class="indicator-select-field">Seleccione indicador *<select name="indicador_proyecto_id" id="indicador_proyecto_id" required>
                         <option value="">Seleccione primero el proyecto</option>
+                    </select><small class="indicator-select-help">Escriba para buscar por la descripción del indicador.</small><small id="selected-indicator-description" class="selected-indicator-description" hidden></small>
+                </label><br>
+                <label>Actividad a reportar *<select name="actividad_indicador_id" id="actividad_indicador_id" required>
+                        <option value="">Seleccione primero el indicador</option>
                     </select>
+                </label>
+                <label class="span-two" id="report-services-field" hidden>Servicios *
+                    <select name="servicio_actividad_ids[]" id="servicio_actividad_ids" multiple></select>
+                    <small class="muted">Puede seleccionar uno o varios servicios.</small>
                 </label>
                 <label class="span-two">Detalles adicionales de la actividad
                     <textarea name="activity_details" rows="4" maxlength="300"
@@ -308,6 +316,9 @@
         </div>
     </form>
 
+@endsection
+
+@push('scripts')
     <script>
         const select = (id) => document.getElementById(id);
         const setOptions = (element, items, placeholder, selected = '') => {
@@ -328,12 +339,55 @@
             municipality = select('municipality_id'),
             parish = select('parish_id'),
             project = select('proyecto_id'),
-            activity = select('indicador_proyecto_id');
-        const projectIndicators = @json($projects->mapWithKeys(fn($project) => [$project->id => $project->asignacionesIndicadores->map(fn($assignment) => ['id' => $assignment->id, 'title' => $assignment->indicador->codigo.' — '.$assignment->indicador->descripcion])]));
+            activity = select('indicador_proyecto_id'),
+            indicatorDescription = select('selected-indicator-description'),
+            reportedActivity = select('actividad_indicador_id'),
+            services = select('servicio_actividad_ids'),
+            servicesField = select('report-services-field');
+        const projectIndicators = @json($projectIndicatorOptions);
         const initialIndicator = @json(old('indicador_proyecto_id', $editing ? $report->indicador_proyecto_id : null));
-        const syncProjectIndicators = selected => setOptions(activity, projectIndicators[project.value] || [], project.value ? 'Seleccione el indicador' : 'Seleccione primero el proyecto', selected);
-        project.addEventListener('change', () => syncProjectIndicators(''));
-        syncProjectIndicators(initialIndicator);
+        const initialActivity = @json(old('actividad_indicador_id', $editing ? $report->actividad_indicador_id : null));
+        const initialServices = @json(old('servicio_actividad_ids', $editing ? $report->serviciosActividad->pluck('id')->all() : []));
+        const selectedIndicator = () => (projectIndicators[project.value] || []).find(item => String(item.id) === String(activity.value));
+        const syncIndicatorDescription = () => {
+            const description = selectedIndicator()?.title || '';
+            indicatorDescription.textContent = description;
+            indicatorDescription.hidden = description === '';
+        };
+        const selectedProjectActivity = () => (selectedIndicator()?.activities || []).find(item => String(item.id) === String(reportedActivity.value));
+        const syncServices = (selected = []) => {
+            const items = selectedProjectActivity()?.services || [];
+            const selectedIds = selected.map(String);
+            services.innerHTML = items.map(item => `<option value="${item.id}" ${selectedIds.includes(String(item.id)) ? 'selected' : ''}>${item.title}</option>`).join('');
+            servicesField.hidden = items.length === 0;
+            services.required = items.length > 0;
+            if (window.jQuery && jQuery.fn.select2) jQuery(services).trigger('change.select2');
+        };
+        const syncIndicatorActivities = (selected = '', selectedServices = []) => {
+            syncIndicatorDescription();
+            setOptions(reportedActivity, selectedIndicator()?.activities || [], activity.value ? 'Seleccione una actividad' : 'Seleccione primero el indicador', selected);
+            syncServices(selectedServices);
+        };
+        const syncProjectIndicators = (selected = '', selectedActivity = '', selectedServices = []) => {
+            setOptions(activity, projectIndicators[project.value] || [], project.value ? 'Seleccione un indicador' : 'Seleccione primero el proyecto', selected);
+            if (window.jQuery && jQuery.fn.select2) jQuery(activity).trigger('change.select2');
+            syncIndicatorActivities(selectedActivity, selectedServices);
+        };
+        project.addEventListener('change', () => syncProjectIndicators());
+        reportedActivity.addEventListener('change', () => syncServices());
+        if (window.jQuery && jQuery.fn.select2) {
+            jQuery(activity).select2({
+                width: '100%',
+                placeholder: 'Seleccione un indicador',
+                dropdownCssClass: 'indicator-select2-dropdown',
+                language: {noResults: () => 'No se encontraron indicadores'},
+            });
+            jQuery(activity).on('change', () => syncIndicatorActivities());
+            jQuery(services).select2({width: '100%', placeholder: 'Seleccione uno o varios servicios'});
+        } else {
+            activity.addEventListener('change', () => syncIndicatorActivities());
+        }
+        syncProjectIndicators(initialIndicator, initialActivity, initialServices);
         const placeName = select('place_name'),
             installationType = select('installation_type'),
             placeLocationSummary = select('place-location-summary');
@@ -460,7 +514,7 @@
             saveButton = select('save-beneficiary');
         const headerFields = ['report_date', 'reporter_first_name', 'reporter_last_name', 'reporter_email', 'organization',
             'other_organization', 'state_id', 'municipality_id', 'parish_id', 'installation_type', 'place_name',
-            'proyecto_id', 'indicador_proyecto_id'
+            'proyecto_id', 'indicador_proyecto_id', 'actividad_indicador_id', 'servicio_actividad_ids[]'
         ];
         let beneficiaries = @json($initialBeneficiaries),
             activeReportId = form.dataset.reportId || null,
@@ -475,8 +529,10 @@
         };
         const inputValue = field => beneficiaryInputs[field].value.trim();
         const beneficiaryRecord = () => Object.fromEntries(beneficiaryFields.map(field => [field, inputValue(field)]));
-        const headerSignature = () => JSON.stringify(Object.fromEntries(headerFields.map(field => [field, form.elements[
-            field]?.value.trim() || ''])));
+        const headerSignature = () => JSON.stringify(Object.fromEntries(headerFields.map(field => {
+            if (field === 'servicio_actividad_ids[]') return [field, Array.from(services.selectedOptions).map(option => option.value).sort()];
+            return [field, form.elements[field]?.value.trim() || ''];
+        })));
         if (activeReportId) activeHeaderSignature = headerSignature();
         const setMessage = (element, message = '') => {
             element.textContent = message;
@@ -659,11 +715,17 @@
             ['installation_type', 'tipo de instalación'],
             ['place_name', 'nombre del lugar'],
             ['proyecto_id', 'proyecto'],
-            ['indicador_proyecto_id', 'actividad a reportar']
+            ['indicador_proyecto_id', 'indicador'],
+            ['actividad_indicador_id', 'actividad a reportar']
         ];
         const ensureReportContext = () => {
             const missing = requiredHeaderFields.find(([field]) => !form.elements[field].value.trim());
-            if (!missing) return true;
+            if (!missing && (!services.required || services.selectedOptions.length > 0)) return true;
+            if (!missing) {
+                setMessage(entryError, 'Antes de guardar, seleccione al menos un servicio.');
+                services.focus();
+                return false;
+            }
             setMessage(entryError, `Antes de guardar, complete ${missing[1]}.`);
             const communityField = {
                 state_id: communityState,
@@ -960,4 +1022,4 @@
             }
         });
     </script>
-@endsection
+@endpush

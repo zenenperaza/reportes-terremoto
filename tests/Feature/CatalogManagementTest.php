@@ -34,12 +34,12 @@ class CatalogManagementTest extends TestCase
         $indicador = Indicador::create([
             'codigo' => 'GCLPR/SCA10/IC1/IE2',
             'descripcion' => 'Número de nuevos casos de gestión de protección.',
-            'unidad_conteo' => 'Personas', 'espacio_coordinacion' => 'NNA', 'poblacion_dirigida' => 'NNA',
+            'unidad_conteo' => 'Personas', 'espacio_coordinacion' => 'NNA', 'edad_desde' => 0, 'edad_hasta' => 17,
         ]);
         $segundoIndicador = Indicador::create([
             'codigo' => 'GCLPR/SCA12/IC1/IE1',
             'descripcion' => 'Número de niñas, niños y adolescentes que reciben apoyo psicosocial mediante actividades grupales.',
-            'unidad_conteo' => 'Personas', 'espacio_coordinacion' => 'NNA', 'poblacion_dirigida' => 'NNA',
+            'unidad_conteo' => 'Personas', 'espacio_coordinacion' => 'NNA', 'edad_desde' => 0, 'edad_hasta' => 17,
         ]);
 
         $this->get(route('proyectos.indicadores.index', $proyecto))
@@ -91,6 +91,30 @@ class CatalogManagementTest extends TestCase
         $this->actingAs($reporter)->get(route('proyectos.index'))->assertForbidden();
         $this->actingAs($reporter)->get(route('indicadores.index'))->assertForbidden();
         $this->actingAs($reporter)->get(route('proyectos.indicadores.index', $proyecto))->assertForbidden();
+    }
+
+    public function test_indicator_uses_a_valid_age_range(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $data = [
+            'codigo' => 'IND-EDAD-01',
+            'descripcion' => 'Indicador para personas adultas',
+            'unidad_conteo' => 'Personas',
+            'espacio_coordinacion' => 'NNA',
+            'edad_desde' => 20,
+            'edad_hasta' => 49,
+        ];
+
+        $this->actingAs($admin)->post(route('indicadores.store'), $data)
+            ->assertRedirect(route('indicadores.index'));
+        $this->assertDatabaseHas('indicadores', [
+            'codigo' => 'IND-EDAD-01', 'edad_desde' => 20, 'edad_hasta' => 49,
+        ]);
+
+        $this->actingAs($admin)->post(route('indicadores.store'), array_replace($data, [
+            'codigo' => 'IND-EDAD-INVALIDO', 'edad_desde' => 50, 'edad_hasta' => 20,
+        ]))->assertSessionHasErrors('edad_hasta');
+        $this->assertDatabaseMissing('indicadores', ['codigo' => 'IND-EDAD-INVALIDO']);
     }
 
     public function test_indicator_pagination_uses_bootstrap_controls(): void

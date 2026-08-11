@@ -1,4 +1,4 @@
-const CACHE_VERSION = "asonacop-pwa-v9";
+const CACHE_VERSION = "asonacop-pwa-v15";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const OFFLINE_URL = "/offline.html";
 
@@ -20,6 +20,7 @@ const APP_SHELL = [
     "/css/pwa.css",
     "/css/catalog-management.css",
     "/css/select2-custom.css",
+    "/css/indicator-select2.css",
     "/js/pwa.js",
     "/vendor/select2/css/select2.min.css",
     "/vendor/select2/js/jquery.min.js",

@@ -816,7 +816,8 @@ class ReportWorkflowTest extends TestCase
             'descripcion' => 'NNA que reciben asesoramiento y orientación legal',
             'unidad_conteo' => 'Personas',
             'espacio_coordinacion' => 'NNA',
-            'poblacion_dirigida' => 'NNA',
+            'edad_desde' => 0,
+            'edad_hasta' => 17,
         ]);
         $asignacion = IndicadorProyecto::create([
             'proyecto_id' => $proyecto->id,

@@ -20,7 +20,8 @@ class IndicadorSeederTest extends TestCase
             'codigo' => 'GCLPR/SCA10/IC1/IE2',
             'unidad_conteo' => 'Personas',
             'espacio_coordinacion' => 'NNA',
-            'poblacion_dirigida' => 'NNA',
+            'edad_desde' => 0,
+            'edad_hasta' => 17,
         ]);
 
         $this->seed(IndicadorSeeder::class);

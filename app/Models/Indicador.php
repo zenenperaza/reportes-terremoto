@@ -9,13 +9,16 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Indicador extends Model
 {
     public const ESPACIOS_COORDINACION = ['NNA', 'VBG'];
-    public const POBLACIONES_DIRIGIDAS = ['NNA', 'ADULTO', 'AMBOS'];
-
     protected $table = 'indicadores';
 
     protected $fillable = [
-        'codigo', 'descripcion', 'unidad_conteo', 'espacio_coordinacion', 'poblacion_dirigida',
+        'codigo', 'descripcion', 'unidad_conteo', 'espacio_coordinacion', 'edad_desde', 'edad_hasta',
     ];
+
+    protected function casts(): array
+    {
+        return ['edad_desde' => 'integer', 'edad_hasta' => 'integer'];
+    }
 
     public function proyectos(): BelongsToMany
     {

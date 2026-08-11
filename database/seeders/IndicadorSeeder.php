@@ -52,7 +52,7 @@ class IndicadorSeeder extends Seeder
                     'descripcion' => $descripcion,
                     'unidad_conteo' => $unidadConteo,
                     'espacio_coordinacion' => $espacioCoordinacion,
-                    'poblacion_dirigida' => $poblacionDirigida,
+                    ...$this->ageRange($poblacionDirigida),
                 ]
             );
         }
@@ -74,8 +74,18 @@ class IndicadorSeeder extends Seeder
             throw new RuntimeException("La fila {$row} contiene un espacio de coordinación inválido: {$espacioCoordinacion}.");
         }
 
-        if (! in_array($poblacionDirigida, Indicador::POBLACIONES_DIRIGIDAS, true)) {
+        if (! in_array($poblacionDirigida, ['NNA', 'ADULTO', 'AMBOS'], true)) {
             throw new RuntimeException("La fila {$row} contiene una población dirigida inválida: {$poblacionDirigida}.");
         }
+    }
+
+    /** @return array{edad_desde: int, edad_hasta: int} */
+    private function ageRange(string $population): array
+    {
+        return match ($population) {
+            'NNA' => ['edad_desde' => 0, 'edad_hasta' => 17],
+            'ADULTO' => ['edad_desde' => 18, 'edad_hasta' => 120],
+            default => ['edad_desde' => 0, 'edad_hasta' => 120],
+        };
     }
 }

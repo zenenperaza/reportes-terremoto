@@ -28,6 +28,7 @@
     <link rel="stylesheet" href="{{ asset('css/catalog-management.css') }}">
     <link rel="stylesheet" href="{{ asset('vendor/select2/css/select2.min.css') }}">
     <link rel="stylesheet" href="{{ asset('css/select2-custom.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/indicator-select2.css') }}">
     @stack('styles')
 </head>
 <body>
@@ -55,6 +56,8 @@
                                     <a href="{{ route('donantes.index') }}">Donantes</a>
                                     <a href="{{ route('proyectos.index') }}">Proyectos</a>
                                     <a href="{{ route('indicadores.index') }}">Indicadores</a>
+                                    <a href="{{ route('actividades.index') }}">Actividades</a>
+                                    <a href="{{ route('servicios.index') }}">Servicios</a>
                                 </div>
                             </details>
                         @endif

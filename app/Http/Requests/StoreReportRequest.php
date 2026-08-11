@@ -4,12 +4,14 @@ namespace App\Http\Requests;
 
 use App\Exceptions\ReverseGeocodingException;
 use App\Models\Activity;
+use App\Models\ActividadIndicador;
 use App\Models\IndicadorProyecto;
 use App\Models\Proyecto;
 use App\Models\Municipality;
 use App\Models\Parish;
 use App\Models\PlaceName;
 use App\Models\State;
+use App\Models\ServicioActividad;
 use App\Services\ReverseGeocoder;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -50,6 +52,9 @@ class StoreReportRequest extends FormRequest
 
             'proyecto_id' => ['nullable', 'required_without:sector_id', 'integer', 'exists:proyectos,id'],
             'indicador_proyecto_id' => ['nullable', 'required_with:proyecto_id', 'integer', 'exists:indicador_proyecto,id'],
+            'actividad_indicador_id' => ['nullable', 'required_with:indicador_proyecto_id', 'integer', 'exists:actividad_indicador,id'],
+            'servicio_actividad_ids' => ['nullable', 'array'],
+            'servicio_actividad_ids.*' => ['integer', 'distinct', 'exists:servicio_actividad,id'],
             'sector_id' => ['nullable', 'required_without:proyecto_id', 'integer', 'exists:sectors,id'],
             'activity_id' => ['nullable', 'required_with:sector_id', 'integer', 'exists:activities,id'],
             'activity_details' => ['nullable', 'string', 'max:5000'],
@@ -120,6 +125,18 @@ class StoreReportRequest extends FormRequest
             if ($assignment && ($assignment->proyecto_id !== $this->integer('proyecto_id') || ! $assignment->estatus)) {
                 $validator->errors()->add('indicador_proyecto_id', 'El indicador no corresponde al proyecto seleccionado.');
             }
+            $projectActivity = ActividadIndicador::find($this->integer('actividad_indicador_id'));
+            if ($projectActivity && ($projectActivity->indicador_proyecto_id !== $this->integer('indicador_proyecto_id') || ! $projectActivity->estatus)) {
+                $validator->errors()->add('actividad_indicador_id', 'La actividad no corresponde al indicador seleccionado.');
+            }
+            $availableServices = $projectActivity?->asignacionesServicios()->where('estatus', true)->pluck('id') ?? collect();
+            $selectedServices = collect($this->input('servicio_actividad_ids', []))->map(fn ($id) => (int) $id);
+            if ($availableServices->isNotEmpty() && $selectedServices->isEmpty()) {
+                $validator->errors()->add('servicio_actividad_ids', 'Seleccione al menos un servicio para la actividad.');
+            }
+            if ($selectedServices->diff($availableServices)->isNotEmpty()) {
+                $validator->errors()->add('servicio_actividad_ids', 'Uno de los servicios no corresponde a la actividad seleccionada.');
+            }
 
             $place = $this->boolean('is_community_location') ? null : PlaceName::where('name', $this->input('place_name'))->first();
             if ($place && $place->state_id && (
@@ -179,6 +196,8 @@ class StoreReportRequest extends FormRequest
             'activity_id' => 'actividad a reportar',
             'proyecto_id' => 'proyecto',
             'indicador_proyecto_id' => 'actividad a reportar',
+            'actividad_indicador_id' => 'actividad a reportar',
+            'servicio_actividad_ids' => 'servicios',
             'beneficiaries' => 'beneficiarios',
             'beneficiaries.*.full_name' => 'nombre y apellido del beneficiario',
             'beneficiaries.*.national_id' => 'cédula del beneficiario',

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class IndicadorProyecto extends Model
 {
@@ -26,5 +27,10 @@ class IndicadorProyecto extends Model
     public function indicador(): BelongsTo
     {
         return $this->belongsTo(Indicador::class);
+    }
+
+    public function asignacionesActividades(): HasMany
+    {
+        return $this->hasMany(ActividadIndicador::class);
     }
 }

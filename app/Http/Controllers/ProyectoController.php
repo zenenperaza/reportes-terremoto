@@ -23,6 +23,22 @@ class ProyectoController extends Controller
         return view('proyectos.create', $this->formData());
     }
 
+    public function show(Proyecto $proyecto): View
+    {
+        $proyecto->load([
+            'donante',
+            'asignacionesIndicadores' => fn ($query) => $query->with([
+                'indicador',
+                'asignacionesActividades' => fn ($activities) => $activities->with([
+                    'actividad',
+                    'asignacionesServicios.servicio',
+                ])->orderBy('id'),
+            ])->orderBy('id'),
+        ]);
+
+        return view('proyectos.show', compact('proyecto'));
+    }
+
     public function store(Request $request): RedirectResponse
     {
         Proyecto::create($this->validated($request));
