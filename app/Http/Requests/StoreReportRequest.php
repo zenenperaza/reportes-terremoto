@@ -52,7 +52,7 @@ class StoreReportRequest extends FormRequest
 
             'proyecto_id' => ['nullable', 'required_without:sector_id', 'integer', 'exists:proyectos,id'],
             'indicador_proyecto_id' => ['nullable', 'required_with:proyecto_id', 'integer', 'exists:indicador_proyecto,id'],
-            'actividad_indicador_id' => ['nullable', 'required_with:indicador_proyecto_id', 'integer', 'exists:actividad_indicador,id'],
+            'actividad_indicador_id' => ['nullable', 'integer', 'exists:actividad_indicador,id'],
             'servicio_actividad_ids' => ['nullable', 'array'],
             'servicio_actividad_ids.*' => ['integer', 'distinct', 'exists:servicio_actividad,id'],
             'sector_id' => ['nullable', 'required_without:proyecto_id', 'integer', 'exists:sectors,id'],
@@ -131,9 +131,6 @@ class StoreReportRequest extends FormRequest
             }
             $availableServices = $projectActivity?->asignacionesServicios()->where('estatus', true)->pluck('id') ?? collect();
             $selectedServices = collect($this->input('servicio_actividad_ids', []))->map(fn ($id) => (int) $id);
-            if ($availableServices->isNotEmpty() && $selectedServices->isEmpty()) {
-                $validator->errors()->add('servicio_actividad_ids', 'Seleccione al menos un servicio para la actividad.');
-            }
             if ($selectedServices->diff($availableServices)->isNotEmpty()) {
                 $validator->errors()->add('servicio_actividad_ids', 'Uno de los servicios no corresponde a la actividad seleccionada.');
             }

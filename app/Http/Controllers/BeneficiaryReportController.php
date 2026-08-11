@@ -118,7 +118,7 @@ class BeneficiaryReportController extends Controller
 
         $headers = [
             'ID', 'Estado', 'Municipio', 'Parroquia', 'Tipo de instalación', 'Nombre del lugar',
-            'Latitud', 'Longitud', 'Sector programático', 'Actividad a reportar',
+            'Latitud', 'Longitud', 'Sector programático', 'Indicador a reportar',
             'Detalles adicionales de la actividad', 'Fecha de atención', 'Nombre y apellido',
             'Edad', 'Sexo', 'Cédula', 'Teléfono', 'Discapacidad', 'Indígena',
             'Embarazada o lactante', 'Recurrente', 'Fecha de reporte', 'Fecha de inclusión', 'Usuario',

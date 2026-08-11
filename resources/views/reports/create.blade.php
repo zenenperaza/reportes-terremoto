@@ -41,11 +41,11 @@
                         <option value="">Seleccione primero el proyecto</option>
                     </select><small class="indicator-select-help">Escriba para buscar por la descripción del indicador.</small><small id="selected-indicator-description" class="selected-indicator-description" hidden></small>
                 </label><br>
-                <label>Actividad a reportar *<select name="actividad_indicador_id" id="actividad_indicador_id" required>
+                <label>Actividad a reportar <small>(opcional)</small><select name="actividad_indicador_id" id="actividad_indicador_id">
                         <option value="">Seleccione primero el indicador</option>
                     </select>
                 </label>
-                <label class="span-two" id="report-services-field" hidden>Servicios *
+                <label class="span-two" id="report-services-field" hidden>Servicios <small>(opcional)</small>
                     <select name="servicio_actividad_ids[]" id="servicio_actividad_ids" multiple></select>
                     <small class="muted">Puede seleccionar uno o varios servicios.</small>
                 </label>
@@ -360,7 +360,7 @@
             const selectedIds = selected.map(String);
             services.innerHTML = items.map(item => `<option value="${item.id}" ${selectedIds.includes(String(item.id)) ? 'selected' : ''}>${item.title}</option>`).join('');
             servicesField.hidden = items.length === 0;
-            services.required = items.length > 0;
+            services.required = false;
             if (window.jQuery && jQuery.fn.select2) jQuery(services).trigger('change.select2');
         };
         const syncIndicatorActivities = (selected = '', selectedServices = []) => {
@@ -715,15 +715,15 @@
             ['installation_type', 'tipo de instalación'],
             ['place_name', 'nombre del lugar'],
             ['proyecto_id', 'proyecto'],
-            ['indicador_proyecto_id', 'indicador'],
-            ['actividad_indicador_id', 'actividad a reportar']
+            ['indicador_proyecto_id', 'indicador']
         ];
         const ensureReportContext = () => {
             const missing = requiredHeaderFields.find(([field]) => !form.elements[field].value.trim());
-            if (!missing && (!services.required || services.selectedOptions.length > 0)) return true;
-            if (!missing) {
-                setMessage(entryError, 'Antes de guardar, seleccione al menos un servicio.');
-                services.focus();
+            if (!missing) return true;
+            const locationFields = ['state_id', 'municipality_id', 'parish_id', 'installation_type', 'place_name'];
+            if (locationFields.includes(missing[0])) {
+                setMessage(entryError, 'Antes de guardar, complete la ubicación.');
+                (communityLocationToggle.checked ? communityState : placeName).focus();
                 return false;
             }
             setMessage(entryError, `Antes de guardar, complete ${missing[1]}.`);

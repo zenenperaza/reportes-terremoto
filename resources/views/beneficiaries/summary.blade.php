@@ -49,8 +49,8 @@
         <label>Sector programático
             <select name="sector_id" id="summary_sector_id"><option value="">Todos</option>@foreach ($sectors as $sector)<option value="{{ $sector->id }}" @selected(($filters['sector_id'] ?? '') == $sector->id)>{{ $sector->name }}</option>@endforeach</select>
         </label>
-        <label>Actividad a reportar
-            <select name="activity_id" id="summary_activity_id"><option value="">Todas</option>@foreach ($activities as $activity)<option value="{{ $activity->id }}" @selected(($filters['activity_id'] ?? '') == $activity->id)>{{ $activity->title }}</option>@endforeach</select>
+        <label>Indicador a reportar
+            <select name="activity_id" id="summary_activity_id"><option value="">Todos</option>@foreach ($activities as $activity)<option value="{{ $activity->id }}" @selected(($filters['activity_id'] ?? '') == $activity->id)>{{ $activity->title }}</option>@endforeach</select>
         </label>
         <label>Recurrente
             <select name="is_recurrent"><option value="">Todos</option><option value="1" @selected(($filters['is_recurrent'] ?? '') === '1')>Sí</option><option value="0" @selected(($filters['is_recurrent'] ?? '') === '0')>No</option></select>
@@ -80,7 +80,7 @@
         <div class="empty-state"><p>No hay beneficiarios que coincidan con los filtros.</p></div>
     @else
         <div class="table-wrap"><table id="beneficiary-attention-table" class="beneficiary-attention-table">
-            <thead><tr><th>Fecha de atención</th><th>Estado</th><th>Municipio</th><th>Parroquia</th><th>Nombre del lugar</th><th>Actividad</th>@if($showReportedAt)<th>Fecha de reporte</th>@endif<th>Beneficiarios</th></tr></thead>
+            <thead><tr><th>Fecha de atención</th><th>Estado</th><th>Municipio</th><th>Parroquia</th><th>Nombre del lugar</th><th>Indicador</th>@if($showReportedAt)<th>Fecha de reporte</th>@endif<th>Beneficiarios</th></tr></thead>
             <tbody>@foreach($groupedBeneficiaries as $group)
                 @php
                     $groupFilters = array_merge($filters, [
