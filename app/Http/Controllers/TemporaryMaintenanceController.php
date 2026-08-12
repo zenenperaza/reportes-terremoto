@@ -37,6 +37,10 @@ class TemporaryMaintenanceController extends Controller
                 '--path' => 'database/migrations/2026_08_07_100000_link_reports_to_activities_and_services.php',
                 '--force' => true,
             ]],
+            ['name' => 'migrate', 'parameters' => [
+                '--path' => 'database/migrations/2026_08_11_120000_create_system_settings_table.php',
+                '--force' => true,
+            ]],
             ['name' => 'db:seed', 'parameters' => [
                 '--class' => 'Database\\Seeders\\ActividadSeeder',
                 '--force' => true,
