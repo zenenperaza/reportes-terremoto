@@ -528,6 +528,7 @@ class ReportWorkflowTest extends TestCase
         $reportId = $first->json('report.id');
         $this->assertDatabaseHas('reports', ['id' => $reportId, 'user_id' => $user->id, 'total_beneficiaries' => 1]);
         $this->assertDatabaseHas('beneficiaries', ['report_id' => $reportId, 'full_name' => 'MARÍA GÓMEZ']);
+        $this->actingAs($user)->get(route('reports.show', $reportId))->assertOk();
 
         $this->actingAs($user)->postJson('/beneficiarios', $header + ['report_id' => $reportId, 'beneficiary' => [
             'full_name' => '', 'age' => 34, 'sex' => 'Hombre', 'national_id' => null, 'phone' => '04140000000',
@@ -789,13 +790,14 @@ class ReportWorkflowTest extends TestCase
         $groupReporter->assignedMunicipalities()->attach($locations[1]['municipality']);
         $reporterVisibleIds = $groupReporter->constrainVisibleReports(Report::query())->pluck('id')->all();
 
-        $this->assertSame([$locations[1]['report']->id], $reporterVisibleIds);
-        $this->assertTrue($groupReporter->canViewReport($locations[1]['report']));
+        $this->assertSame([], $reporterVisibleIds);
+        $this->assertFalse($groupReporter->canViewReport($locations[1]['report']));
         $this->assertFalse($groupReporter->canViewReport($locations[0]['report']));
+        $this->actingAs($groupReporter)->get(route('reports.show', $locations[1]['report']))->assertForbidden();
 
         $groupReporter->update(['countrywide_access' => true]);
-        $this->assertCount(3, $groupReporter->constrainVisibleReports(Report::query())->get());
-        $this->assertTrue($groupReporter->canViewReport($locations[2]['report']));
+        $this->assertCount(0, $groupReporter->constrainVisibleReports(Report::query())->get());
+        $this->assertFalse($groupReporter->canViewReport($locations[2]['report']));
     }
 
     public function test_beneficiary_summary_includes_reports_using_project_indicators(): void

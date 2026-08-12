@@ -86,6 +86,10 @@ class User extends Authenticatable
 
     public function constrainVisibleReports(Builder $query): Builder
     {
+        if ($this->role === 'reporter') {
+            return $query->where('user_id', $this->id);
+        }
+
         if ($this->isAdministrator() || $this->countrywide_access) {
             return $query;
         }
@@ -94,9 +98,7 @@ class User extends Authenticatable
         $municipalityIds = $this->assignedMunicipalities()->pluck('municipalities.id');
 
         if ($stateIds->isEmpty() && $municipalityIds->isEmpty()) {
-            return $this->isCoordinator()
-                ? $query->whereRaw('1 = 0')
-                : $query->where('user_id', $this->id);
+            return $query->whereRaw('1 = 0');
         }
 
         return $query->where(function (Builder $locations) use ($stateIds, $municipalityIds): void {
@@ -107,13 +109,17 @@ class User extends Authenticatable
 
     public function canViewReport(Report $report): bool
     {
+        if ($this->role === 'reporter') {
+            return $report->user_id === $this->id;
+        }
+
         if ($this->isAdministrator() || $this->countrywide_access) {
             return true;
         }
 
         $hasAssignments = $this->assignedStates()->exists() || $this->assignedMunicipalities()->exists();
         if (! $hasAssignments) {
-            return ! $this->isCoordinator() && $report->user_id === $this->id;
+            return false;
         }
 
         return (
