@@ -67,24 +67,19 @@ class ReportController extends Controller
     {
         $projects = $this->availableProjects($request);
         $selectedProjectId = old('proyecto_id', $projects->first()?->id);
+        $locations = $this->availableLocations($request, $projects);
 
         return view('reports.create', [
             'projects' => $projects,
             'projectIndicatorOptions' => $this->projectIndicatorOptions($projects),
             'selectedProjectId' => $selectedProjectId,
             'organizations' => config('reports.organizations'),
-            'states' => State::orderBy('name')->get(['id', 'name']),
+            'states' => $locations['states'],
+            'projectLocationOptions' => $this->projectLocationOptions($projects),
             'communityLocation' => false,
             'communityMunicipalities' => collect(),
             'communityParishes' => collect(),
-            'placeNames' => PlaceName::query()
-                ->with(['state:id,name', 'municipality:id,name', 'parish:id,name'])
-                ->whereNotNull('state_id')->whereNotNull('municipality_id')->whereNotNull('parish_id')
-                ->whereNotNull('installation_type')->orderBy('name')
-                ->get([
-                    'id', 'name', 'state_id', 'municipality_id', 'parish_id', 'installation_type',
-                    'latitude', 'longitude', 'altitude', 'gps_accuracy',
-                ]),
+            'placeNames' => $locations['placeNames'],
             'beneficiaryOptions' => config('reports.beneficiary_options'),
             'user' => $request->user(),
         ]);
@@ -100,6 +95,7 @@ class ReportController extends Controller
             : $report->beneficiaries->first()?->id;
 
         $projects = $this->availableProjects($request, $report->proyecto_id);
+        $locations = $this->availableLocations($request, $projects);
         $selectedProjectId = old('proyecto_id', $report->proyecto_id);
         $communityLocation = ! PlaceName::where('name', $report->place_name)->exists();
 
@@ -109,7 +105,8 @@ class ReportController extends Controller
             'projectIndicatorOptions' => $this->projectIndicatorOptions($projects),
             'selectedProjectId' => $selectedProjectId,
             'organizations' => config('reports.organizations'),
-            'states' => State::orderBy('name')->get(['id', 'name']),
+            'states' => $locations['states'],
+            'projectLocationOptions' => $this->projectLocationOptions($projects),
             'communityLocation' => $communityLocation,
             'communityMunicipalities' => $communityLocation
                 ? State::find($report->state_id)?->municipalities()->orderBy('name')->get(['id', 'name']) ?? collect()
@@ -117,14 +114,7 @@ class ReportController extends Controller
             'communityParishes' => $communityLocation
                 ? Municipality::find($report->municipality_id)?->parishes()->orderBy('name')->get(['id', 'name', 'latitude', 'longitude']) ?? collect()
                 : collect(),
-            'placeNames' => PlaceName::query()
-                ->with(['state:id,name', 'municipality:id,name', 'parish:id,name'])
-                ->whereNotNull('state_id')->whereNotNull('municipality_id')->whereNotNull('parish_id')
-                ->whereNotNull('installation_type')->orderBy('name')
-                ->get([
-                    'id', 'name', 'state_id', 'municipality_id', 'parish_id', 'installation_type',
-                    'latitude', 'longitude', 'altitude', 'gps_accuracy',
-                ]),
+            'placeNames' => $locations['placeNames'],
             'beneficiaryOptions' => config('reports.beneficiary_options'),
             'user' => $request->user(),
             'editBeneficiaryId' => $editBeneficiaryId,
@@ -405,7 +395,7 @@ class ReportController extends Controller
     private function availableProjects(Request $request, ?int $includeProjectId = null)
     {
         return Proyecto::query()
-            ->with(['donante', 'asignacionesIndicadores' => fn ($query) => $query
+            ->with(['donante', 'estados:id', 'municipios:id', 'asignacionesIndicadores' => fn ($query) => $query
                 ->with([
                     'indicador',
                     'asignacionesActividades' => fn ($activities) => $activities
@@ -418,6 +408,66 @@ class ReportController extends Controller
             })
             ->when(! $request->user()->isAdministrator(), fn ($query) => $query->whereHas('users', fn ($users) => $users->whereKey($request->user()->id)))
             ->orderBy('codigo')->get();
+    }
+
+    private function availableLocations(Request $request, $projects): array
+    {
+        $user = $request->user();
+        $basePlaces = PlaceName::query()
+            ->with(['state:id,name', 'municipality:id,name', 'parish:id,name'])
+            ->whereNotNull('state_id')->whereNotNull('municipality_id')
+            ->whereNotNull('parish_id')->whereNotNull('installation_type')->orderBy('name');
+
+        if ($projects->isEmpty()) {
+            return [
+                'states' => State::orderBy('name')->get(['id', 'name']),
+                'placeNames' => $basePlaces->get([
+                    'id', 'name', 'state_id', 'municipality_id', 'parish_id', 'installation_type',
+                    'latitude', 'longitude', 'altitude', 'gps_accuracy',
+                ]),
+            ];
+        }
+
+        $projectStateIds = $projects->flatMap->estados->pluck('id')->unique();
+        $municipalitiesByState = Municipality::whereIn('state_id', $projectStateIds)
+            ->get(['id', 'state_id'])->groupBy('state_id');
+        $projectMunicipalityIds = $projects->flatMap(fn (Proyecto $project) => $project->municipios->isEmpty()
+            ? $project->estados->flatMap(fn ($state) => $municipalitiesByState->get($state->id, collect()))->pluck('id')
+            : $project->municipios->pluck('id')
+        )->unique();
+        $municipalityStates = $municipalitiesByState->flatten()->keyBy('id');
+
+        if (! $user->isAdministrator() && ! $user->countrywide_access) {
+            $user->loadMissing(['assignedStates:id', 'assignedMunicipalities:id,state_id']);
+            $fullStateIds = $user->assignedStates->pluck('id');
+            $specificMunicipalityIds = $user->assignedMunicipalities->pluck('id');
+            $projectStateIds = $projectStateIds->filter(fn ($id) => $fullStateIds->contains($id)
+                || $user->assignedMunicipalities->contains('state_id', $id));
+            $projectMunicipalityIds = $projectMunicipalityIds->filter(fn ($id) => $specificMunicipalityIds->contains($id)
+                || $fullStateIds->contains($municipalityStates->get($id)?->state_id));
+        }
+
+        $placeNames = $basePlaces
+            ->whereIn('state_id', $projectStateIds)
+            ->whereIn('municipality_id', $projectMunicipalityIds)
+            ->get([
+                'id', 'name', 'state_id', 'municipality_id', 'parish_id', 'installation_type',
+                'latitude', 'longitude', 'altitude', 'gps_accuracy',
+            ]);
+
+        return [
+            'states' => State::whereIn('id', $projectStateIds)->orderBy('name')->get(['id', 'name']),
+            'placeNames' => $placeNames,
+        ];
+    }
+
+    private function projectLocationOptions($projects): array
+    {
+        return $projects->mapWithKeys(fn (Proyecto $project) => [$project->id => [
+            'states' => $project->estados->pluck('id')->values()->all(),
+            'municipalities' => $project->municipios->pluck('id')->values()->all(),
+            'allStateMunicipalities' => $project->municipios->isEmpty(),
+        ]])->all();
     }
 
     private function projectIndicatorOptions($projects): array

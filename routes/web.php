@@ -12,6 +12,7 @@ use App\Http\Controllers\IndicadorProyectoController;
 use App\Http\Controllers\IndicadorProyectoActividadController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\PlaceNameController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProyectoController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ServicioController;
@@ -30,6 +31,8 @@ Route::middleware('guest')->group(function (): void {
 Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance'])->group(function (): void {
     Route::get('/panel', DashboardController::class)->name('dashboard');
     Route::post('/salir', [AuthController::class, 'logout'])->name('logout');
+    Route::get('/mi-perfil', [ProfileController::class, 'show'])->name('profile.show');
+    Route::put('/mi-perfil', [ProfileController::class, 'update'])->name('profile.update');
 
     Route::middleware('admin')->prefix('usuarios')->name('users.')->group(function (): void {
         Route::get('/', [UserManagementController::class, 'index'])->name('index');

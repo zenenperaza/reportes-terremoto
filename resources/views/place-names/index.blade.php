@@ -38,7 +38,8 @@
                 </select>
             </label>
             <div class="span-two">
-                <h3>Coordenadas manuales</h3>
+                <h3>Coordenadas de la ubicaci&oacute;n</h3>
+                <small id="automatic-coordinate-status" class="muted" role="status" aria-live="polite"></small>
                 <p class="muted">Latitud y longitud son obligatorias y se validarán contra el Estado y Municipio seleccionados. Altitud y precisión son opcionales.</p>
                 <div class="current-coordinate-tools">
                     <button class="button button-secondary" type="button" id="show-current-coordinates">Mostrar mi ubicación actual</button>
@@ -50,8 +51,8 @@
                     · Longitud: <button type="button" class="coordinate-copy" id="copy-current-longitude" title="Copiar longitud"></button>
                 </small>
                 <div class="form-grid four-cols">
-                    <label>Latitud *<input type="number" name="latitude" value="{{ old('latitude') }}" step="0.0000001" min="0.5" max="12.7" required></label>
-                    <label>Longitud *<input type="number" name="longitude" value="{{ old('longitude') }}" step="0.0000001" min="-74" max="-59" required></label>
+                    <label>Latitud *<input type="number" id="place_latitude" name="latitude" value="{{ old('latitude') }}" step="0.0000001" min="0.5" max="12.7" required></label>
+                    <label>Longitud *<input type="number" id="place_longitude" name="longitude" value="{{ old('longitude') }}" step="0.0000001" min="-74" max="-59" required></label>
                     <label>Altitud (m)<input type="number" name="altitude" value="{{ old('altitude') }}" step="0.01" min="-500" max="10000"></label>
                     <label>Precisión (m)<input type="number" name="gps_accuracy" value="{{ old('gps_accuracy') }}" step="0.01" min="0" max="100000"></label>
                 </div>
@@ -66,7 +67,7 @@
     @if($placeNames->isEmpty())
         <div class="empty-state"><p>Aún no se han creado nombres de lugares.</p></div>
     @else
-        <div class="table-wrap"><table>
+        <div class="table-wrap"><table id="place-names-table" class="place-names-table">
             <thead><tr><th>Nombre</th><th>Ubicación</th><th>Coordenadas</th><th>Tipo de instalación</th><th>Creado por</th><th>Acciones</th></tr></thead>
             <tbody>@foreach($placeNames as $placeName)
                 <tr>
@@ -91,7 +92,6 @@
                 </tr>
             @endforeach</tbody>
         </table></div>
-        <div class="pagination">{{ $placeNames->links() }}</div>
     @endif
 </section>
 
@@ -99,7 +99,7 @@
 const placeSelect = id => document.getElementById(id);
 const placeState = placeSelect('place_state_id'), placeMunicipality = placeSelect('place_municipality_id'), placeParish = placeSelect('place_parish_id');
 const setPlaceOptions = (element, items, placeholder, selected = '') => {
-    element.innerHTML = `<option value="">${placeholder}</option>` + items.map(item => `<option value="${item.id}" ${String(item.id) === String(selected) ? 'selected' : ''}>${item.name}</option>`).join('');
+    element.innerHTML = `<option value="">${placeholder}</option>` + items.map(item => `<option value="${item.id}" data-latitude="${item.latitude ?? ''}" data-longitude="${item.longitude ?? ''}" ${String(item.id) === String(selected) ? 'selected' : ''}>${item.name}</option>`).join('');
 };
 const loadPlaceOptions = async (element, url, placeholder, selected = '') => {
     const response = await fetch(url, {headers: {'Accept': 'application/json'}});
@@ -110,9 +110,34 @@ placeState.addEventListener('change', async () => {
     setPlaceOptions(placeParish, [], 'Seleccione primero el municipio');
     if (placeState.value) await loadPlaceOptions(placeMunicipality, `/ubicaciones/estados/${placeState.value}/municipios`, 'Seleccione el municipio');
 });
+const placeLatitude = placeSelect('place_latitude'), placeLongitude = placeSelect('place_longitude');
+const automaticCoordinateStatus = placeSelect('automatic-coordinate-status');
+const applyAutomaticCoordinates = (latitude, longitude, source) => {
+    if (latitude === '' || longitude === '' || !Number.isFinite(Number(latitude)) || !Number.isFinite(Number(longitude))) {
+        automaticCoordinateStatus.textContent = 'No hay coordenadas de referencia. Ingréselas manualmente.';
+        return;
+    }
+    placeLatitude.value = Number(latitude).toFixed(7);
+    placeLongitude.value = Number(longitude).toFixed(7);
+    automaticCoordinateStatus.textContent = `Coordenadas cargadas automáticamente desde ${source}.`;
+};
 placeMunicipality.addEventListener('change', async () => {
     setPlaceOptions(placeParish, [], 'Cargando parroquias');
-    if (placeMunicipality.value) await loadPlaceOptions(placeParish, `/ubicaciones/municipios/${placeMunicipality.value}/parroquias`, 'Seleccione la parroquia');
+    if (!placeMunicipality.value) return;
+    const response = await fetch(`/ubicaciones/municipios/${placeMunicipality.value}/parroquias`, {headers: {'Accept': 'application/json'}});
+    const parishes = await response.json();
+    setPlaceOptions(placeParish, parishes, 'Seleccione la parroquia');
+    const coordinates = parishes.filter(item => item.latitude !== null && item.longitude !== null && Number.isFinite(Number(item.latitude)) && Number.isFinite(Number(item.longitude)));
+    if (!coordinates.length) return applyAutomaticCoordinates('', '', 'el municipio seleccionado');
+    applyAutomaticCoordinates(
+        coordinates.reduce((total, item) => total + Number(item.latitude), 0) / coordinates.length,
+        coordinates.reduce((total, item) => total + Number(item.longitude), 0) / coordinates.length,
+        'el municipio seleccionado'
+    );
+});
+placeParish.addEventListener('change', () => {
+    const option = placeParish.selectedOptions[0];
+    if (option?.value) applyAutomaticCoordinates(option.dataset.latitude, option.dataset.longitude, 'la parroquia seleccionada');
 });
 const currentCoordinateButton = document.getElementById('show-current-coordinates');
 const currentCoordinateStatus = document.getElementById('current-coordinate-status');
@@ -157,11 +182,60 @@ loadPlaceOptions(placeMunicipality, `/ubicaciones/estados/{{ old('state_id') }}/
     if (placeMunicipality.value) return loadPlaceOptions(placeParish, `/ubicaciones/municipios/${placeMunicipality.value}/parroquias`, 'Seleccione la parroquia', @json(old('parish_id')));
 });
 @endif
+
 </script>
 @endsection
 
 @push('styles')
+<link rel="stylesheet" href="/vendor/datatables/dataTables.dataTables.min.css">
+<link rel="stylesheet" href="/vendor/datatables/buttons.dataTables.min.css">
+<link rel="stylesheet" href="/css/beneficiary-datatable.css">
 <style>
 .place-name-form{margin-top:18px}.place-name-actions{margin-top:16px}.current-coordinate-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}.current-coordinate-values{display:block;margin:0 0 12px;color:var(--muted);font-size:12px}.coordinate-copy{border:0;background:transparent;color:#057bb4;font:inherit;font-weight:700;padding:0;cursor:pointer;text-decoration:underline}@media(max-width:560px){.place-name-actions .button,.current-coordinate-tools .button{width:100%}}
 </style>
+@endpush
+
+@push('scripts')
+<script src="/vendor/datatables/dataTables.min.js"></script>
+<script src="/vendor/datatables/dataTables.buttons.min.js"></script>
+<script src="/vendor/datatables/jszip.min.js"></script>
+<script src="/vendor/datatables/pdfmake.min.js"></script>
+<script src="/vendor/datatables/vfs_fonts.js"></script>
+<script src="/vendor/datatables/buttons.html5.min.js"></script>
+<script src="/vendor/datatables/buttons.print.min.js"></script>
+<script>
+const placeNamesTable = document.getElementById('place-names-table');
+if (placeNamesTable && typeof DataTable !== 'undefined') {
+    new DataTable(placeNamesTable, {
+        layout: {
+            topStart: ['pageLength', {
+                buttons: [
+                    {extend: 'copyHtml5', text: 'Copiar', exportOptions: {columns: [0, 1, 2, 3, 4]}},
+                    {extend: 'csvHtml5', text: 'CSV', title: 'Lugares registrados', exportOptions: {columns: [0, 1, 2, 3, 4]}},
+                    {extend: 'excelHtml5', text: 'Excel', title: 'Lugares registrados', exportOptions: {columns: [0, 1, 2, 3, 4]}},
+                    {extend: 'pdfHtml5', text: 'PDF', title: 'Lugares registrados', orientation: 'landscape', pageSize: 'A4', exportOptions: {columns: [0, 1, 2, 3, 4]}},
+                    {extend: 'print', text: 'Imprimir', title: 'Lugares registrados', exportOptions: {columns: [0, 1, 2, 3, 4]}},
+                ],
+            }],
+            topEnd: 'search',
+            bottomStart: 'info',
+            bottomEnd: 'paging',
+        },
+        pageLength: 10,
+        lengthMenu: [[10, 25, 50, -1], [10, 25, 50, 'Todos']],
+        order: [[0, 'asc']],
+        columnDefs: [{targets: -1, orderable: false, searchable: false}],
+        language: {
+            emptyTable: 'No hay lugares registrados.',
+            info: 'Mostrando _START_ a _END_ de _TOTAL_ lugares',
+            infoEmpty: 'Mostrando 0 a 0 de 0 lugares',
+            infoFiltered: '(filtrado de _MAX_ lugares)',
+            lengthMenu: 'Mostrar _MENU_ lugares',
+            search: 'Buscar:',
+            zeroRecords: 'No se encontraron lugares coincidentes',
+            paginate: {first: 'Primero', last: '&Uacute;ltimo', next: 'Siguiente', previous: 'Anterior'},
+        },
+    });
+}
+</script>
 @endpush

@@ -346,6 +346,7 @@
             services = select('servicio_actividad_ids'),
             servicesField = select('report-services-field');
         const projectIndicators = @json($projectIndicatorOptions);
+        const projectLocations = @json($projectLocationOptions);
         const initialIndicator = @json(old('indicador_proyecto_id', $editing ? $report->indicador_proyecto_id : null));
         const initialActivity = @json(old('actividad_indicador_id', $editing ? $report->actividad_indicador_id : null));
         const initialServices = @json(old('servicio_actividad_ids', $editing ? $report->serviciosActividad->pluck('id')->all() : []));
@@ -406,6 +407,7 @@
         const placeName = select('place_name'),
             installationType = select('installation_type'),
             placeLocationSummary = select('place-location-summary');
+        const allPlaceOptions = [...placeName.options].map(option => option.cloneNode(true));
         const syncPlaceLocation = () => {
             const option = placeName.selectedOptions[0];
             state.value = option?.dataset.stateId || '';
@@ -433,6 +435,42 @@
             communityGeneratedName = select('community-generated-name'),
             communityLatitude = select('community-latitude'),
             communityLongitude = select('community-longitude');
+        const allCommunityStateOptions = [...communityState.options].map(option => option.cloneNode(true));
+        const locationBelongsToProject = (stateId, municipalityId = null) => {
+            const location = projectLocations[project.value];
+            if (!location || !location.states.map(String).includes(String(stateId))) return false;
+            if (municipalityId === null) return true;
+            return location.allStateMunicipalities
+                || location.municipalities.map(String).includes(String(municipalityId));
+        };
+        const syncAvailableLocations = (preserveSelection = false) => {
+            const selectedPlace = preserveSelection ? placeName.value : '';
+            placeName.replaceChildren();
+            allPlaceOptions.forEach(option => {
+                if (!option.value || locationBelongsToProject(option.dataset.stateId, option.dataset.municipalityId)) {
+                    const copy = option.cloneNode(true);
+                    copy.selected = copy.value === selectedPlace;
+                    placeName.append(copy);
+                }
+            });
+
+            const selectedState = preserveSelection ? communityState.value : '';
+            communityState.replaceChildren();
+            allCommunityStateOptions.forEach(option => {
+                if (!option.value || locationBelongsToProject(option.value)) {
+                    const copy = option.cloneNode(true);
+                    copy.selected = copy.value === selectedState;
+                    communityState.append(copy);
+                }
+            });
+
+            if (!placeName.value) clearCommunityLocation();
+            else syncPlaceLocation();
+            if (!communityState.value) {
+                setCommunityOptions(communityMunicipality, [], 'Seleccione el municipio');
+                setCommunityOptions(communityParish, [], 'Seleccione la parroquia');
+            }
+        };
         const setCommunityOptions = (element, items, placeholder) => {
             element.innerHTML = `<option value="">${placeholder}</option>` + items.map(item =>
                 `<option value="${item.id}" data-latitude="${item.latitude ?? ''}" data-longitude="${item.longitude ?? ''}">${item.name}</option>`
@@ -494,7 +532,8 @@
             setCommunityOptions(communityParish, [], 'Seleccione la parroquia');
             if (communityState.value) {
                 const response = await fetch(`/ubicaciones/estados/${communityState.value}/municipios`, {headers: {'Accept': 'application/json'}});
-                setCommunityOptions(communityMunicipality, await response.json(), 'Seleccione el municipio');
+                const municipalities = await response.json();
+                setCommunityOptions(communityMunicipality, municipalities.filter(item => locationBelongsToProject(communityState.value, item.id)), 'Seleccione el municipio');
             }
         });
         communityMunicipality.addEventListener('change', async () => {
@@ -507,6 +546,8 @@
         });
         communityParish.addEventListener('change', syncCommunityLocation);
         communityLocationToggle.addEventListener('change', syncCommunityMode);
+        project.addEventListener('change', () => syncAvailableLocations(false));
+        syncAvailableLocations(true);
         syncCommunityMode();
         const validateCoordinates = async () => true;
 

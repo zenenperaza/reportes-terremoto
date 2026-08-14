@@ -15,4 +15,9 @@ class State extends Model
     {
         return $this->hasMany(Municipality::class);
     }
+
+    public function proyectos()
+    {
+        return $this->belongsToMany(Proyecto::class, 'estado_proyecto', 'estado_id', 'proyecto_id')->withTimestamps();
+    }
 }

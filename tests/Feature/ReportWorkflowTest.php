@@ -46,7 +46,7 @@ class ReportWorkflowTest extends TestCase
 
     public function test_authenticated_user_can_submit_a_report_with_individual_beneficiaries(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => 'reporter']);
         $state = State::create(['code' => 'VE01', 'name' => 'Distrito Capital']);
         $municipality = Municipality::create(['state_id' => $state->id, 'code' => 'VE0101', 'name' => 'Libertador']);
         $parish = Parish::create(['municipality_id' => $municipality->id, 'code' => 'VE010101', 'name' => 'Altagracia']);
@@ -228,6 +228,88 @@ class ReportWorkflowTest extends TestCase
             ->assertRedirect('/usuarios');
 
         $this->assertSoftDeleted('users', ['id' => $managedUser->id]);
+    }
+
+    public function test_user_geographic_assignments_are_limited_to_selected_projects(): void
+    {
+        $administrator = User::factory()->create(['role' => 'admin']);
+        $lara = State::create(['code' => 'VE13', 'name' => 'Lara']);
+        $iribarrren = Municipality::create(['state_id' => $lara->id, 'code' => 'VE1301', 'name' => 'Iribarren']);
+        $zulia = State::create(['code' => 'VE23', 'name' => 'Zulia']);
+        $maracaibo = Municipality::create(['state_id' => $zulia->id, 'code' => 'VE2301', 'name' => 'Maracaibo']);
+        $donante = \App\Models\Donante::create(['nombre' => 'UNICEF', 'estatus' => true]);
+        $proyecto = \App\Models\Proyecto::create([
+            'donante_id' => $donante->id, 'estatus' => true, 'codigo' => 'PROY-GEO',
+            'descripcion' => 'Proyecto en Lara',
+        ]);
+        $proyecto->estados()->attach($lara);
+        $proyecto->municipios()->attach($iribarrren);
+
+        $this->actingAs($administrator)->get('/usuarios/nuevo')
+            ->assertOk()
+            ->assertSee('data-project-ids', false)
+            ->assertSee('Lara')
+            ->assertSee('Iribarren');
+
+        $this->actingAs($administrator)->post('/usuarios', [
+            'name' => 'Usuario fuera del proyecto',
+            'email' => 'fuera@example.test',
+            'role' => 'coordinator',
+            'is_active' => '1',
+            'password' => 'password-segura',
+            'password_confirmation' => 'password-segura',
+            'project_ids' => [$proyecto->id],
+            'state_ids' => [$zulia->id],
+            'municipality_ids' => [$maracaibo->id],
+        ])->assertSessionHasErrors(['state_ids', 'municipality_ids']);
+
+        $this->assertDatabaseMissing('users', ['email' => 'fuera@example.test']);
+    }
+
+    public function test_report_form_and_submission_are_limited_to_user_project_locations(): void
+    {
+        $user = User::factory()->create(['role' => 'reporter']);
+        $lara = State::create(['code' => 'VE13', 'name' => 'Lara']);
+        $iribarrren = Municipality::create(['state_id' => $lara->id, 'code' => 'VE1301', 'name' => 'Iribarren']);
+        $laraParish = Parish::create(['municipality_id' => $iribarrren->id, 'code' => 'VE130101', 'name' => 'Unión']);
+        $zulia = State::create(['code' => 'VE23', 'name' => 'Zulia']);
+        $maracaibo = Municipality::create(['state_id' => $zulia->id, 'code' => 'VE2301', 'name' => 'Maracaibo']);
+        $zuliaParish = Parish::create(['municipality_id' => $maracaibo->id, 'code' => 'VE230101', 'name' => 'Bolívar']);
+        PlaceName::where('name', 'Lugar de Ana')->update([
+            'state_id' => $lara->id, 'municipality_id' => $iribarrren->id, 'parish_id' => $laraParish->id,
+            'installation_type' => 'Comunidad / Espacio Comunitario',
+        ]);
+        PlaceName::where('name', 'Lugar de otra persona')->update([
+            'state_id' => $zulia->id, 'municipality_id' => $maracaibo->id, 'parish_id' => $zuliaParish->id,
+            'installation_type' => 'Comunidad / Espacio Comunitario',
+        ]);
+        $donante = Donante::create(['nombre' => 'UNICEF', 'estatus' => true]);
+        $proyecto = Proyecto::create(['donante_id' => $donante->id, 'estatus' => true, 'codigo' => 'PROY-LARA', 'descripcion' => 'Proyecto Lara']);
+        $proyecto->estados()->attach($lara);
+        $user->projects()->attach($proyecto);
+        $user->assignedStates()->attach($lara);
+        $indicador = Indicador::create([
+            'codigo' => 'IND-LARA', 'descripcion' => 'Personas atendidas', 'unidad_conteo' => 'Personas',
+            'espacio_coordinacion' => 'NNA', 'edad_desde' => 0, 'edad_hasta' => 120,
+        ]);
+        $asignacion = IndicadorProyecto::create(['proyecto_id' => $proyecto->id, 'indicador_id' => $indicador->id, 'estatus' => true]);
+
+        $this->actingAs($user)->get('/reportes/nuevo')
+            ->assertOk()
+            ->assertSee('Lugar de Ana')
+            ->assertDontSee('Lugar de otra persona');
+
+        $this->actingAs($user)->postJson('/beneficiarios', [
+            'report_date' => today()->toDateString(), 'reporter_first_name' => 'Ana', 'reporter_last_name' => 'Pérez',
+            'reporter_email' => $user->email, 'organization' => 'ASONACOP', 'is_community_location' => true,
+            'state_id' => $zulia->id, 'municipality_id' => $maracaibo->id, 'parish_id' => $zuliaParish->id,
+            'proyecto_id' => $proyecto->id, 'indicador_proyecto_id' => $asignacion->id,
+            'beneficiary' => [
+                'full_name' => 'Persona fuera de alcance', 'age' => 20, 'sex' => 'Hombre',
+                'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'Ninguna',
+                'is_recurrent' => false,
+            ],
+        ])->assertUnprocessable()->assertJsonValidationErrors(['place_name']);
     }
 
     public function test_reporter_cannot_access_user_administration(): void

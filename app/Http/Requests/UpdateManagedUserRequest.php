@@ -7,6 +7,7 @@ use App\Models\Proyecto;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\Validator;
 
 class UpdateManagedUserRequest extends FormRequest
 {
@@ -44,5 +45,26 @@ class UpdateManagedUserRequest extends FormRequest
             'project_ids' => [Rule::requiredIf(fn () => Proyecto::exists()), 'array', 'min:1'],
             'project_ids.*' => ['integer', 'distinct', 'exists:proyectos,id'],
         ];
+    }
+
+    public function after(): array
+    {
+        return [function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty() || $this->input('role') === 'admin') return;
+
+            $projects = Proyecto::with(['estados.municipalities:id,state_id', 'municipios:id'])->whereKey($this->input('project_ids', []))->get();
+            $allowedStates = $projects->flatMap->estados->pluck('id')->unique();
+            $allowedMunicipalities = $projects->flatMap(fn ($project) => $project->municipios->isNotEmpty()
+                ? $project->municipios
+                : $project->estados->flatMap->municipalities
+            )->pluck('id')->unique();
+
+            if (collect($this->input('state_ids', []))->map(fn ($id) => (int) $id)->diff($allowedStates)->isNotEmpty()) {
+                $validator->errors()->add('state_ids', 'Solo puede asignar estados pertenecientes a los proyectos seleccionados.');
+            }
+            if (collect($this->input('municipality_ids', []))->map(fn ($id) => (int) $id)->diff($allowedMunicipalities)->isNotEmpty()) {
+                $validator->errors()->add('municipality_ids', 'Solo puede asignar municipios pertenecientes a los proyectos seleccionados.');
+            }
+        }];
     }
 }

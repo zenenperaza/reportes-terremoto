@@ -37,4 +37,22 @@ class Proyecto extends Model
     {
         return $this->belongsToMany(User::class, 'proyecto_user')->withTimestamps();
     }
+
+    public function estados(): BelongsToMany
+    {
+        return $this->belongsToMany(State::class, 'estado_proyecto', 'proyecto_id', 'estado_id')->withTimestamps();
+    }
+
+    public function municipios(): BelongsToMany
+    {
+        return $this->belongsToMany(Municipality::class, 'municipio_proyecto', 'proyecto_id', 'municipio_id')->withTimestamps();
+    }
+
+    public function coversLocation(int $stateId, int $municipalityId): bool
+    {
+        $this->loadMissing(['estados:id', 'municipios:id']);
+
+        return $this->estados->contains('id', $stateId)
+            && ($this->municipios->isEmpty() || $this->municipios->contains('id', $municipalityId));
+    }
 }

@@ -160,6 +160,12 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             if ($project && ! $this->user()->isAdministrator() && ! $this->user()->projects()->whereKey($project->id)->exists()) {
                 $validator->errors()->add('proyecto_id', 'El proyecto no está asignado a su usuario.');
             }
+            if ($project && ! $this->user()->canAccessLocation($this->integer('state_id'), $this->integer('municipality_id'))) {
+                $validator->errors()->add('place_name', 'La ubicación seleccionada no está asignada a su usuario.');
+            }
+            if ($project && ! $project->coversLocation($this->integer('state_id'), $this->integer('municipality_id'))) {
+                $validator->errors()->add('place_name', 'La ubicación seleccionada no pertenece al proyecto.');
+            }
             $assignment = IndicadorProyecto::with('indicador')->find($this->integer('indicador_proyecto_id'));
             if ($assignment && ($assignment->proyecto_id !== $this->integer('proyecto_id') || ! $assignment->estatus)) {
                 $validator->errors()->add('indicador_proyecto_id', 'El indicador no corresponde al proyecto seleccionado.');

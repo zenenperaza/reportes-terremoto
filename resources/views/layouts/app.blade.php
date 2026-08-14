@@ -63,10 +63,10 @@
                             </details>
                         @endif
                         <a class="button button-small" href="{{ route('reports.create') }}">+ Nuevo registro</a>
-                        <div class="current-user" aria-label="Usuario conectado">
+                        <a class="current-user" href="{{ route('profile.show') }}" aria-label="Ver y editar mi perfil" title="Ver mi perfil">
                             <strong>{{ auth()->user()->name }}</strong>
                             <span>{{ \App\Models\User::roleLabels()[auth()->user()->role] ?? auth()->user()->role }}</span>
-                        </div>
+                        </a>
                         <form action="{{ route('logout') }}" method="post">
                             @csrf
                             <button class="link-button" type="submit">Salir</button>

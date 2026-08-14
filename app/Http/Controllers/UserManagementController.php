@@ -103,7 +103,7 @@ class UserManagementController extends Controller
         return [
             'roleLabels' => User::roleLabels(),
             'states' => State::query()->with(['municipalities' => fn ($query) => $query->orderBy('name')])->orderBy('name')->get(),
-            'projects' => Proyecto::with('donante')->where('estatus', true)->orderBy('codigo')->get(),
+            'projects' => Proyecto::with(['donante', 'estados.municipalities:id,state_id,name', 'municipios:id'])->where('estatus', true)->orderBy('codigo')->get(),
         ];
     }
 

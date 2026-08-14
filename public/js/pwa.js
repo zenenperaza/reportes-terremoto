@@ -1,5 +1,5 @@
 (() => {
-    const MESSAGE = "No estás conectado a Internet";
+    const MESSAGE = "No est\u00e1s conectado a Internet";
 
     const getNetworkBanner = () => {
         let banner = document.getElementById("network-status-banner");

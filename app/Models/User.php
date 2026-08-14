@@ -128,6 +128,18 @@ class User extends Authenticatable
         );
     }
 
+    public function canAccessLocation(int $stateId, int $municipalityId): bool
+    {
+        if ($this->isAdministrator() || $this->countrywide_access) {
+            return true;
+        }
+
+        $this->loadMissing(['assignedStates:id', 'assignedMunicipalities:id']);
+
+        return $this->assignedStates->contains('id', $stateId)
+            || $this->assignedMunicipalities->contains('id', $municipalityId);
+    }
+
     public function isCoordinator(): bool
     {
         return in_array($this->role, ['coordinator', 'admin'], true);

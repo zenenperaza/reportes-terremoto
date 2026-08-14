@@ -20,4 +20,9 @@ class Municipality extends Model
     {
         return $this->hasMany(Parish::class);
     }
+
+    public function proyectos()
+    {
+        return $this->belongsToMany(Proyecto::class, 'municipio_proyecto', 'municipio_id', 'proyecto_id')->withTimestamps();
+    }
 }

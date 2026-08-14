@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Models\Donante;
 use App\Models\Indicador;
 use App\Models\IndicadorProyecto;
+use App\Models\Municipality;
 use App\Models\Proyecto;
+use App\Models\State;
 use App\Models\User;
 use Database\Seeders\IndicadorSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -14,6 +16,30 @@ use Tests\TestCase;
 class CatalogManagementTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_project_can_cover_all_municipalities_when_none_are_selected(): void
+    {
+        $administrator = User::factory()->create(['role' => 'admin']);
+        $donante = Donante::create(['nombre' => 'Donante', 'estatus' => true]);
+        $state = State::create(['code' => 'VE13', 'name' => 'Lara']);
+        Municipality::create(['state_id' => $state->id, 'code' => 'VE1301', 'name' => 'Iribarren']);
+
+        $this->actingAs($administrator)->post(route('proyectos.store'), [
+            'donante_id' => $donante->id,
+            'estatus' => 1,
+            'codigo' => 'PROY-TODO-ESTADO',
+            'descripcion' => 'Proyecto para todo Lara',
+            'state_ids' => [$state->id],
+        ])->assertRedirect(route('proyectos.index'));
+
+        $proyecto = Proyecto::where('codigo', 'PROY-TODO-ESTADO')->firstOrFail();
+        $this->assertDatabaseHas('estado_proyecto', ['estado_id' => $state->id, 'proyecto_id' => $proyecto->id]);
+        $this->assertDatabaseMissing('municipio_proyecto', ['proyecto_id' => $proyecto->id]);
+
+        $this->actingAs($administrator)->get(route('proyectos.show', $proyecto))
+            ->assertOk()
+            ->assertSee('Todos los municipios de los estados seleccionados');
+    }
 
     public function test_administrator_can_manage_project_indicators_from_modal(): void
     {
@@ -24,12 +50,17 @@ class CatalogManagementTest extends TestCase
             'nombre' => 'UNICEF', 'estatus' => 1, 'enlaces' => 'https://www.unicef.org/',
         ])->assertRedirect(route('donantes.index'));
         $donante = Donante::firstOrFail();
+        $state = State::create(['code' => 'VE13', 'name' => 'Lara']);
+        $municipality = Municipality::create(['state_id' => $state->id, 'code' => 'VE1305', 'name' => 'Iribarren']);
 
         $this->post(route('proyectos.store'), [
             'donante_id' => $donante->id, 'estatus' => 1, 'codigo' => 'PROY-001',
             'descripcion' => 'Respuesta al terremoto', 'inicio' => '2026-08-01', 'fin' => '2026-12-31',
+            'state_ids' => [$state->id], 'municipality_ids' => [$municipality->id],
         ])->assertRedirect(route('proyectos.index'));
         $proyecto = Proyecto::firstOrFail();
+        $this->assertDatabaseHas('estado_proyecto', ['estado_id' => $state->id, 'proyecto_id' => $proyecto->id]);
+        $this->assertDatabaseHas('municipio_proyecto', ['municipio_id' => $municipality->id, 'proyecto_id' => $proyecto->id]);
 
         $indicador = Indicador::create([
             'codigo' => 'GCLPR/SCA10/IC1/IE2',

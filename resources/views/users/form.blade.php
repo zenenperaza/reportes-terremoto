@@ -40,6 +40,13 @@
         $selectedMunicipalities = array_map('strval', old('municipality_ids', $managedUser?->assignedMunicipalities()->pluck('municipalities.id')->all() ?? []));
         $defaultCountrywideAccess = (bool) ($managedUser?->isAdministrator() || $managedUser?->countrywide_access);
         $hasCountrywideAccess = filter_var(old('countrywide_access', $defaultCountrywideAccess), FILTER_VALIDATE_BOOLEAN);
+        $stateProjects = $projects->flatMap(fn ($project) => $project->estados->map(fn ($state) => ['state' => $state->id, 'project' => $project->id]))->groupBy('state')->map(fn ($rows) => $rows->pluck('project')->values());
+        $municipalityProjects = $projects->flatMap(function ($project) {
+            $municipalities = $project->municipios->isNotEmpty()
+                ? $project->municipios
+                : $project->estados->flatMap->municipalities;
+            return $municipalities->map(fn ($municipality) => ['municipality' => $municipality->id, 'project' => $project->id]);
+        })->groupBy('municipality')->map(fn ($rows) => $rows->pluck('project')->values());
     @endphp
     <div class="span-two user-location-assignments" id="user-location-assignments">
         <div>
@@ -51,7 +58,7 @@
                 <select name="state_ids[]" id="assigned-state-ids" multiple size="8">
                     <option value="countrywide" @selected($hasCountrywideAccess)>Todo el pa&iacute;s</option>
                     @foreach ($states as $state)
-                        <option value="{{ $state->id }}" @selected(in_array((string) $state->id, $selectedStates, true))>{{ $state->name }}</option>
+                        <option value="{{ $state->id }}" data-project-ids='@json($stateProjects->get($state->id, []))' @selected(in_array((string) $state->id, $selectedStates, true))>{{ $state->name }}</option>
                     @endforeach
                 </select>
                 <small>Puede seleccionar varios con Ctrl o Cmd.</small>
@@ -59,11 +66,9 @@
             <label>Municipios espec&iacute;ficos
                 <select name="municipality_ids[]" id="assigned-municipality-ids" multiple size="8">
                     @foreach ($states as $state)
-                        <optgroup label="{{ $state->name }}" data-state-id="{{ $state->id }}">
-                            @foreach ($state->municipalities as $municipality)
-                                <option value="{{ $municipality->id }}" data-state-id="{{ $state->id }}" @selected(in_array((string) $municipality->id, $selectedMunicipalities, true))>{{ $municipality->name }}</option>
-                            @endforeach
-                        </optgroup>
+                        @foreach ($state->municipalities as $municipality)
+                            <option value="{{ $municipality->id }}" data-state-id="{{ $state->id }}" data-project-ids='@json($municipalityProjects->get($municipality->id, []))' @selected(in_array((string) $municipality->id, $selectedMunicipalities, true))>{{ $state->name }} &mdash; {{ $municipality->name }}</option>
+                        @endforeach
                     @endforeach
                 </select>
                 <small>No es necesario seleccionar municipios de un estado completo.</small>
@@ -72,32 +77,78 @@
     </div>
 </div>
 <script>
+    const assignedProjects = document.getElementById('assigned-project-ids');
     const assignedStates = document.getElementById('assigned-state-ids');
     const assignedMunicipalities = document.getElementById('assigned-municipality-ids');
-    const syncMunicipalityOptions = () => {
+    const allStateOptions = [...assignedStates.options].map(option => option.cloneNode(true));
+    const allMunicipalityOptions = [...assignedMunicipalities.options].map(option => option.cloneNode(true));
+    const initialStates = @json($selectedStates);
+    const initialMunicipalities = @json($selectedMunicipalities);
+
+    const belongsToSelectedProject = (option, projectIds) => {
+        const optionProjects = JSON.parse(option.dataset.projectIds || '[]').map(String);
+        return optionProjects.some(projectId => projectIds.has(projectId));
+    };
+    const syncMunicipalitiesForSelectedStates = (projectIds, municipalitiesToKeep = new Set()) => {
+        const selectedStateIds = new Set(
+            [...assignedStates.selectedOptions]
+                .map(option => option.value)
+                .filter(value => value !== 'countrywide')
+        );
+
+        assignedMunicipalities.replaceChildren();
+        if (selectedStateIds.size === 0) return;
+
+        allMunicipalityOptions
+            .filter(option => selectedStateIds.has(String(option.dataset.stateId)))
+            .filter(option => belongsToSelectedProject(option, projectIds))
+            .forEach(option => {
+                const copy = option.cloneNode(true);
+                copy.selected = municipalitiesToKeep.has(copy.value);
+                assignedMunicipalities.append(copy);
+            });
+    };
+    const syncProjectLocations = (preserveSelection = true) => {
+        const projectIds = new Set([...assignedProjects.selectedOptions].map(option => option.value));
+        const statesToKeep = new Set(preserveSelection ? initialStates : [...assignedStates.selectedOptions].map(option => option.value));
+        const municipalitiesToKeep = new Set(preserveSelection ? initialMunicipalities : [...assignedMunicipalities.selectedOptions].map(option => option.value));
+
+        assignedStates.replaceChildren();
+        const countrywide = allStateOptions.find(option => option.value === 'countrywide');
+        if (countrywide) assignedStates.append(countrywide.cloneNode(true));
+        allStateOptions.filter(option => option.value !== 'countrywide' && belongsToSelectedProject(option, projectIds)).forEach(option => {
+            const copy = option.cloneNode(true);
+            copy.selected = statesToKeep.has(copy.value);
+            assignedStates.append(copy);
+        });
+
         const countrywideOption = assignedStates.querySelector('option[value="countrywide"]');
-        const countrywide = countrywideOption.selected;
-        if (countrywide) {
+        const hasCountrywide = countrywideOption?.selected ?? false;
+        if (hasCountrywide) {
             [...assignedStates.options].forEach(option => {
                 if (option !== countrywideOption) option.selected = false;
             });
         }
-        const selectedStateIds = new Set([...assignedStates.selectedOptions]
-            .map(option => option.value).filter(value => value !== 'countrywide'));
-        assignedMunicipalities.querySelectorAll('optgroup').forEach(group => {
-            const visible = !countrywide && selectedStateIds.has(group.dataset.stateId);
-            group.hidden = !visible;
-            group.disabled = !visible;
-            group.querySelectorAll('option').forEach(option => {
-                option.hidden = !visible;
-                option.disabled = !visible;
-                if (!visible) option.selected = false;
-            });
-        });
-        assignedMunicipalities.disabled = countrywide || selectedStateIds.size === 0;
+        syncMunicipalitiesForSelectedStates(projectIds, municipalitiesToKeep);
+        assignedStates.disabled = projectIds.size === 0;
+        assignedMunicipalities.disabled = hasCountrywide || projectIds.size === 0 || assignedStates.selectedOptions.length === 0;
     };
-    assignedStates.addEventListener('change', syncMunicipalityOptions);
-    syncMunicipalityOptions();
+    assignedStates.addEventListener('change', () => {
+        const projectIds = new Set([...assignedProjects.selectedOptions].map(option => option.value));
+        const municipalitySelection = new Set([...assignedMunicipalities.selectedOptions].map(option => option.value));
+        const countrywideOption = assignedStates.querySelector('option[value="countrywide"]');
+        const hasCountrywide = countrywideOption?.selected ?? false;
+
+        if (hasCountrywide) {
+            [...assignedStates.options].forEach(option => {
+                if (option !== countrywideOption) option.selected = false;
+            });
+        }
+
+        syncMunicipalitiesForSelectedStates(projectIds, municipalitySelection);
+        assignedMunicipalities.disabled = hasCountrywide || projectIds.size === 0 || assignedStates.selectedOptions.length === 0;
+    });
+    syncProjectLocations(true);
 </script>
 @push('scripts')
 <script>
@@ -109,7 +160,7 @@
             noResults: () => 'No se encontraron proyectos',
             searching: () => 'Buscando…'
         }
-    });
+    }).on('change', () => syncProjectLocations(false));
 </script>
 @endpush
 <div class="form-actions">

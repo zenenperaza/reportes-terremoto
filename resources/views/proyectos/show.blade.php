@@ -19,6 +19,8 @@
         <div><dt>Periodo</dt><dd>{{ $proyecto->inicio?->format('d/m/Y') ?? 'Sin fecha' }} — {{ $proyecto->fin?->format('d/m/Y') ?? 'Sin fecha' }}</dd></div>
         <div><dt>Estado</dt><dd><span class="status {{ $proyecto->estatus ? 'status-active' : 'status-inactive' }}">{{ $proyecto->estatus ? 'Activo' : 'Inactivo' }}</span></dd></div>
         <div><dt>Indicadores</dt><dd>{{ $proyecto->asignacionesIndicadores->count() }}</dd></div>
+        <div><dt>Estados</dt><dd>{{ $proyecto->estados->pluck('name')->join(', ') ?: 'Sin estados asignados' }}</dd></div>
+        <div><dt>Municipios</dt><dd>{{ $proyecto->municipios->isEmpty() ? 'Todos los municipios de los estados seleccionados' : $proyecto->municipios->map(fn($municipio) => $municipio->state->name.' / '.$municipio->name)->join(', ') }}</dd></div>
     </dl>
 </section>
 

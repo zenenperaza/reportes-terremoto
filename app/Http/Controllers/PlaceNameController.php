@@ -20,7 +20,7 @@ class PlaceNameController extends Controller
         return view('place-names.index', [
             'placeNames' => PlaceName::query()
                 ->with(['creator:id,name', 'state:id,name', 'municipality:id,name', 'parish:id,name'])
-                ->orderBy('name')->paginate(25),
+                ->orderBy('name')->get(),
             'states' => State::query()->orderBy('name')->get(['id', 'name']),
             'installationTypes' => config('reports.installation_types'),
         ]);
@@ -53,7 +53,7 @@ class PlaceNameController extends Controller
                 ? $placeName->state->municipalities()->orderBy('name')->get(['id', 'name'])
                 : collect(),
             'parishes' => $placeName->municipality
-                ? $placeName->municipality->parishes()->orderBy('name')->get(['id', 'name'])
+                ? $placeName->municipality->parishes()->orderBy('name')->get(['id', 'name', 'latitude', 'longitude'])
                 : collect(),
             'installationTypes' => config('reports.installation_types'),
         ]);

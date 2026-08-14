@@ -32,6 +32,32 @@
     padding: 4px 12px;
     color: #fff;
     line-height: 1.15;
+    border-radius: 7px;
+    text-decoration: none;
+}
+
+.current-user:hover,
+.current-user:focus-visible {
+    color: #fff;
+    background: rgba(255, 255, 255, .12);
+    outline: none;
+}
+
+.profile-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    gap: 20px;
+}
+
+.profile-edit-card hr {
+    width: 100%;
+    margin: 4px 0;
+    border: 0;
+    border-top: 1px solid var(--line);
+}
+
+@media (max-width: 800px) {
+    .profile-layout { grid-template-columns: 1fr; }
 }
 
 .current-user strong {
