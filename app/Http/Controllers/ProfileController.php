@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\UpdateProfileRequest;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class ProfileController extends Controller
@@ -26,6 +28,21 @@ class ProfileController extends Controller
 
         if (filled($data['password'] ?? null)) {
             $attributes['password'] = $data['password'];
+        }
+
+        if ($request->hasFile('profile_photo')) {
+            $directory = public_path('uploads/profile-photos');
+            File::ensureDirectoryExists($directory);
+
+            $photo = $request->file('profile_photo');
+            $filename = 'user-'.$request->user()->id.'-'.Str::uuid().'.'.$photo->extension();
+            $photo->move($directory, $filename);
+
+            if ($request->user()->profile_photo_path) {
+                File::delete(public_path($request->user()->profile_photo_path));
+            }
+
+            $attributes['profile_photo_path'] = 'uploads/profile-photos/'.$filename;
         }
 
         $request->user()->update($attributes);

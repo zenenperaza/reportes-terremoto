@@ -13,6 +13,10 @@
 
 <div class="profile-layout">
     <section class="content-card profile-summary-card">
+        <div class="text-center mb-4">
+            <img src="{{ $user->profile_photo_url }}" alt="Foto de {{ $user->name }}" class="rounded-circle avatar-xl object-fit-cover">
+            <h2 class="mt-3 mb-0">{{ $user->name }}</h2>
+        </div>
         <h2>Información de la cuenta</h2>
         <dl class="detail-list">
             <div><dt>Correo electrónico</dt><dd>{{ $user->email }}</dd></div>
@@ -28,11 +32,15 @@
 
     <section class="content-card profile-edit-card">
         <h2>Actualizar mis datos</h2>
-        <form method="post" action="{{ route('profile.update') }}" class="stack-form">
+        <form method="post" action="{{ route('profile.update') }}" class="stack-form" enctype="multipart/form-data">
             @csrf
             @method('PUT')
             <label>Nombre completo *
                 <input type="text" name="name" value="{{ old('name', $user->name) }}" minlength="3" maxlength="120" required autofocus>
+            </label>
+            <label>Foto de perfil
+                <input type="file" name="profile_photo" accept="image/jpeg,image/png,image/webp">
+                <small class="muted">Formatos JPG, PNG o WebP. Tamaño máximo: 5 MB.</small>
             </label>
             <hr>
             <div>

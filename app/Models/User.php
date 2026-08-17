@@ -28,6 +28,7 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'profile_photo_path',
         'password',
         'role',
         'countrywide_access',
@@ -62,6 +63,15 @@ class User extends Authenticatable
     public function reports()
     {
         return $this->hasMany(Report::class);
+    }
+
+    public function getProfilePhotoUrlAttribute(): string
+    {
+        if ($this->profile_photo_path && is_file(public_path($this->profile_photo_path))) {
+            return asset($this->profile_photo_path).'?v='.(@filemtime(public_path($this->profile_photo_path)) ?: 1);
+        }
+
+        return asset('assets/images/users/user-dummy-img.jpg');
     }
 
     public function beneficiaries()
