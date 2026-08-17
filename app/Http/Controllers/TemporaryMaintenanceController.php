@@ -15,8 +15,12 @@ class TemporaryMaintenanceController extends Controller
         abort_if($token === '', 503, 'Falta configurar SERVER_MAINTENANCE_TOKEN en el archivo .env.');
         abort_unless(hash_equals($token, (string) request('token')), 403);
 
-        $commands = [
+        $cacheCommands = [
             ['name' => 'optimize:clear', 'parameters' => []],
+            ['name' => 'cache:clear', 'parameters' => []],
+        ];
+
+        $migrationCommands = [
             ['name' => 'migrate', 'parameters' => [
                 '--path' => 'database/migrations/2026_08_05_120000_create_donantes_proyectos_indicadores_tables.php',
                 '--force' => true,
@@ -53,9 +57,20 @@ class TemporaryMaintenanceController extends Controller
                 '--class' => 'Database\\Seeders\\ServicioSeeder',
                 '--force' => true,
             ]],
+        ];
+
+        $warmupCommands = [
+            ['name' => 'config:cache', 'parameters' => []],
             ['name' => 'route:cache', 'parameters' => []],
             ['name' => 'view:cache', 'parameters' => []],
         ];
+
+        $cacheOnly = request()->boolean('only_cache') || request('only') === 'cache';
+        $commands = array_merge(
+            $cacheCommands,
+            $cacheOnly ? [] : $migrationCommands,
+            $warmupCommands,
+        );
 
         $results = [];
         $exitCode = 1;

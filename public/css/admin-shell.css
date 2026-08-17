@@ -1,0 +1,14 @@
+/* Puente visual entre las vistas existentes y la estructura administrativa de assets. */
+.admin-layout{background:#f3f6f9}.admin-layout .page-content{min-height:calc(100vh - 130px)}
+.admin-layout .page-content>.container-fluid{max-width:none}.admin-layout .page-shell{max-width:none;margin:0;padding:0}
+.admin-layout .app-context{padding-left:12px;border-left:1px solid #e9ebec;line-height:1.15}.admin-layout .app-context-title{display:block;font-weight:600;color:#495057}.admin-layout .app-context small{color:#878a99}
+.sidebar-brand .logo-lg{align-items:center;justify-content:center;gap:9px;color:#fff}.sidebar-brand .logo-lg span{display:flex;flex-direction:column;text-align:left;line-height:1.1}.sidebar-brand .logo-lg strong{font-size:17px;letter-spacing:.03em}.sidebar-brand .logo-lg small{font-size:10px;color:#adb5bd;font-weight:500}
+.admin-layout .navbar-menu .navbar-nav .nav-link.active{color:#fff}.admin-layout .navbar-menu .navbar-nav .nav-link.active i{color:#fff}
+.admin-layout .page-heading{margin-top:0}.admin-layout .content-card{background:#fff}.admin-layout .footer{border-top:1px solid #e9ebec}
+.admin-layout .main-content .button{display:inline-flex;align-items:center;justify-content:center}.admin-layout .topbar-user .dropdown-item{width:100%;border:0;background:transparent;text-align:left}
+.admin-layout #topnav-hamburger-icon{width:48px;height:48px;padding:0!important;display:inline-flex;align-items:center;justify-content:center;flex:0 0 48px}
+.admin-layout #topnav-hamburger-icon:focus-visible{outline:2px solid #405189;outline-offset:2px}
+.admin-layout #topnav-hamburger-icon .menu-closed-icon{display:none;font-size:28px;line-height:1;color:#878a99}
+.admin-layout #topnav-hamburger-icon.menu-is-collapsed .hamburger-icon{display:none}
+.admin-layout #topnav-hamburger-icon.menu-is-collapsed .menu-closed-icon{display:block}
+@media(max-width:767.98px){.admin-layout .page-content{padding-left:0;padding-right:0}.admin-layout .page-content>.container-fluid{padding-left:12px;padding-right:12px}}
