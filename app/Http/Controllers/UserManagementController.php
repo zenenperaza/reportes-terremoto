@@ -16,7 +16,7 @@ class UserManagementController extends Controller
     public function index(): View
     {
         return view('users.index', [
-            'users' => User::query()->with(['assignedStates', 'assignedMunicipalities.state', 'projects'])->withCount(['reports', 'beneficiaries'])->orderBy('name')->paginate(20),
+            'users' => User::query()->with(['assignedStates', 'assignedMunicipalities.state', 'projects'])->withCount(['reports', 'beneficiaries'])->orderBy('name')->get(),
             'roleLabels' => User::roleLabels(),
         ]);
     }
