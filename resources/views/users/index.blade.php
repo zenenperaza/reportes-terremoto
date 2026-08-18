@@ -37,10 +37,12 @@
             </td>
             <td>{{ number_format($managedUser->reports_count) }}</td><td>{{ number_format($managedUser->beneficiaries_count) }}</td><td>{{ $managedUser->created_at->format('d/m/Y') }}</td>
             <td class="row-actions">
+                <div class="action-buttons">
                 <a class="btn btn-warning btn-icon waves-effect waves-light" href="{{ route('users.edit', $managedUser) }}" title="Editar usuario" aria-label="Editar usuario"><i class="ri-pencil-fill"></i></a>
                 @if (! $managedUser->is(auth()->user()) && $managedUser->beneficiaries_count === 0)
                 <form action="{{ route('users.destroy', $managedUser) }}" method="post" onsubmit="return confirm('¿Eliminar esta cuenta?');">@csrf @method('DELETE')<button class="btn btn-danger btn-icon waves-effect waves-light" type="submit" title="Eliminar usuario" aria-label="Eliminar usuario"><i class="ri-delete-bin-line"></i></button></form>
                 @endif
+                </div>
             </td>
         </tr>
         @endforeach
