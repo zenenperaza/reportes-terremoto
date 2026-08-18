@@ -88,9 +88,9 @@ class BeneficiaryReportController extends Controller
     public function markAsReported(Request $request): RedirectResponse
     {
         abort_unless(
-            $request->user()->isCoordinator(),
+            $request->user()->canMarkAsReported(),
             403,
-            'Solo los Coordinadores o Administradores pueden Reportar',
+            'No tiene permiso para actualizar beneficiarios a reportado.',
         );
 
         $filters = $this->validatedFilters($request);

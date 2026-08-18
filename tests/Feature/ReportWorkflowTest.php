@@ -788,7 +788,7 @@ class ReportWorkflowTest extends TestCase
     {
         $owner = User::factory()->create(['role' => 'reporter']);
         $otherUser = User::factory()->create(['role' => 'reporter']);
-        $coordinator = User::factory()->create(['role' => 'coordinator']);
+        $coordinator = User::factory()->create(['role' => 'coordinator', 'can_mark_reported' => true]);
         $state = State::create(['code' => 'VE01', 'name' => 'Distrito Capital']);
         $coordinator->assignedStates()->attach($state);
         $municipality = Municipality::create(['state_id' => $state->id, 'code' => 'VE0101', 'name' => 'Libertador']);
@@ -807,7 +807,7 @@ class ReportWorkflowTest extends TestCase
 
         $this->actingAs($owner)->get('/informe-beneficiarios?reported=0')
             ->assertOk()
-            ->assertSee('Actualizar a Reportado');
+            ->assertDontSee('action="'.route('beneficiaries.mark-reported').'"', false);
 
         $this->actingAs($owner)->post('/informe-beneficiarios/marcar-reportados', ['reported' => '0', 'reported_at' => today()->toDateString()])
             ->assertForbidden();

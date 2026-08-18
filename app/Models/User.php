@@ -33,6 +33,7 @@ class User extends Authenticatable
         'role',
         'countrywide_access',
         'is_active',
+        'can_mark_reported',
     ];
 
     /**
@@ -56,6 +57,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'can_mark_reported' => 'boolean',
             'countrywide_access' => 'boolean',
         ];
     }
@@ -158,6 +160,11 @@ class User extends Authenticatable
     public function isAdministrator(): bool
     {
         return $this->role === 'admin';
+    }
+
+    public function canMarkAsReported(): bool
+    {
+        return $this->isAdministrator() || $this->can_mark_reported;
     }
 
     /** @return array<string, string> */

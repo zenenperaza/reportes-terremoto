@@ -5,7 +5,7 @@
     @php
         $selectedProjects = array_map('strval', old('project_ids', $managedUser?->projects()->pluck('proyectos.id')->all() ?? []));
     @endphp
-    <label class="span-two">Proyectos asignados *
+    <label class="span-two assigned-projects-field">Proyectos asignados *
         <select name="project_ids[]" id="assigned-project-ids" multiple required data-placeholder="Busque y seleccione uno o varios proyectos">
             @foreach($projects as $project)
                 <option value="{{ $project->id }}" @selected(in_array((string)$project->id, $selectedProjects, true))>{{ $project->codigo }} — {{ $project->descripcion }} ({{ $project->donante->nombre }})</option>
@@ -29,6 +29,19 @@
             <option value="0" @selected((string) old('is_active', $managedUser?->is_active ?? true) === '0')>Inactivo</option>
         </select>
     </label>
+    <div class="span-two permission-switch-card">
+        <div class="permission-switch-copy">
+            <span class="permission-switch-icon" aria-hidden="true"><i class="ri-checkbox-circle-line"></i></span>
+            <div>
+                <label class="permission-switch-title" for="can-mark-reported">Puede actualizar a reportado</label>
+                <p>Permite consolidar beneficiarios pendientes mediante la opci&oacute;n &ldquo;Actualizar a Reportado&rdquo;.</p>
+            </div>
+        </div>
+        <div class="form-check form-switch form-switch-lg permission-switch-control">
+            <input class="form-check-input" type="checkbox" role="switch" id="can-mark-reported" name="can_mark_reported" value="1" @checked((bool) old('can_mark_reported', $managedUser?->can_mark_reported ?? false))>
+            <label class="form-check-label" for="can-mark-reported"><span class="visually-hidden">Cambiar permiso para actualizar a reportado</span></label>
+        </div>
+    </div>
     <label>{{ $managedUser ? 'Nueva contraseña (opcional)' : 'Contraseña *' }}
         <input type="password" name="password" autocomplete="new-password" @required(! $managedUser)>
     </label>
