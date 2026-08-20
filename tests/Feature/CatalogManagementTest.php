@@ -235,6 +235,7 @@ class CatalogManagementTest extends TestCase
             ->assertSee("$('#assigned-project-ids').select2", false);
         $this->get(route('reports.create'))->assertOk()
             ->assertSee('name="proyecto_id"', false)
+            ->assertSee('name="sector_proyecto_id"', false)
             ->assertSee('name="indicador_proyecto_id"', false)
             ->assertSee('PROY-001');
         $this->get(route('indicador-proyecto.edit', $asignacion))->assertOk();

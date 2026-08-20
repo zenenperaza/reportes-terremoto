@@ -37,8 +37,12 @@
                         @endforeach
                     </select>
                 </label><br>
-                <label class="indicator-select-field">Seleccione indicador *<select name="indicador_proyecto_id" id="indicador_proyecto_id" required>
+                <label>Sector *<select name="sector_proyecto_id" id="sector_proyecto_id" required>
                         <option value="">Seleccione primero el proyecto</option>
+                    </select>
+                </label><br>
+                <label class="indicator-select-field">Seleccione indicador *<select name="indicador_proyecto_id" id="indicador_proyecto_id" required>
+                        <option value="">Seleccione primero el sector</option>
                     </select><small class="indicator-select-help">Escriba para buscar por la descripción del indicador.</small><small id="selected-indicator-description" class="selected-indicator-description" hidden></small>
                 </label><br>
                 <label>Actividad a reportar <small>(opcional)</small><select name="actividad_indicador_id" id="actividad_indicador_id">
@@ -339,6 +343,7 @@
             municipality = select('municipality_id'),
             parish = select('parish_id'),
             project = select('proyecto_id'),
+            projectSector = select('sector_proyecto_id'),
             activity = select('indicador_proyecto_id'),
             indicatorDescription = select('selected-indicator-description'),
             beneficiaryAgeRange = select('beneficiary-age-range'),
@@ -347,10 +352,25 @@
             servicesField = select('report-services-field');
         const projectIndicators = @json($projectIndicatorOptions);
         const projectLocations = @json($projectLocationOptions);
+        const initialProjectSector = @json(old('sector_proyecto_id', $editing ? $report->indicadorProyecto?->sector_proyecto_id : null));
         const initialIndicator = @json(old('indicador_proyecto_id', $editing ? $report->indicador_proyecto_id : null));
         const initialActivity = @json(old('actividad_indicador_id', $editing ? $report->actividad_indicador_id : null));
         const initialServices = @json(old('servicio_actividad_ids', $editing ? $report->serviciosActividad->pluck('id')->all() : []));
-        const selectedIndicator = () => (projectIndicators[project.value] || []).find(item => String(item.id) === String(activity.value));
+        const projectSectors = () => {
+            const unique = new Map();
+            (projectIndicators[project.value] || []).forEach(item => {
+                if (item.sectorProjectId && !unique.has(String(item.sectorProjectId))) {
+                    unique.set(String(item.sectorProjectId), {
+                        id: item.sectorProjectId,
+                        title: [item.sectorCode, item.sectorTitle].filter(Boolean).join(' — '),
+                    });
+                }
+            });
+            return [...unique.values()];
+        };
+        const selectedSectorIndicators = () => (projectIndicators[project.value] || [])
+            .filter(item => String(item.sectorProjectId) === String(projectSector.value));
+        const selectedIndicator = () => selectedSectorIndicators().find(item => String(item.id) === String(activity.value));
         const selectedIndicatorAgeRange = () => {
             const indicator = selectedIndicator();
             if (!indicator || indicator.unit !== 'Personas') return null;
@@ -385,11 +405,16 @@
             syncServices(selectedServices);
         };
         const syncProjectIndicators = (selected = '', selectedActivity = '', selectedServices = []) => {
-            setOptions(activity, projectIndicators[project.value] || [], project.value ? 'Seleccione un indicador' : 'Seleccione primero el proyecto', selected);
+            setOptions(activity, selectedSectorIndicators(), projectSector.value ? 'Seleccione un indicador' : 'Seleccione primero el sector', selected);
             if (window.jQuery && jQuery.fn.select2) jQuery(activity).trigger('change.select2');
             syncIndicatorActivities(selectedActivity, selectedServices);
         };
-        project.addEventListener('change', () => syncProjectIndicators());
+        const syncProjectSectors = (selected = '', selectedIndicator = '', selectedActivity = '', selectedServices = []) => {
+            setOptions(projectSector, projectSectors(), project.value ? 'Seleccione un sector' : 'Seleccione primero el proyecto', selected);
+            syncProjectIndicators(selectedIndicator, selectedActivity, selectedServices);
+        };
+        project.addEventListener('change', () => syncProjectSectors());
+        projectSector.addEventListener('change', () => syncProjectIndicators());
         reportedActivity.addEventListener('change', () => syncServices());
         if (window.jQuery && jQuery.fn.select2) {
             jQuery(activity).select2({
@@ -403,7 +428,7 @@
         } else {
             activity.addEventListener('change', () => syncIndicatorActivities());
         }
-        syncProjectIndicators(initialIndicator, initialActivity, initialServices);
+        syncProjectSectors(initialProjectSector, initialIndicator, initialActivity, initialServices);
         const placeName = select('place_name'),
             installationType = select('installation_type'),
             placeLocationSummary = select('place-location-summary');
@@ -771,6 +796,7 @@
             ['installation_type', 'tipo de instalación'],
             ['place_name', 'nombre del lugar'],
             ['proyecto_id', 'proyecto'],
+            ['sector_proyecto_id', 'sector'],
             ['indicador_proyecto_id', 'indicador']
         ];
         const ensureReportContext = () => {

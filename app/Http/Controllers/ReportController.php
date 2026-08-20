@@ -88,7 +88,7 @@ class ReportController extends Controller
     public function edit(Request $request, Report $report): View
     {
         $this->ensureEditable($request, $report);
-        $report->load(['beneficiaries', 'evidences', 'serviciosActividad']);
+        $report->load(['beneficiaries', 'evidences', 'serviciosActividad', 'indicadorProyecto']);
         $requestedBeneficiaryId = $request->integer('beneficiary');
         $editBeneficiaryId = $requestedBeneficiaryId && $report->beneficiaries->contains('id', $requestedBeneficiaryId)
             ? $requestedBeneficiaryId
@@ -126,7 +126,7 @@ class ReportController extends Controller
         $this->ensureEditable($request, $report);
         $data = $request->validated();
         $serviceIds = $data['servicio_actividad_ids'] ?? [];
-        unset($data['servicio_actividad_ids']);
+        unset($data['servicio_actividad_ids'], $data['sector_proyecto_id']);
         unset($data['evidence_1'], $data['evidence_2'], $data['evidence_3']);
 
         DB::transaction(function () use ($request, $report, $data, $serviceIds): void {
@@ -151,7 +151,7 @@ class ReportController extends Controller
         $data = $request->validated();
         $beneficiaries = $data['beneficiaries'];
         $serviceIds = $data['servicio_actividad_ids'] ?? [];
-        unset($data['beneficiaries'], $data['servicio_actividad_ids'], $data['evidence_1'], $data['evidence_2'], $data['evidence_3']);
+        unset($data['beneficiaries'], $data['servicio_actividad_ids'], $data['sector_proyecto_id'], $data['evidence_1'], $data['evidence_2'], $data['evidence_3']);
 
         $summary = $this->beneficiarySummary($beneficiaries);
         $data['user_id'] = $request->user()->id;
@@ -196,7 +196,7 @@ class ReportController extends Controller
         $beneficiaryData = $data['beneficiary'];
         $reportId = $data['report_id'] ?? null;
         $serviceIds = $data['servicio_actividad_ids'] ?? [];
-        unset($data['beneficiary'], $data['report_id'], $data['servicio_actividad_ids'], $data['evidence_1'], $data['evidence_2'], $data['evidence_3']);
+        unset($data['beneficiary'], $data['report_id'], $data['servicio_actividad_ids'], $data['sector_proyecto_id'], $data['evidence_1'], $data['evidence_2'], $data['evidence_3']);
 
         [$report, $beneficiary, $summary, $createdReport] = DB::transaction(function () use ($request, $data, $beneficiaryData, $reportId, $serviceIds): array {
             if ($reportId) {
@@ -398,6 +398,7 @@ class ReportController extends Controller
             ->with(['donante', 'estados:id', 'municipios:id', 'asignacionesIndicadores' => fn ($query) => $query
                 ->with([
                     'indicador',
+                    'asignacionSector.sector',
                     'asignacionesActividades' => fn ($activities) => $activities
                         ->with(['actividad', 'asignacionesServicios' => fn ($services) => $services->with('servicio')->where('estatus', true)])
                         ->where('estatus', true),
@@ -476,6 +477,11 @@ class ReportController extends Controller
             return [$project->id => $project->asignacionesIndicadores->map(function ($assignment): array {
                 return [
                     'id' => $assignment->id,
+                    'sectorProjectId' => $assignment->sector_proyecto_id,
+                    'sectorId' => $assignment->asignacionSector?->sector_id,
+                    'sectorCode' => $assignment->asignacionSector?->sector?->codigo,
+                    'sectorTitle' => $assignment->asignacionSector?->sector?->descripcion
+                        ?: $assignment->asignacionSector?->sector?->name,
                     'title' => $assignment->indicador->descripcion,
                     'unit' => $assignment->indicador->unidad_conteo,
                     'ageFrom' => $assignment->indicador->edad_desde,

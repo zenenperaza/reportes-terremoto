@@ -51,6 +51,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             'gps_accuracy' => ['nullable', 'numeric', 'min:0', 'max:100000'],
 
             'proyecto_id' => ['nullable', 'required_without:sector_id', 'integer', 'exists:proyectos,id'],
+            'sector_proyecto_id' => ['nullable', 'required_with:proyecto_id', 'integer', 'exists:sector_proyecto,id'],
             'indicador_proyecto_id' => ['nullable', 'required_with:proyecto_id', 'integer', 'exists:indicador_proyecto,id'],
             'actividad_indicador_id' => ['nullable', 'integer', 'exists:actividad_indicador,id'],
             'servicio_actividad_ids' => ['nullable', 'array'],
@@ -123,6 +124,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             'longitude' => 'longitud',
             'sector_id' => 'sector programático',
             'activity_id' => 'actividad a reportar',
+            'sector_proyecto_id' => 'sector',
             'proyecto_id' => 'proyecto',
             'indicador_proyecto_id' => 'actividad a reportar',
             'actividad_indicador_id' => 'actividad a reportar',
@@ -167,7 +169,10 @@ class StoreBeneficiaryEntryRequest extends FormRequest
                 $validator->errors()->add('place_name', 'La ubicación seleccionada no pertenece al proyecto.');
             }
             $assignment = IndicadorProyecto::with('indicador')->find($this->integer('indicador_proyecto_id'));
-            if ($assignment && (! $assignment->sector_proyecto_id || $assignment->proyecto_id !== $this->integer('proyecto_id') || ! $assignment->estatus)) {
+            if ($assignment && (! $assignment->sector_proyecto_id
+                || $assignment->sector_proyecto_id !== $this->integer('sector_proyecto_id')
+                || $assignment->proyecto_id !== $this->integer('proyecto_id')
+                || ! $assignment->estatus)) {
                 $validator->errors()->add('indicador_proyecto_id', 'El indicador no corresponde al proyecto seleccionado.');
             }
             if ($assignment?->indicador?->unidad_conteo === 'Personas') {
