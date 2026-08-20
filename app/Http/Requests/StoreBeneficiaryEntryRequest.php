@@ -167,7 +167,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
                 $validator->errors()->add('place_name', 'La ubicación seleccionada no pertenece al proyecto.');
             }
             $assignment = IndicadorProyecto::with('indicador')->find($this->integer('indicador_proyecto_id'));
-            if ($assignment && ($assignment->proyecto_id !== $this->integer('proyecto_id') || ! $assignment->estatus)) {
+            if ($assignment && (! $assignment->sector_proyecto_id || $assignment->proyecto_id !== $this->integer('proyecto_id') || ! $assignment->estatus)) {
                 $validator->errors()->add('indicador_proyecto_id', 'El indicador no corresponde al proyecto seleccionado.');
             }
             if ($assignment?->indicador?->unidad_conteo === 'Personas') {

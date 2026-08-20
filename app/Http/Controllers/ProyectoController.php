@@ -18,7 +18,7 @@ class ProyectoController extends Controller
     public function index(): View
     {
         return view('proyectos.index', [
-            'proyectos' => Proyecto::with(['donante', 'estados', 'municipios'])->withCount('indicadores')->orderByDesc('created_at')->paginate(20),
+            'proyectos' => Proyecto::with(['donante', 'estados', 'municipios'])->withCount('sectores')->orderByDesc('created_at')->paginate(20),
         ]);
     }
 
@@ -33,11 +33,14 @@ class ProyectoController extends Controller
             'donante',
             'estados',
             'municipios.state',
-            'asignacionesIndicadores' => fn ($query) => $query->with([
-                'indicador',
-                'asignacionesActividades' => fn ($activities) => $activities->with([
-                    'actividad',
-                    'asignacionesServicios.servicio',
+            'asignacionesSectores' => fn ($query) => $query->with([
+                'sector',
+                'asignacionesIndicadores' => fn ($indicators) => $indicators->with([
+                    'indicador',
+                    'asignacionesActividades' => fn ($activities) => $activities->with([
+                        'actividad',
+                        'asignacionesServicios.servicio',
+                    ])->orderBy('id'),
                 ])->orderBy('id'),
             ])->orderBy('id'),
         ]);

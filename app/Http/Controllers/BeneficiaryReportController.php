@@ -331,6 +331,7 @@ class BeneficiaryReportController extends Controller
             'parishes.id as parish_id', 'parishes.name as parish_name', 'grouped_reports.place_name',
             'grouped_reports.activity_id',
             'grouped_reports.indicador_proyecto_id',
+            DB::raw("COALESCE(project_sectors.descripcion, project_sectors.name, 'Sin sector') as project_sector_name"),
             DB::raw('COALESCE(indicadores.descripcion, activities.title) as activity_title'),
             DB::raw('COUNT(beneficiaries.id) as beneficiary_count'),
         ];
@@ -339,6 +340,7 @@ class BeneficiaryReportController extends Controller
             'parishes.id', 'parishes.name', 'grouped_reports.place_name',
             'grouped_reports.indicador_proyecto_id', 'grouped_reports.activity_id', 'indicators_assignment.id',
             'indicadores.descripcion', 'activities.id', 'activities.title',
+            'project_sectors.id', 'project_sectors.descripcion', 'project_sectors.name',
         ];
 
         if ($includeReportedAt) {
@@ -353,6 +355,8 @@ class BeneficiaryReportController extends Controller
             ->join('parishes', 'grouped_reports.parish_id', '=', 'parishes.id')
             ->leftJoin('activities', 'grouped_reports.activity_id', '=', 'activities.id')
             ->leftJoin('indicador_proyecto as indicators_assignment', 'grouped_reports.indicador_proyecto_id', '=', 'indicators_assignment.id')
+            ->leftJoin('sector_proyecto as project_sector_assignments', 'indicators_assignment.sector_proyecto_id', '=', 'project_sector_assignments.id')
+            ->leftJoin('sectors as project_sectors', 'project_sector_assignments.sector_id', '=', 'project_sectors.id')
             ->leftJoin('indicadores', 'indicators_assignment.indicador_id', '=', 'indicadores.id')
             ->select($select)
             ->groupBy($groupBy)

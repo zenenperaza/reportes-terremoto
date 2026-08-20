@@ -7,6 +7,7 @@ use App\Models\Indicador;
 use App\Models\IndicadorProyecto;
 use App\Models\Municipality;
 use App\Models\Proyecto;
+use App\Models\Sector;
 use App\Models\State;
 use App\Models\User;
 use Database\Seeders\IndicadorSeeder;
@@ -16,6 +17,118 @@ use Tests\TestCase;
 class CatalogManagementTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_administrator_can_manage_indicators_from_a_project_sector(): void
+    {
+        $administrator = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $donante = Donante::create(['nombre' => 'UNICEF', 'estatus' => true]);
+        $proyecto = Proyecto::create([
+            'donante_id' => $donante->id, 'estatus' => true,
+            'codigo' => 'PROY-SECTOR', 'descripcion' => 'Proyecto por sectores',
+        ]);
+        $sector = Sector::create([
+            'codigo' => 'PROT', 'descripcion' => 'Protección',
+            'name' => 'Protección', 'slug' => 'proteccion-sector', 'sort_order' => 1,
+        ]);
+        $proyecto->sectores()->attach($sector);
+        $sectorProyecto = $proyecto->asignacionesSectores()->firstOrFail();
+        $indicador = Indicador::create([
+            'codigo' => 'IND-SECTOR', 'descripcion' => 'Indicador del sector',
+            'unidad_conteo' => 'Personas', 'espacio_coordinacion' => 'NNA',
+            'edad_desde' => 0, 'edad_hasta' => 17,
+        ]);
+
+        $this->actingAs($administrator)
+            ->get(route('proyectos.sectores.index', $proyecto))
+            ->assertOk()
+            ->assertSee(route('sector-proyecto.indicadores.index', $sectorProyecto), false);
+
+        $this->get(route('sector-proyecto.indicadores.index', $sectorProyecto))
+            ->assertOk()->assertSee('Indicadores del sector')->assertSee('Protección');
+
+        $this->post(route('sector-proyecto.indicadores.store', $sectorProyecto), [
+            'indicador_id' => $indicador->id,
+            'meta_cuantitativa' => 25,
+        ])->assertRedirect(route('sector-proyecto.indicadores.index', $sectorProyecto));
+
+        $this->assertDatabaseHas('indicador_proyecto', [
+            'proyecto_id' => $proyecto->id,
+            'sector_proyecto_id' => $sectorProyecto->id,
+            'indicador_id' => $indicador->id,
+            'meta_cuantitativa' => 25,
+        ]);
+    }
+
+    public function test_legacy_project_indicator_is_only_shown_after_being_assigned_to_a_sector(): void
+    {
+        $administrator = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $donante = Donante::create(['nombre' => 'UNICEF', 'estatus' => true]);
+        $proyecto = Proyecto::create([
+            'donante_id' => $donante->id, 'estatus' => true,
+            'codigo' => 'PROY-NORMALIZADO', 'descripcion' => 'Proyecto normalizado',
+        ]);
+        $sector = Sector::create([
+            'codigo' => 'PROT', 'descripcion' => 'Protección',
+            'name' => 'Protección', 'slug' => 'proteccion-normalizada', 'sort_order' => 1,
+        ]);
+        $proyecto->sectores()->attach($sector);
+        $sectorProyecto = $proyecto->asignacionesSectores()->firstOrFail();
+        $indicador = Indicador::create([
+            'codigo' => 'IND-LEGACY', 'descripcion' => 'Indicador anterior sin sector',
+            'unidad_conteo' => 'Personas', 'espacio_coordinacion' => 'NNA',
+            'edad_desde' => 0, 'edad_hasta' => 17,
+        ]);
+        $asignacion = $proyecto->asignacionesIndicadores()->create([
+            'indicador_id' => $indicador->id, 'estatus' => true, 'meta_cuantitativa' => 10,
+        ]);
+
+        $this->actingAs($administrator)->get(route('proyectos.show', $proyecto))
+            ->assertOk()->assertDontSee('IND-LEGACY');
+
+        $this->get(route('sector-proyecto.indicadores.index', $sectorProyecto))
+            ->assertOk()->assertSee('IND-LEGACY');
+
+        $this->post(route('sector-proyecto.indicadores.store', $sectorProyecto), [
+            'indicador_id' => $indicador->id,
+        ])->assertRedirect(route('sector-proyecto.indicadores.index', $sectorProyecto));
+
+        $this->assertDatabaseCount('indicador_proyecto', 1);
+        $this->assertDatabaseHas('indicador_proyecto', [
+            'id' => $asignacion->id,
+            'sector_proyecto_id' => $sectorProyecto->id,
+        ]);
+        $this->get(route('proyectos.show', $proyecto))
+            ->assertOk()->assertSee('IND-LEGACY');
+    }
+
+    public function test_administrator_can_manage_sector_catalogue(): void
+    {
+        $administrator = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+
+        $this->actingAs($administrator)->get(route('sectores.index'))
+            ->assertOk()->assertSee('Sectores')->assertSee('Nuevo sector');
+
+        $this->post(route('sectores.store'), [
+            'codigo' => 'PROT',
+            'descripcion' => 'Protección de la niñez',
+        ])->assertRedirect(route('sectores.index'));
+
+        $sector = Sector::where('codigo', 'PROT')->firstOrFail();
+        $this->assertSame('Protección de la niñez', $sector->name);
+
+        $this->put(route('sectores.update', $sector), [
+            'codigo' => 'PROT-NNA',
+            'descripcion' => 'Protección integral de la niñez',
+        ])->assertRedirect(route('sectores.index'));
+        $this->assertDatabaseHas('sectors', [
+            'id' => $sector->id,
+            'codigo' => 'PROT-NNA',
+            'descripcion' => 'Protección integral de la niñez',
+        ]);
+
+        $this->delete(route('sectores.destroy', $sector))->assertRedirect(route('sectores.index'));
+        $this->assertDatabaseMissing('sectors', ['id' => $sector->id]);
+    }
 
     public function test_project_can_cover_all_municipalities_when_none_are_selected(): void
     {
@@ -62,6 +175,24 @@ class CatalogManagementTest extends TestCase
         $this->assertDatabaseHas('estado_proyecto', ['estado_id' => $state->id, 'proyecto_id' => $proyecto->id]);
         $this->assertDatabaseHas('municipio_proyecto', ['municipio_id' => $municipality->id, 'proyecto_id' => $proyecto->id]);
 
+        $proteccion = Sector::create([
+            'codigo' => 'PROT', 'descripcion' => 'Protección',
+            'name' => 'Protección', 'slug' => 'proteccion', 'sort_order' => 1,
+        ]);
+        $educacion = Sector::create([
+            'codigo' => 'EDU', 'descripcion' => 'Educación',
+            'name' => 'Educación', 'slug' => 'educacion', 'sort_order' => 2,
+        ]);
+
+        $this->get(route('proyectos.sectores.index', $proyecto))
+            ->assertOk()->assertSee('Sectores del proyecto')->assertSee('Protección');
+        $this->post(route('proyectos.sectores.store', $proyecto), [
+            'sector_ids' => [$proteccion->id, $educacion->id],
+        ])->assertRedirect(route('proyectos.sectores.index', $proyecto));
+        $this->assertDatabaseHas('sector_proyecto', ['proyecto_id' => $proyecto->id, 'sector_id' => $proteccion->id]);
+        $this->assertDatabaseHas('sector_proyecto', ['proyecto_id' => $proyecto->id, 'sector_id' => $educacion->id]);
+        $sectorProyecto = $proyecto->asignacionesSectores()->where('sector_id', $proteccion->id)->firstOrFail();
+
         $indicador = Indicador::create([
             'codigo' => 'GCLPR/SCA10/IC1/IE2',
             'descripcion' => 'Número de nuevos casos de gestión de protección.',
@@ -73,21 +204,21 @@ class CatalogManagementTest extends TestCase
             'unidad_conteo' => 'Personas', 'espacio_coordinacion' => 'NNA', 'edad_desde' => 0, 'edad_hasta' => 17,
         ]);
 
-        $this->get(route('proyectos.indicadores.index', $proyecto))
+        $this->get(route('sector-proyecto.indicadores.index', $sectorProyecto))
             ->assertOk()->assertSee('PROY-001')->assertSee($segundoIndicador->descripcion)
             ->assertSee('modalAgregarIndicador');
 
-        $this->post(route('proyectos.indicadores.store', $proyecto), [
+        $this->post(route('sector-proyecto.indicadores.store', $sectorProyecto), [
             'indicador_id' => $indicador->id,
             'meta_cuantitativa' => 150,
             'meta_cualitativa' => 'Atención adaptada a las necesidades.',
-        ])->assertRedirect(route('proyectos.indicadores.index', $proyecto));
+        ])->assertRedirect(route('sector-proyecto.indicadores.index', $sectorProyecto));
 
-        $this->post(route('proyectos.indicadores.store', $proyecto), [
+        $this->post(route('sector-proyecto.indicadores.store', $sectorProyecto), [
             'indicador_id' => $segundoIndicador->id,
             'meta_cuantitativa' => 275,
             'meta_cualitativa' => 'Actividades grupales.',
-        ])->assertRedirect(route('proyectos.indicadores.index', $proyecto));
+        ])->assertRedirect(route('sector-proyecto.indicadores.index', $sectorProyecto));
 
         $this->assertSame(2, IndicadorProyecto::count());
         $asignacion = IndicadorProyecto::where('indicador_id', $indicador->id)->firstOrFail();
@@ -97,8 +228,8 @@ class CatalogManagementTest extends TestCase
             'meta_cuantitativa' => 275, 'meta_cualitativa' => 'Actividades grupales.',
         ]);
 
-        $this->get(route('proyectos.index'))->assertOk()->assertSee('Gestionar (2)');
-        $this->get(route('proyectos.indicadores.index', $proyecto))->assertOk()->assertSee('150');
+        $this->get(route('proyectos.index'))->assertOk()->assertSee('Sectores')->assertSee('Gestionar (2)');
+        $this->get(route('sector-proyecto.indicadores.index', $sectorProyecto))->assertOk()->assertSee('150');
         $this->get(route('users.create'))->assertOk()
             ->assertSee('select2.full.min.js', false)
             ->assertSee("$('#assigned-project-ids').select2", false);
@@ -122,6 +253,7 @@ class CatalogManagementTest extends TestCase
         $this->actingAs($reporter)->get(route('proyectos.index'))->assertForbidden();
         $this->actingAs($reporter)->get(route('indicadores.index'))->assertForbidden();
         $this->actingAs($reporter)->get(route('proyectos.indicadores.index', $proyecto))->assertForbidden();
+        $this->actingAs($reporter)->get(route('proyectos.sectores.index', $proyecto))->assertForbidden();
     }
 
     public function test_indicator_uses_a_valid_age_range(): void

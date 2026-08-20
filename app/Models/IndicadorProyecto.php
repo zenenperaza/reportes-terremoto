@@ -11,7 +11,7 @@ class IndicadorProyecto extends Model
     protected $table = 'indicador_proyecto';
 
     protected $fillable = [
-        'proyecto_id', 'indicador_id', 'estatus', 'meta_cuantitativa', 'meta_cualitativa',
+        'proyecto_id', 'sector_proyecto_id', 'indicador_id', 'estatus', 'meta_cuantitativa', 'meta_cualitativa',
     ];
 
     protected function casts(): array
@@ -27,6 +27,11 @@ class IndicadorProyecto extends Model
     public function indicador(): BelongsTo
     {
         return $this->belongsTo(Indicador::class);
+    }
+
+    public function asignacionSector(): BelongsTo
+    {
+        return $this->belongsTo(SectorProyecto::class, 'sector_proyecto_id');
     }
 
     public function asignacionesActividades(): HasMany

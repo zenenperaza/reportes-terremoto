@@ -80,7 +80,7 @@
         <div class="empty-state"><p>No hay beneficiarios que coincidan con los filtros.</p></div>
     @else
         <div class="table-wrap"><table id="beneficiary-attention-table" class="beneficiary-attention-table">
-            <thead><tr><th>Fecha de atención</th><th>Estado</th><th>Municipio</th><th>Parroquia</th><th>Nombre del lugar</th><th>Indicador</th>@if($showReportedAt)<th>Fecha de reporte</th>@endif<th>Beneficiarios</th></tr></thead>
+            <thead><tr><th>Fecha de atención</th><th>Estado</th><th>Municipio</th><th>Parroquia</th><th>Nombre del lugar</th><th>Sector</th><th>Indicador</th>@if($showReportedAt)<th>Fecha de reporte</th>@endif<th>Beneficiarios</th></tr></thead>
             <tbody>@foreach($groupedBeneficiaries as $group)
                 @php
                     $groupFilters = array_merge($filters, [
@@ -93,7 +93,7 @@
                     ]);
                     $groupUrl = route('beneficiaries.summary', array_filter($groupFilters, static fn ($value) => $value !== null && $value !== ''));
                 @endphp
-                <tr class="beneficiary-group-row" data-detail-url="{{ $groupUrl }}" tabindex="0" role="link" aria-label="Ver resultados del grupo del {{ \Illuminate\Support\Carbon::parse($group->report_date)->format('d/m/Y') }}"><td data-order="{{ $group->report_date }}"><a class="beneficiary-group-link" href="{{ $groupUrl }}">{{ \Illuminate\Support\Carbon::parse($group->report_date)->format('d/m/Y') }}</a></td><td>{{ $group->state_name }}</td><td>{{ $group->municipality_name }}</td><td>{{ $group->parish_name }}</td><td>{{ $group->place_name }}</td><td>{{ $group->activity_title }}</td>@if($showReportedAt)<td data-order="{{ $group->reported_at }}">{{ \Illuminate\Support\Carbon::parse($group->reported_at)->format('d/m/Y') }}</td>@endif<td data-order="{{ $group->beneficiary_count }}">{{ number_format($group->beneficiary_count) }}</td></tr>
+                <tr class="beneficiary-group-row" data-detail-url="{{ $groupUrl }}" tabindex="0" role="link" aria-label="Ver resultados del grupo del {{ \Illuminate\Support\Carbon::parse($group->report_date)->format('d/m/Y') }}"><td data-order="{{ $group->report_date }}"><a class="beneficiary-group-link" href="{{ $groupUrl }}">{{ \Illuminate\Support\Carbon::parse($group->report_date)->format('d/m/Y') }}</a></td><td>{{ $group->state_name }}</td><td>{{ $group->municipality_name }}</td><td>{{ $group->parish_name }}</td><td>{{ $group->place_name }}</td><td>{{ $group->project_sector_name }}</td><td>{{ $group->activity_title }}</td>@if($showReportedAt)<td data-order="{{ $group->reported_at }}">{{ \Illuminate\Support\Carbon::parse($group->reported_at)->format('d/m/Y') }}</td>@endif<td data-order="{{ $group->beneficiary_count }}">{{ number_format($group->beneficiary_count) }}</td></tr>
             @endforeach</tbody>
         </table></div>
     @endif

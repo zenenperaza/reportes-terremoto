@@ -57,6 +57,10 @@ class TemporaryMaintenanceController extends Controller
                 '--path' => 'database/migrations/2026_08_17_170000_add_can_mark_reported_to_users_table.php',
                 '--force' => true,
             ]],
+            ['name' => 'migrate', 'parameters' => [
+                '--path' => 'database/migrations/2026_08_18_120000_create_sector_project_structure.php',
+                '--force' => true,
+            ]],
             ['name' => 'db:seed', 'parameters' => [
                 '--class' => 'Database\\Seeders\\ActividadSeeder',
                 '--force' => true,

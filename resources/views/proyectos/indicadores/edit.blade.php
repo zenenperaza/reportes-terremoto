@@ -30,7 +30,7 @@
             </label>
         </div>
         <div class="form-actions">
-            <a class="button button-secondary" href="{{ route('proyectos.indicadores.index',$indicadorProyecto->proyecto_id) }}">Cancelar</a>
+            <a class="button button-secondary" href="{{ $indicadorProyecto->sector_proyecto_id ? route('sector-proyecto.indicadores.index', $indicadorProyecto->sector_proyecto_id) : route('proyectos.indicadores.index', $indicadorProyecto->proyecto_id) }}">Cancelar</a>
             <button class="button button-primary" type="submit">Actualizar indicador</button>
         </div>
     </form>

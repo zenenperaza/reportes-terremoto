@@ -401,7 +401,7 @@ class ReportController extends Controller
                     'asignacionesActividades' => fn ($activities) => $activities
                         ->with(['actividad', 'asignacionesServicios' => fn ($services) => $services->with('servicio')->where('estatus', true)])
                         ->where('estatus', true),
-                ])->where('estatus', true)])
+                ])->whereNotNull('sector_proyecto_id')->where('estatus', true)])
             ->where(function ($query) use ($includeProjectId): void {
                 $query->where('estatus', true);
                 if ($includeProjectId) $query->orWhere('proyectos.id', $includeProjectId);

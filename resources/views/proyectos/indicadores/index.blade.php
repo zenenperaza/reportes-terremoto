@@ -1,14 +1,22 @@
 @extends('layouts.app')
-@section('title','Indicadores del proyecto | Respuesta ASONACOP')
+@section('title',isset($sectorProyecto) ? 'Indicadores del sector | Respuesta ASONACOP' : 'Indicadores del proyecto | Respuesta ASONACOP')
 @section('content')
 <section class="page-heading project-indicator-heading">
     <div>
         <p class="eyebrow">Proyecto {{ $proyecto->codigo }}</p>
-        <h1>Indicadores del proyecto</h1>
+        <h1>{{ isset($sectorProyecto) ? 'Indicadores del sector' : 'Indicadores del proyecto' }}</h1>
+        @isset($sectorProyecto)
+            <p><strong>{{ $sectorProyecto->sector->descripcion ?: $sectorProyecto->sector->name }}</strong></p>
+        @endisset
         <p class="muted">{{ $proyecto->descripcion }} · Donante: {{ $proyecto->donante->nombre }}</p>
     </div>
     <div class="heading-actions">
+        @isset($sectorProyecto)
+            <a class="button button-secondary" href="{{ route('proyectos.sectores.index', $proyecto) }}">&larr; Volver a sectores</a>
+        @endisset
+        @unless(isset($sectorProyecto))
         <a class="button button-secondary" href="{{ route('proyectos.index') }}">← Volver a proyectos</a>
+        @endunless
         <button class="button button-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalAgregarIndicador" @disabled($indicadoresDisponibles->isEmpty())>+ Agregar indicador</button>
     </div>
 </section>
@@ -51,7 +59,7 @@
 <div class="modal fade" id="modalAgregarIndicador" tabindex="-1" aria-labelledby="modalAgregarIndicadorLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content catalog-modal">
-            <form action="{{ route('proyectos.indicadores.store',$proyecto) }}" method="post">
+            <form action="{{ isset($sectorProyecto) ? route('sector-proyecto.indicadores.store', $sectorProyecto) : route('proyectos.indicadores.store', $proyecto) }}" method="post">
                 @csrf
                 <div class="modal-header">
                     <h2 class="modal-title" id="modalAgregarIndicadorLabel">Agregar indicador</h2>

@@ -16,6 +16,8 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProyectoController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ServicioController;
+use App\Http\Controllers\SectorProyectoController;
+use App\Http\Controllers\SectorController;
 use App\Http\Controllers\SystemMaintenanceController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Middleware\EnsureActiveUser;
@@ -46,6 +48,8 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance'])->grou
     Route::middleware('admin')->group(function (): void {
         Route::resource('donantes', DonanteController::class)->except('show');
         Route::resource('proyectos', ProyectoController::class);
+        Route::resource('configuracion/sectores', SectorController::class)
+            ->parameters(['sectores' => 'sector'])->names('sectores')->except('show');
         Route::resource('indicadores', IndicadorController::class)
             ->parameters(['indicadores' => 'indicador'])->except('show');
         Route::resource('configuracion/actividades', ActividadController::class)
@@ -54,6 +58,16 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance'])->grou
             ->parameters(['servicios' => 'servicio'])->names('servicios')->except('show');
         Route::get('configuracion/mantenimiento', [SystemMaintenanceController::class, 'index'])->name('system-maintenance.index');
         Route::put('configuracion/mantenimiento', [SystemMaintenanceController::class, 'update'])->name('system-maintenance.update');
+        Route::get('proyectos/{proyecto}/sectores', [SectorProyectoController::class, 'index'])
+            ->name('proyectos.sectores.index');
+        Route::post('proyectos/{proyecto}/sectores', [SectorProyectoController::class, 'store'])
+            ->name('proyectos.sectores.store');
+        Route::get('sectores-proyectos/{sectorProyecto}/indicadores', [IndicadorProyectoController::class, 'indexBySector'])
+            ->name('sector-proyecto.indicadores.index');
+        Route::post('sectores-proyectos/{sectorProyecto}/indicadores', [IndicadorProyectoController::class, 'storeBySector'])
+            ->name('sector-proyecto.indicadores.store');
+        Route::delete('sectores-proyectos/{sectorProyecto}', [SectorProyectoController::class, 'destroy'])
+            ->name('sector-proyecto.destroy');
         Route::get('proyectos/{proyecto}/indicadores', [IndicadorProyectoController::class, 'index'])
             ->name('proyectos.indicadores.index');
         Route::post('proyectos/{proyecto}/indicadores', [IndicadorProyectoController::class, 'store'])

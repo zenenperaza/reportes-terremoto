@@ -2,6 +2,7 @@
 <html lang="es" data-layout="vertical" data-topbar="light" data-sidebar="dark" data-sidebar-size="lg" data-sidebar-image="none">
 <head>
     @php($asonacopIconUrl = asset('icons/asonacop-app.png').'?v='.(@filemtime(public_path('icons/asonacop-app.png')) ?: 1))
+    @php($faviconUrl = asset('favicon.ico').'?v='.(@filemtime(public_path('favicon.ico')) ?: 1))
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -13,7 +14,8 @@
     <title>@yield('title', 'Respuesta ASONACOP Venezuela')</title>
     <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">
     <link rel="apple-touch-icon" href="{{ $asonacopIconUrl }}">
-    <link rel="shortcut icon" href="{{ $asonacopIconUrl }}">
+    <link rel="icon" type="image/x-icon" href="{{ $faviconUrl }}">
+    <link rel="shortcut icon" type="image/x-icon" href="{{ $faviconUrl }}">
     @auth
         <script src="{{ asset('assets/js/layout.js') }}"></script>
         <link rel="stylesheet" href="{{ asset('assets/css/bootstrap.min.css') }}">
@@ -83,7 +85,7 @@
             <li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('reports.index', 'reports.show', 'reports.edit') ? 'active' : '' }}" href="{{ route('reports.index') }}"><i class="ri-file-list-3-line"></i><span>Registros</span></a></li>
             <li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('beneficiaries.summary') ? 'active' : '' }}" href="{{ route('beneficiaries.summary') }}"><i class="ri-group-line"></i><span>Informe de beneficiarios</span></a></li>
             @if(auth()->user()->isAdministrator())
-                @php($catalogOpen = request()->routeIs('users.*', 'place-names.*', 'donantes.*', 'proyectos.*', 'indicadores.*', 'actividades.*', 'servicios.*', 'system-maintenance.*'))
+                @php($catalogOpen = request()->routeIs('users.*', 'place-names.*', 'donantes.*', 'proyectos.*', 'sectores.*', 'indicadores.*', 'actividades.*', 'servicios.*', 'system-maintenance.*'))
                 <li class="menu-title"><span>Administraci&oacute;n</span></li>
                 <li class="nav-item">
                     <a class="nav-link menu-link {{ $catalogOpen ? '' : 'collapsed' }}" href="#sidebarConfiguration" data-bs-toggle="collapse" role="button" aria-expanded="{{ $catalogOpen ? 'true' : 'false' }}" aria-controls="sidebarConfiguration"><i class="ri-settings-3-line"></i><span>Configuraci&oacute;n</span></a>
@@ -92,6 +94,7 @@
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('place-names.*') ? 'active' : '' }}" href="{{ route('place-names.index') }}">Lugares</a></li>
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('donantes.*') ? 'active' : '' }}" href="{{ route('donantes.index') }}">Donantes</a></li>
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('proyectos.*') ? 'active' : '' }}" href="{{ route('proyectos.index') }}">Proyectos</a></li>
+                        <li class="nav-item"><a class="nav-link {{ request()->routeIs('sectores.*') ? 'active' : '' }}" href="{{ route('sectores.index') }}">Sectores</a></li>
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('indicadores.*') ? 'active' : '' }}" href="{{ route('indicadores.index') }}">Indicadores</a></li>
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('actividades.*') ? 'active' : '' }}" href="{{ route('actividades.index') }}">Actividades</a></li>
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('servicios.*') ? 'active' : '' }}" href="{{ route('servicios.index') }}">Servicios</a></li>

@@ -33,6 +33,17 @@ class Proyecto extends Model
         return $this->hasMany(IndicadorProyecto::class);
     }
 
+    public function sectores(): BelongsToMany
+    {
+        return $this->belongsToMany(Sector::class, 'sector_proyecto', 'proyecto_id', 'sector_id')
+            ->withTimestamps();
+    }
+
+    public function asignacionesSectores(): HasMany
+    {
+        return $this->hasMany(SectorProyecto::class);
+    }
+
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'proyecto_user')->withTimestamps();

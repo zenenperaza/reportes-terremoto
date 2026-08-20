@@ -1,4 +1,4 @@
-const CACHE_VERSION = "asonacop-pwa-v36";
+const CACHE_VERSION = "asonacop-pwa-v42";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const OFFLINE_URL = "/offline.html";
 
