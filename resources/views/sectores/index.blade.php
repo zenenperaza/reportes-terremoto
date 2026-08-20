@@ -20,7 +20,7 @@
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr><th>Código</th><th>Descripción</th><th>Proyectos asignados</th><th>Acciones</th></tr>
+                    <tr><th>Código</th><th>Descripción</th><th>Proyectos asignados</th><th>Estado</th><th>Acciones</th></tr>
                 </thead>
                 <tbody>
                 @foreach($sectores as $sector)
@@ -28,8 +28,13 @@
                         <td><strong>{{ $sector->codigo ?: 'SEC-'.$sector->id }}</strong></td>
                         <td class="catalog-description">{{ $sector->descripcion ?: $sector->name }}</td>
                         <td>{{ $sector->proyectos_count }}</td>
+                        <td><span class="catalog-tag">{{ $sector->estatus ? 'Activo' : 'Inactivo' }}</span></td>
                         <td class="row-actions">
                             <a href="{{ route('sectores.edit', $sector) }}">Editar</a>
+                            <form action="{{ route('sectores.toggle-status', $sector) }}" method="post">
+                                @csrf @method('PATCH')
+                                <button class="table-action" type="submit">{{ $sector->estatus ? 'Desactivar' : 'Activar' }}</button>
+                            </form>
                             @if($sector->proyectos_count === 0 && $sector->activities_count === 0)
                                 <form action="{{ route('sectores.destroy', $sector) }}" method="post" onsubmit="return confirm('¿Eliminar este sector?');">
                                     @csrf @method('DELETE')

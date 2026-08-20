@@ -11,7 +11,12 @@ class Sector extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['codigo', 'descripcion', 'name', 'slug', 'sort_order'];
+    protected $fillable = ['codigo', 'descripcion', 'estatus', 'name', 'slug', 'sort_order'];
+
+    protected function casts(): array
+    {
+        return ['estatus' => 'boolean'];
+    }
 
     public function activities()
     {

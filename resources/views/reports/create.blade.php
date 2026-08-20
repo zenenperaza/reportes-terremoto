@@ -43,9 +43,13 @@
                 </label><br>
                 <label class="indicator-select-field">Seleccione indicador *<select name="indicador_proyecto_id" id="indicador_proyecto_id" required>
                         <option value="">Seleccione primero el sector</option>
-                    </select><small class="indicator-select-help">Escriba para buscar por la descripción del indicador.</small><small id="selected-indicator-description" class="selected-indicator-description" hidden></small>
+                    </select><small class="indicator-select-help">Escriba para buscar por la descripción del indicador.</small>
+                    <span id="selected-indicator-summary" class="selected-indicator-summary" hidden>
+                        <strong id="selected-indicator-code" class="selected-indicator-code"></strong>
+                        <span id="selected-indicator-description" class="selected-indicator-description"></span>
+                    </span>
                 </label><br>
-                <label>Actividad a reportar <small>(opcional)</small><select name="actividad_indicador_id" id="actividad_indicador_id">
+                <label id="report-activity-field" hidden>Actividad a reportar <small>(opcional)</small><select name="actividad_indicador_id" id="actividad_indicador_id">
                         <option value="">Seleccione primero el indicador</option>
                     </select>
                 </label>
@@ -162,9 +166,16 @@
                         </select>
                     </label>
                     <div class="community-location-summary span-two" id="community-location-summary" hidden>
-                        <strong id="community-generated-name"></strong>
-                        <span>Latitud: <b id="community-latitude"></b></span>
-                        <span>Longitud: <b id="community-longitude"></b></span>
+                        <strong id="community-generated-name" class="span-two"></strong>
+                        <label>Latitud específica *
+                            <input type="number" id="community-latitude" step="any" min="-90" max="90"
+                                value="{{ old('latitude', $editing ? $report->latitude : null) }}">
+                        </label>
+                        <label>Longitud específica *
+                            <input type="number" id="community-longitude" step="any" min="-180" max="180"
+                                value="{{ old('longitude', $editing ? $report->longitude : null) }}">
+                        </label>
+                        <small class="span-two muted">Puede reemplazar las coordenadas sugeridas por unas más precisas.</small>
                     </div>
                 </div>
             </div>
@@ -345,9 +356,12 @@
             project = select('proyecto_id'),
             projectSector = select('sector_proyecto_id'),
             activity = select('indicador_proyecto_id'),
+            indicatorSummary = select('selected-indicator-summary'),
+            indicatorCode = select('selected-indicator-code'),
             indicatorDescription = select('selected-indicator-description'),
             beneficiaryAgeRange = select('beneficiary-age-range'),
             reportedActivity = select('actividad_indicador_id'),
+            reportedActivityField = select('report-activity-field'),
             services = select('servicio_actividad_ids'),
             servicesField = select('report-services-field');
         const projectIndicators = @json($projectIndicatorOptions);
@@ -385,9 +399,10 @@
             beneficiaryAgeRange.hidden = !range;
         };
         const syncIndicatorDescription = () => {
-            const description = selectedIndicator()?.title || '';
-            indicatorDescription.textContent = description;
-            indicatorDescription.hidden = description === '';
+            const indicator = selectedIndicator();
+            indicatorCode.textContent = indicator?.code || '';
+            indicatorDescription.textContent = indicator?.title || '';
+            indicatorSummary.hidden = !indicator;
         };
         const selectedProjectActivity = () => (selectedIndicator()?.activities || []).find(item => String(item.id) === String(reportedActivity.value));
         const syncServices = (selected = []) => {
@@ -401,7 +416,10 @@
         const syncIndicatorActivities = (selected = '', selectedServices = []) => {
             syncIndicatorDescription();
             syncBeneficiaryAgeRange();
-            setOptions(reportedActivity, selectedIndicator()?.activities || [], activity.value ? 'Seleccione una actividad' : 'Seleccione primero el indicador', selected);
+            const activities = selectedIndicator()?.activities || [];
+            reportedActivityField.hidden = activities.length === 0;
+            setOptions(reportedActivity, activities, activity.value ? 'Seleccione una actividad' : 'Seleccione primero el indicador', selected);
+            if (activities.length === 0) reportedActivity.value = '';
             syncServices(selectedServices);
         };
         const syncProjectIndicators = (selected = '', selectedActivity = '', selectedServices = []) => {
@@ -460,6 +478,10 @@
             communityGeneratedName = select('community-generated-name'),
             communityLatitude = select('community-latitude'),
             communityLongitude = select('community-longitude');
+        const initialCommunityCoordinates = {
+            latitude: @json(old('latitude', $editing ? $report->latitude : null)),
+            longitude: @json(old('longitude', $editing ? $report->longitude : null)),
+        };
         const allCommunityStateOptions = [...communityState.options].map(option => option.cloneNode(true));
         const locationBelongsToProject = (stateId, municipalityId = null) => {
             const location = projectLocations[project.value];
@@ -514,10 +536,10 @@
             placeName.value = '';
             communityLocationSummary.hidden = true;
             communityGeneratedName.textContent = '';
-            communityLatitude.textContent = '';
-            communityLongitude.textContent = '';
+            communityLatitude.value = '';
+            communityLongitude.value = '';
         };
-        const syncCommunityLocation = () => {
+        const syncCommunityLocation = (coordinates = null) => {
             clearCommunityLocation();
             const option = communityParish.selectedOptions[0];
             if (!communityState.value || !communityMunicipality.value || !communityParish.value) return;
@@ -532,20 +554,21 @@
             municipality.value = communityMunicipality.value;
             parish.value = communityParish.value;
             select('installation_type').value = 'Comunidad / Espacio Comunitario';
-            select('latitude').value = option.dataset.latitude || '';
-            select('longitude').value = option.dataset.longitude || '';
+            communityLatitude.value = coordinates?.latitude || option.dataset.latitude || '';
+            communityLongitude.value = coordinates?.longitude || option.dataset.longitude || '';
+            select('latitude').value = communityLatitude.value;
+            select('longitude').value = communityLongitude.value;
             communityLocationSummary.hidden = false;
             communityGeneratedName.textContent = `Nombre del lugar: ${generatedName}`;
-            communityLatitude.textContent = option.dataset.latitude || 'No definida';
-            communityLongitude.textContent = option.dataset.longitude || 'No definida';
         };
-        const syncCommunityMode = () => {
+        const syncCommunityMode = (coordinates = null) => {
             const enabled = communityLocationToggle.checked;
             formalPlaceFields.hidden = enabled;
             communityLocationFields.hidden = !enabled;
             placeName.required = !enabled;
             [communityState, communityMunicipality, communityParish].forEach(element => element.required = enabled);
-            if (enabled) syncCommunityLocation();
+            [communityLatitude, communityLongitude].forEach(element => element.required = enabled);
+            if (enabled) syncCommunityLocation(coordinates);
             else {
                 clearCommunityLocation();
                 syncPlaceLocation();
@@ -570,10 +593,12 @@
             }
         });
         communityParish.addEventListener('change', syncCommunityLocation);
+        communityLatitude.addEventListener('input', () => select('latitude').value = communityLatitude.value);
+        communityLongitude.addEventListener('input', () => select('longitude').value = communityLongitude.value);
         communityLocationToggle.addEventListener('change', syncCommunityMode);
         project.addEventListener('change', () => syncAvailableLocations(false));
         syncAvailableLocations(true);
-        syncCommunityMode();
+        syncCommunityMode(initialCommunityCoordinates);
         const validateCoordinates = async () => true;
 
         const beneficiaryFields = ['full_name', 'age', 'sex', 'national_id', 'phone', 'disability', 'ethnicity',

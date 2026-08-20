@@ -22,6 +22,7 @@ class SectorProyectoController extends Controller
             ->paginate(20);
 
         $sectoresDisponibles = Sector::query()
+            ->where('estatus', true)
             ->whereNotIn('id', $proyecto->asignacionesSectores()->select('sector_id'))
             ->orderByRaw('COALESCE(codigo, name)')
             ->get();

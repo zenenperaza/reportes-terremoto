@@ -89,8 +89,8 @@ class StoreReportRequest extends FormRequest
             'is_community_location' => true,
             'place_name' => $parish ? 'Comunidad '.$parish->name : null,
             'installation_type' => 'Comunidad / Espacio Comunitario',
-            'latitude' => $parish?->latitude,
-            'longitude' => $parish?->longitude,
+            'latitude' => $this->filled('latitude') ? $this->input('latitude') : $parish?->latitude,
+            'longitude' => $this->filled('longitude') ? $this->input('longitude') : $parish?->longitude,
             'altitude' => null,
             'gps_accuracy' => null,
         ]);

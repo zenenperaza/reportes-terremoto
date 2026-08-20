@@ -662,8 +662,10 @@ class ReportWorkflowTest extends TestCase
             ->assertSee('id="community_state_id"', false)
             ->assertSee('id="community_municipality_id"', false)
             ->assertSee('id="community_parish_id"', false)
-            ->assertSee('Latitud:')
-            ->assertSee('Longitud:');
+            ->assertSee('id="community-latitude"', false)
+            ->assertSee('id="community-longitude"', false)
+            ->assertSee('Latitud específica')
+            ->assertSee('Longitud específica');
 
         $this->actingAs($user)->getJson("/ubicaciones/municipios/{$municipality->id}/parroquias")
             ->assertOk()
@@ -682,8 +684,8 @@ class ReportWorkflowTest extends TestCase
             'parish_id' => $parish->id,
             'place_name' => 'Texto manipulado',
             'installation_type' => 'Centro de Salud',
-            'latitude' => 1,
-            'longitude' => 1,
+            'latitude' => 10.5123456,
+            'longitude' => -66.9123456,
             'sector_id' => $sector->id,
             'activity_id' => $activity->id,
             'beneficiary' => [
@@ -700,8 +702,8 @@ class ReportWorkflowTest extends TestCase
             'state_id' => $state->id,
             'municipality_id' => $municipality->id,
             'parish_id' => $parish->id,
-            'latitude' => 10.5100000,
-            'longitude' => -66.9100000,
+            'latitude' => 10.5123456,
+            'longitude' => -66.9123456,
         ]);
         $this->assertDatabaseMissing('place_names', ['name' => 'Comunidad Altagracia']);
     }

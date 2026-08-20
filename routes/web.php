@@ -50,6 +50,8 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance'])->grou
         Route::resource('proyectos', ProyectoController::class);
         Route::resource('configuracion/sectores', SectorController::class)
             ->parameters(['sectores' => 'sector'])->names('sectores')->except('show');
+        Route::patch('configuracion/sectores/{sector}/estado', [SectorController::class, 'toggleStatus'])
+            ->name('sectores.toggle-status');
         Route::resource('indicadores', IndicadorController::class)
             ->parameters(['indicadores' => 'indicador'])->except('show');
         Route::resource('configuracion/actividades', ActividadController::class)

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Indicador extends Model
 {
-    public const ESPACIOS_COORDINACION = ['NNA', 'VBG'];
+    public const ESPACIOS_COORDINACION = ['NNA', 'VBG', 'NNA/VBG'];
     public const UNIDADES_CONTEO = [
         'Productos / Informes / Análisis',
         'Personas',

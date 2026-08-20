@@ -482,6 +482,7 @@ class ReportController extends Controller
                     'sectorCode' => $assignment->asignacionSector?->sector?->codigo,
                     'sectorTitle' => $assignment->asignacionSector?->sector?->descripcion
                         ?: $assignment->asignacionSector?->sector?->name,
+                    'code' => $assignment->indicador->codigo,
                     'title' => $assignment->indicador->descripcion,
                     'unit' => $assignment->indicador->unidad_conteo,
                     'ageFrom' => $assignment->indicador->edad_desde,

@@ -61,6 +61,10 @@ class TemporaryMaintenanceController extends Controller
                 '--path' => 'database/migrations/2026_08_18_120000_create_sector_project_structure.php',
                 '--force' => true,
             ]],
+            ['name' => 'migrate', 'parameters' => [
+                '--path' => 'database/migrations/2026_08_20_120000_add_estatus_to_sectors_table.php',
+                '--force' => true,
+            ]],
             ['name' => 'db:seed', 'parameters' => [
                 '--class' => 'Database\\Seeders\\ActividadSeeder',
                 '--force' => true,

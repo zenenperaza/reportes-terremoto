@@ -60,6 +60,16 @@ class SectorController extends Controller
         return redirect()->route('sectores.index')->with('success', 'Sector eliminado correctamente.');
     }
 
+    public function toggleStatus(Sector $sector): RedirectResponse
+    {
+        $sector->update(['estatus' => ! $sector->estatus]);
+
+        return redirect()->route('sectores.index')->with(
+            'success',
+            $sector->estatus ? 'Sector activado correctamente.' : 'Sector desactivado correctamente.',
+        );
+    }
+
     private function normalizedData(Request $request, ?Sector $sector = null): array
     {
         $data = $request->validate([

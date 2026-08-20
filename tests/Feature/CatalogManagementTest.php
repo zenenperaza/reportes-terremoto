@@ -126,6 +126,11 @@ class CatalogManagementTest extends TestCase
             'descripcion' => 'Protección integral de la niñez',
         ]);
 
+        $this->patch(route('sectores.toggle-status', $sector))->assertRedirect(route('sectores.index'));
+        $this->assertDatabaseHas('sectors', ['id' => $sector->id, 'estatus' => false]);
+        $this->patch(route('sectores.toggle-status', $sector))->assertRedirect(route('sectores.index'));
+        $this->assertDatabaseHas('sectors', ['id' => $sector->id, 'estatus' => true]);
+
         $this->delete(route('sectores.destroy', $sector))->assertRedirect(route('sectores.index'));
         $this->assertDatabaseMissing('sectors', ['id' => $sector->id]);
     }
@@ -263,6 +268,7 @@ class CatalogManagementTest extends TestCase
         $this->actingAs($admin)->get(route('indicadores.create'))
             ->assertOk()
             ->assertSee('name="unidad_conteo"', false)
+            ->assertSee('NNA/VBG')
             ->assertSee('Productos / Informes / Análisis')
             ->assertSee('Comités o mecanismos comunitarios')
             ->assertSee('Actividades de incidencia');
@@ -279,6 +285,13 @@ class CatalogManagementTest extends TestCase
             ->assertRedirect(route('indicadores.index'));
         $this->assertDatabaseHas('indicadores', [
             'codigo' => 'IND-EDAD-01', 'edad_desde' => 20, 'edad_hasta' => 49,
+        ]);
+
+        $this->actingAs($admin)->post(route('indicadores.store'), array_replace($data, [
+            'codigo' => 'IND-NNA-VBG', 'espacio_coordinacion' => 'NNA/VBG',
+        ]))->assertRedirect(route('indicadores.index'));
+        $this->assertDatabaseHas('indicadores', [
+            'codigo' => 'IND-NNA-VBG', 'espacio_coordinacion' => 'NNA/VBG',
         ]);
 
         $this->actingAs($admin)->post(route('indicadores.store'), array_replace($data, [
