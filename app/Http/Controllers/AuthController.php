@@ -25,10 +25,10 @@ class AuthController extends Controller
         );
         if (! Auth::attempt($credentials, $request->boolean('remember'))) {
             if (User::where('email', $request->string('email'))->where('is_active', false)->exists()) {
-                return back()->withErrors(['email' => 'Su cuenta está inactiva. Contacte al Administrador.'])->onlyInput('email');
+                return back()->withErrors(['email' => "Su cuenta est\u{00E1} inactiva. Contacte al Administrador."])->onlyInput('email');
             }
 
-            return back()->withErrors(['email' => 'Las credenciales no son válidas.'])->onlyInput('email');
+            return back()->withErrors(['email' => "Las credenciales no son v\u{00E1}lidas."])->onlyInput('email');
         }
 
         $request->session()->regenerate();
@@ -56,6 +56,6 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('login')->with('success', 'Sesión cerrada correctamente.');
+        return redirect()->route('login')->with('success', "Sesi\u{00F3}n cerrada correctamente.");
     }
 }
