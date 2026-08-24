@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateManagedUserRequest;
 use App\Models\User;
 use App\Models\State;
 use App\Models\Proyecto;
+use App\Models\UserGroup;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -16,7 +17,7 @@ class UserManagementController extends Controller
     public function index(): View
     {
         return view('users.index', [
-            'users' => User::query()->with(['assignedStates', 'assignedMunicipalities.state', 'projects'])->withCount(['reports', 'beneficiaries'])->orderBy('name')->get(),
+            'users' => User::query()->with(['userGroup', 'assignedStates', 'assignedMunicipalities.state', 'projects'])->withCount(['reports', 'beneficiaries'])->orderBy('name')->get(),
             'roleLabels' => User::roleLabels(),
         ]);
     }
@@ -104,6 +105,7 @@ class UserManagementController extends Controller
             'roleLabels' => User::roleLabels(),
             'states' => State::query()->with(['municipalities' => fn ($query) => $query->orderBy('name')])->orderBy('name')->get(),
             'projects' => Proyecto::with(['donante', 'estados.municipalities:id,state_id,name', 'municipios:id'])->where('estatus', true)->orderBy('codigo')->get(),
+            'userGroups' => UserGroup::query()->orderByDesc('is_active')->orderBy('name')->get(),
         ];
     }
 

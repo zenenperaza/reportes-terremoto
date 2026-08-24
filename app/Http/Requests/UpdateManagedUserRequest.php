@@ -36,6 +36,7 @@ class UpdateManagedUserRequest extends FormRequest
             'name' => ['required', 'string', 'min:3', 'max:120'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')->ignore($managedUser)],
             'role' => ['required', Rule::in(array_keys(User::roleLabels()))],
+            'user_group_id' => ['nullable', 'integer', 'exists:user_groups,id'],
             'is_active' => ['required', 'boolean'],
             'can_mark_reported' => ['required', 'boolean'],
             'password' => ['nullable', 'confirmed', Password::min(8)],

@@ -16,6 +16,7 @@ use App\Models\Report;
 use App\Models\Sector;
 use App\Models\State;
 use App\Models\User;
+use App\Models\UserGroup;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
@@ -530,11 +531,15 @@ class ReportWorkflowTest extends TestCase
             ->assertSee('beneficiary-attention-table', false)
             ->assertSee('vendor/datatables/jquery-3.7.1.min.js', false)
             ->assertSee('vendor/datatables/dataTables.min.js', false)
-            ->assertSee('id="beneficiary-export-button"', false)
+            ->assertDontSee('id="beneficiary-export-button"', false)
             ->assertSee('syncBeneficiaryExportUrl', false)
             ->assertSee('Copiar');
 
-        $excelExport = $this->actingAs($owner)->get('/informe-beneficiarios/exportar?state_id='.$state->id);
+        $this->actingAs($owner)
+            ->get('/informe-beneficiarios/exportar?state_id='.$state->id)
+            ->assertForbidden();
+
+        $excelExport = $this->actingAs($administrator)->get('/informe-beneficiarios/exportar?state_id='.$state->id);
         $excelExport
             ->assertOk()
             ->assertDownload()
@@ -788,9 +793,11 @@ class ReportWorkflowTest extends TestCase
 
     public function test_user_can_mark_filtered_beneficiaries_as_reported_without_affecting_other_users(): void
     {
-        $owner = User::factory()->create(['role' => 'reporter']);
-        $otherUser = User::factory()->create(['role' => 'reporter']);
-        $coordinator = User::factory()->create(['role' => 'coordinator', 'can_mark_reported' => true]);
+        $group = UserGroup::create(['name' => 'Equipo autorizado', 'is_active' => true]);
+        $otherGroup = UserGroup::create(['name' => 'Equipo externo', 'is_active' => true]);
+        $owner = User::factory()->create(['role' => 'reporter', 'user_group_id' => $group->id]);
+        $otherUser = User::factory()->create(['role' => 'reporter', 'user_group_id' => $otherGroup->id]);
+        $coordinator = User::factory()->create(['role' => 'coordinator', 'can_mark_reported' => true, 'user_group_id' => $group->id]);
         $state = State::create(['code' => 'VE01', 'name' => 'Distrito Capital']);
         $coordinator->assignedStates()->attach($state);
         $municipality = Municipality::create(['state_id' => $state->id, 'code' => 'VE0101', 'name' => 'Libertador']);
@@ -837,10 +844,13 @@ class ReportWorkflowTest extends TestCase
             ->assertDontSee('Reporte al donante');
     }
 
-    public function test_coordinator_can_access_multiple_states_and_specific_municipalities(): void
+    public function test_coordinator_visibility_is_limited_to_members_of_the_same_group(): void
     {
-        $owner = User::factory()->create(['role' => 'reporter']);
-        $coordinator = User::factory()->create(['role' => 'coordinator']);
+        $group = UserGroup::create(['name' => 'Equipo coordinado', 'is_active' => true]);
+        $otherGroup = UserGroup::create(['name' => 'Otro equipo', 'is_active' => true]);
+        $owner = User::factory()->create(['role' => 'reporter', 'user_group_id' => $group->id]);
+        $outsider = User::factory()->create(['role' => 'reporter', 'user_group_id' => $otherGroup->id]);
+        $coordinator = User::factory()->create(['role' => 'coordinator', 'user_group_id' => $group->id]);
         $sector = Sector::create(['name' => 'Protección', 'slug' => 'proteccion-geografica', 'sort_order' => 1]);
         $activity = Activity::create(['sector_id' => $sector->id, 'code' => 'GEO-01', 'title' => 'Actividad geográfica', 'sort_order' => 1]);
 
@@ -860,6 +870,7 @@ class ReportWorkflowTest extends TestCase
 
         $coordinator->assignedStates()->attach($locations[0]['state']);
         $coordinator->assignedMunicipalities()->attach($locations[1]['municipality']);
+        $locations[2]['report']->update(['user_id' => $outsider->id]);
 
         $visibleIds = $coordinator->constrainVisibleReports(Report::query())->pluck('id')->all();
 
@@ -947,7 +958,10 @@ class ReportWorkflowTest extends TestCase
             ->assertOk()
             ->assertViewHas('summary', fn (array $summary): bool => $summary['men_20_49'] === 1 && $summary['total'] === 1);
 
-        $export = $this->actingAs($user)->get('/informe-beneficiarios/exportar');
+        $this->actingAs($user)->get('/informe-beneficiarios/exportar')->assertForbidden();
+
+        $administrator = User::factory()->create(['role' => 'admin']);
+        $export = $this->actingAs($administrator)->get('/informe-beneficiarios/exportar');
         $path = tempnam(sys_get_temp_dir(), 'project-indicator-export-');
         file_put_contents($path, $export->streamedContent());
         $sheet = IOFactory::load($path)->getActiveSheet();

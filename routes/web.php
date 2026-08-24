@@ -20,6 +20,7 @@ use App\Http\Controllers\SectorProyectoController;
 use App\Http\Controllers\SectorController;
 use App\Http\Controllers\SystemMaintenanceController;
 use App\Http\Controllers\UserManagementController;
+use App\Http\Controllers\UserGroupController;
 use App\Http\Middleware\EnsureActiveUser;
 use Illuminate\Support\Facades\Route;
 
@@ -46,6 +47,8 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance'])->grou
     });
 
     Route::middleware('admin')->group(function (): void {
+        Route::resource('configuracion/grupos-usuarios', UserGroupController::class)
+            ->parameters(['grupos-usuarios' => 'userGroup'])->names('user-groups')->except('show');
         Route::resource('donantes', DonanteController::class)->except('show');
         Route::resource('proyectos', ProyectoController::class);
         Route::resource('configuracion/sectores', SectorController::class)

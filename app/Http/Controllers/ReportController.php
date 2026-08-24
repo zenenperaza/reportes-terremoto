@@ -359,7 +359,7 @@ class ReportController extends Controller
 
     public function export(Request $request): StreamedResponse
     {
-        abort_unless($request->user()->isCoordinator(), 403);
+        abort_unless($request->user()->isAdministrator(), 403);
         $beneficiaries = $this->filteredBeneficiaries($request)
             ->with(['report.state', 'report.municipality', 'report.parish', 'report.sector', 'report.activity'])
             ->latest('created_at')

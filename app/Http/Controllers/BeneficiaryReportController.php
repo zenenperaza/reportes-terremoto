@@ -111,6 +111,8 @@ class BeneficiaryReportController extends Controller
 
     public function export(Request $request): StreamedResponse
     {
+        abort_unless($request->user()->isAdministrator(), 403);
+
         $filters = $this->validatedFilters($request);
         $spreadsheet = new Spreadsheet();
         $worksheet = $spreadsheet->getActiveSheet();

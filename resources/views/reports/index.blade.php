@@ -22,7 +22,9 @@
         </p>
     </div>
     <div class="heading-actions">
-        @if ($isCoordinator)<a class="button button-secondary" href="{{ route('reports.export', request()->query()) }}">Exportar CSV</a>@endif
+        @if (auth()->user()->isAdministrator())
+            <a class="button button-secondary" href="{{ route('reports.export', request()->query()) }}">Exportar CSV</a>
+        @endif
         <a class="button button-primary" href="{{ route('reports.create') }}">+ Nuevo registro</a>
     </div>
 </section>
@@ -107,7 +109,7 @@
     if (activityRecordsTable && typeof DataTable !== 'undefined') {
         new DataTable(activityRecordsTable, {
             layout: {
-                topStart: ['pageLength', {
+                topStart: ['pageLength'@if (auth()->user()->isAdministrator()), {
                     buttons: [
                         {extend: 'copyHtml5', text: 'Copiar'},
                         {extend: 'csvHtml5', text: 'CSV', title: activityExportTitle},
@@ -115,7 +117,7 @@
                         {extend: 'pdfHtml5', text: 'PDF', title: activityExportTitle, orientation: 'landscape', pageSize: 'A4'},
                         {extend: 'print', text: 'Imprimir', title: activityExportTitle},
                     ],
-                }],
+                }@endif],
                 topEnd: 'search',
                 bottomStart: 'info',
                 bottomEnd: 'paging',

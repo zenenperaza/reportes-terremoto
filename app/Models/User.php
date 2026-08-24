@@ -27,6 +27,7 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'user_group_id',
         'email',
         'profile_photo_path',
         'password',
@@ -67,6 +68,11 @@ class User extends Authenticatable
         return $this->hasMany(Report::class);
     }
 
+    public function userGroup()
+    {
+        return $this->belongsTo(UserGroup::class);
+    }
+
     public function getProfilePhotoUrlAttribute(): string
     {
         if ($this->profile_photo_path && is_file(public_path($this->profile_photo_path))) {
@@ -98,11 +104,15 @@ class User extends Authenticatable
 
     public function constrainVisibleReports(Builder $query): Builder
     {
-        if ($this->role === 'reporter') {
-            return $query->where('user_id', $this->id);
+        if ($this->isAdministrator()) {
+            return $query;
         }
 
-        if ($this->isAdministrator() || $this->countrywide_access) {
+        if (in_array($this->role, ['reporter', 'coordinator'], true)) {
+            return $query->whereIn('user_id', $this->visibleGroupUserIds());
+        }
+
+        if ($this->countrywide_access) {
             return $query;
         }
 
@@ -121,11 +131,15 @@ class User extends Authenticatable
 
     public function canViewReport(Report $report): bool
     {
-        if ($this->role === 'reporter') {
-            return $report->user_id === $this->id;
+        if ($this->isAdministrator()) {
+            return true;
         }
 
-        if ($this->isAdministrator() || $this->countrywide_access) {
+        if (in_array($this->role, ['reporter', 'coordinator'], true)) {
+            return $this->visibleGroupUserIds()->contains($report->user_id);
+        }
+
+        if ($this->countrywide_access) {
             return true;
         }
 
@@ -165,6 +179,19 @@ class User extends Authenticatable
     public function canMarkAsReported(): bool
     {
         return $this->isAdministrator() || $this->can_mark_reported;
+    }
+
+    private function visibleGroupUserIds()
+    {
+        if (! $this->user_group_id || ! $this->userGroup?->is_active) {
+            return collect([$this->id]);
+        }
+
+        return User::query()
+            ->where('user_group_id', $this->user_group_id)
+            ->pluck('id')
+            ->push($this->id)
+            ->unique();
     }
 
     /** @return array<string, string> */

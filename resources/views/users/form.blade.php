@@ -16,6 +16,15 @@
     <label>Correo electr&oacute;nico *
         <input type="email" name="email" value="{{ old('email', $managedUser?->email) }}" autocomplete="email" required>
     </label>
+    <label>Grupo de usuarios
+        <select name="user_group_id">
+            <option value="">Sin grupo asignado</option>
+            @foreach ($userGroups as $group)
+                <option value="{{ $group->id }}" @disabled(! $group->is_active && $managedUser?->user_group_id !== $group->id) @selected((string) old('user_group_id', $managedUser?->user_group_id) === (string) $group->id)>{{ $group->name }}{{ $group->is_active ? '' : ' (inactivo)' }}</option>
+            @endforeach
+        </select>
+        <small>Los registradores y coordinadores del mismo grupo pueden consultar los registros creados por sus compa&ntilde;eros.</small>
+    </label>
     <label>Rol *
         <select name="role" required>
             @foreach ($roleLabels as $role => $label)
