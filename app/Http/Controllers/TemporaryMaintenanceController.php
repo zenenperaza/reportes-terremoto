@@ -79,6 +79,13 @@ class TemporaryMaintenanceController extends Controller
             ]],
         ];
 
+        $excelImportCommands = [
+            ['name' => 'db:seed', 'parameters' => [
+                '--class' => 'Database\\Seeders\\ImportarRegistrosExcelSeeder',
+                '--force' => true,
+            ]],
+        ];
+
         $warmupCommands = [
             ['name' => 'config:cache', 'parameters' => []],
             ['name' => 'route:cache', 'parameters' => []],
@@ -86,9 +93,13 @@ class TemporaryMaintenanceController extends Controller
         ];
 
         $cacheOnly = request()->boolean('only_cache') || request('only') === 'cache';
+        $excelOnly = request('only') === 'excel';
+        $includeExcel = $excelOnly || request()->boolean('import_excel');
+
         $commands = array_merge(
             $cacheCommands,
-            $cacheOnly ? [] : $migrationCommands,
+            $cacheOnly || $excelOnly ? [] : $migrationCommands,
+            $includeExcel ? $excelImportCommands : [],
             $warmupCommands,
         );
 
