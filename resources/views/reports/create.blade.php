@@ -201,7 +201,7 @@
                 <legend id="beneficiary-entry-title">Registrar beneficiario</legend>
                 <div class="beneficiary-consent-card">
                     <div class="form-check form-check-primary">
-                        <input class="form-check-input" type="checkbox" id="beneficiary_has_informed_consent">
+                        <input class="form-check-input" type="checkbox" id="beneficiary_has_informed_consent" checked required>
                         <label class="form-check-label" for="beneficiary_has_informed_consent">
                             Cuenta con el consentimiento informado del beneficiario?
                         </label>
@@ -807,7 +807,7 @@
         });
         const clearBeneficiaryEntry = () => {
             beneficiaryFields.forEach(field => {
-                if (field === 'has_informed_consent') beneficiaryInputs[field].checked = false;
+                if (field === 'has_informed_consent') beneficiaryInputs[field].checked = true;
                 else beneficiaryInputs[field].value = '';
             });
             beneficiaryInputs.disability.value = 'Ninguna';
@@ -859,6 +859,9 @@
             return false;
         };
         const beneficiaryValidationMessage = beneficiary => {
+            if (beneficiary.has_informed_consent !== '1') {
+                return 'Debe confirmar que cuenta con el consentimiento informado del beneficiario.';
+            }
             const labels = {
                 age: 'edad',
                 sex: 'sexo',

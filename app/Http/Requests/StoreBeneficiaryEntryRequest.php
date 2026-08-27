@@ -65,7 +65,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             'evidence_3' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx,xlsx', 'max:10240'],
 
             'beneficiary' => ['required', 'array'],
-            'beneficiary.has_informed_consent' => ['sometimes', 'boolean'],
+            'beneficiary.has_informed_consent' => ['required', 'accepted'],
             'beneficiary.full_name' => ['nullable', 'string', 'max:150'],
             'beneficiary.age' => ['required', 'integer', 'min:0', 'max:120'],
             'beneficiary.sex' => ['required', Rule::in($beneficiaryOptions['sexes'])],
@@ -101,6 +101,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
     {
         return [
             'required' => 'El campo :attribute es obligatorio.',
+            'accepted' => 'Debe confirmar el :attribute.',
             'required_if' => 'El campo :attribute es obligatorio.',
             'required_with' => 'El campo :attribute es obligatorio cuando se indica su coordenada relacionada.',
         ];

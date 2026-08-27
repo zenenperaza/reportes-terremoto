@@ -18,7 +18,7 @@ class UpdateBeneficiaryRequest extends FormRequest
         $beneficiaryOptions = config('reports.beneficiary_options');
 
         return [
-            'has_informed_consent' => ['sometimes', 'boolean'],
+            'has_informed_consent' => ['required', 'accepted'],
             'full_name' => ['nullable', 'string', 'max:150'],
             'age' => ['required', 'integer', 'min:0', 'max:120'],
             'sex' => ['required', Rule::in($beneficiaryOptions['sexes'])],
@@ -36,6 +36,7 @@ class UpdateBeneficiaryRequest extends FormRequest
         return [
             'has_informed_consent' => 'consentimiento informado del beneficiario',
             'required' => 'El campo :attribute es obligatorio.',
+            'accepted' => 'Debe confirmar el :attribute.',
             'boolean' => 'El campo :attribute debe contener una opción válida.',
             'in' => 'La opción seleccionada en :attribute no es válida.',
         ];
