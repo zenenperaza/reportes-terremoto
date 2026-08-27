@@ -308,6 +308,7 @@ class ReportController extends Controller
             'beneficiaryOptions' => config('reports.beneficiary_options'),
             'beneficiaryEditData' => $report->beneficiaries->keyBy('id')->map(fn (Beneficiary $beneficiary): array => [
                 'id' => $beneficiary->id,
+                'has_informed_consent' => $beneficiary->has_informed_consent,
                 'full_name' => $beneficiary->full_name,
                 'age' => $beneficiary->age,
                 'sex' => $beneficiary->sex,

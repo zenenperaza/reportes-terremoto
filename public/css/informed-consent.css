@@ -1,0 +1,36 @@
+.beneficiary-consent-card {
+    margin: 4px 0 18px;
+    padding: 16px 18px;
+    border: 1px solid #b9ddec;
+    border-left: 4px solid var(--blue);
+    border-radius: 8px;
+    background: #f1fbff;
+}
+
+.beneficiary-consent-card .form-check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.beneficiary-consent-card .form-check-input {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+}
+
+.beneficiary-consent-card .form-check-label {
+    display: block;
+    color: var(--navy);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.beneficiary-consent-card p {
+    margin: 7px 0 0 28px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 400;
+}

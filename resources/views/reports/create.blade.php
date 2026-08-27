@@ -199,6 +199,15 @@
             </div>
             <fieldset class="beneficiary-entry">
                 <legend id="beneficiary-entry-title">Registrar beneficiario</legend>
+                <div class="beneficiary-consent-card">
+                    <div class="form-check form-check-primary">
+                        <input class="form-check-input" type="checkbox" id="beneficiary_has_informed_consent">
+                        <label class="form-check-label" for="beneficiary_has_informed_consent">
+                            Cuenta con el consentimiento informado del beneficiario?
+                        </label>
+                    </div>
+                    <p>Marque esta casilla cuando el beneficiario haya otorgado su consentimiento informado.</p>
+                </div>
                 <div class="beneficiary-voice" id="beneficiary-voice">
                     <div class="beneficiary-voice-heading">
                         <div>
@@ -289,6 +298,7 @@
                         <thead>
                             <tr>
                                 <th>Nombre y apellido</th>
+                                <th>Consentimiento</th>
                                 <th>Edad</th>
                                 <th>Sexo</th>
                                 <th>Cédula</th>
@@ -601,7 +611,7 @@
         syncCommunityMode(initialCommunityCoordinates);
         const validateCoordinates = async () => true;
 
-        const beneficiaryFields = ['full_name', 'age', 'sex', 'national_id', 'phone', 'disability', 'ethnicity',
+        const beneficiaryFields = ['has_informed_consent', 'full_name', 'age', 'sex', 'national_id', 'phone', 'disability', 'ethnicity',
             'pregnant_lactating', 'is_recurrent'
         ];
         const beneficiaryInputs = Object.fromEntries(beneficiaryFields.map(field => [field, select(
@@ -633,7 +643,9 @@
             indigenous_people: {{ $editing ? $report->indigenous_people : 0 }},
             pregnant_or_lactating_women: {{ $editing ? $report->pregnant_or_lactating_women : 0 }}
         };
-        const inputValue = field => beneficiaryInputs[field].value.trim();
+        const inputValue = field => field === 'has_informed_consent'
+            ? (beneficiaryInputs[field].checked ? '1' : '0')
+            : beneficiaryInputs[field].value.trim();
         const beneficiaryRecord = () => Object.fromEntries(beneficiaryFields.map(field => [field, inputValue(field)]));
         const headerSignature = () => JSON.stringify(Object.fromEntries(headerFields.map(field => {
             if (field === 'servicio_actividad_ids[]') return [field, Array.from(services.selectedOptions).map(option => option.value).sort()];
@@ -794,7 +806,10 @@
             voiceText.focus();
         });
         const clearBeneficiaryEntry = () => {
-            beneficiaryFields.forEach(field => beneficiaryInputs[field].value = '');
+            beneficiaryFields.forEach(field => {
+                if (field === 'has_informed_consent') beneficiaryInputs[field].checked = false;
+                else beneficiaryInputs[field].value = '';
+            });
             beneficiaryInputs.disability.value = 'Ninguna';
             beneficiaryInputs.ethnicity.value = 'Ninguna';
             beneficiaryInputs.pregnant_lactating.value = 'Ninguna';
@@ -875,7 +890,7 @@
             beneficiaryList.replaceChildren();
             beneficiaries.forEach((beneficiary, index) => {
                 const row = document.createElement('tr');
-                [beneficiary.full_name || 'Sin nombre registrado', beneficiary.age, beneficiary.sex, beneficiary
+                [beneficiary.full_name || 'Sin nombre registrado', beneficiary.has_informed_consent ? 'Sí' : 'No', beneficiary.age, beneficiary.sex, beneficiary
                     .national_id || '—', beneficiary.phone || '—', beneficiary.disability || 'Ninguna',
                     beneficiary.ethnicity || 'Ninguna', beneficiary.pregnant_lactating || 'Ninguna',
                     beneficiary.is_recurrent ? 'Sí' : 'No'
@@ -891,9 +906,12 @@
                 edit.dataset.beneficiaryId = beneficiary.id;
                 edit.textContent = 'Editar';
                 edit.addEventListener('click', () => {
-                    beneficiaryFields.forEach(field => beneficiaryInputs[field].value = field ===
-                        'is_recurrent' ? (beneficiary[field] ? '1' : '0') : String(beneficiary[field] ??
-                            ''));
+                    beneficiaryFields.forEach(field => {
+                        if (field === 'has_informed_consent') beneficiaryInputs[field].checked = Boolean(beneficiary[field]);
+                        else beneficiaryInputs[field].value = field === 'is_recurrent'
+                            ? (beneficiary[field] ? '1' : '0')
+                            : String(beneficiary[field] ?? '');
+                    });
                     syncPregnantLactatingField();
                     beneficiaryEditId = beneficiary.id;
                     select('beneficiary-entry-title').textContent = `Editar beneficiario ${index + 1}`;

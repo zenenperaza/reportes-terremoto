@@ -65,6 +65,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             'evidence_3' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx,xlsx', 'max:10240'],
 
             'beneficiary' => ['required', 'array'],
+            'beneficiary.has_informed_consent' => ['sometimes', 'boolean'],
             'beneficiary.full_name' => ['nullable', 'string', 'max:150'],
             'beneficiary.age' => ['required', 'integer', 'min:0', 'max:120'],
             'beneficiary.sex' => ['required', Rule::in($beneficiaryOptions['sexes'])],
@@ -130,6 +131,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             'actividad_indicador_id' => 'actividad a reportar',
             'servicio_actividad_ids' => 'servicios',
             'beneficiary.full_name' => 'nombre y apellido del beneficiario',
+            'beneficiary.has_informed_consent' => 'consentimiento informado del beneficiario',
             'beneficiary.age' => 'edad del beneficiario',
             'beneficiary.sex' => 'sexo del beneficiario',
             'beneficiary.is_recurrent' => 'condición recurrente',

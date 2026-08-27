@@ -35,6 +35,7 @@
     <link rel="stylesheet" href="{{ asset('css/recurrence-alert.css') }}">
     <link rel="stylesheet" href="{{ asset('css/beneficiary-immediate.css') }}">
     <link rel="stylesheet" href="{{ asset('css/beneficiary-entry.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/informed-consent.css') }}">
     <link rel="stylesheet" href="{{ asset('css/user-management.css') }}">
     <link rel="stylesheet" href="{{ asset('css/beneficiary-summary.css') }}">
     <link rel="stylesheet" href="{{ asset('css/donor-report.css') }}">

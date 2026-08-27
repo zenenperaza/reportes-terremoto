@@ -69,6 +69,10 @@ class TemporaryMaintenanceController extends Controller
                 '--path' => 'database/migrations/2026_08_20_130000_create_user_groups_and_link_users.php',
                 '--force' => true,
             ]],
+            ['name' => 'migrate', 'parameters' => [
+                '--path' => 'database/migrations/2026_08_27_120000_add_informed_consent_to_beneficiaries_table.php',
+                '--force' => true,
+            ]],
             ['name' => 'db:seed', 'parameters' => [
                 '--class' => 'Database\\Seeders\\ActividadSeeder',
                 '--force' => true,

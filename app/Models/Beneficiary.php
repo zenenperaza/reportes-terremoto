@@ -11,13 +11,14 @@ class Beneficiary extends Model
     use HasFactory;
 
     protected $fillable = [
-        'report_id', 'full_name', 'age', 'sex', 'national_id', 'phone', 'disability',
+        'report_id', 'has_informed_consent', 'full_name', 'age', 'sex', 'national_id', 'phone', 'disability',
         'ethnicity', 'pregnant_lactating', 'is_recurrent',
     ];
 
     protected function casts(): array
     {
         return [
+            'has_informed_consent' => 'boolean',
             'is_recurrent' => 'boolean',
             'reported' => 'boolean',
             'reported_at' => 'date',
