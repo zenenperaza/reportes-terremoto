@@ -2,7 +2,7 @@
 @section('title', $proyecto->codigo.' | Respuesta ASONACOP')
 @section('content')
 <section class="page-heading project-detail-heading">
-    <div><p class="eyebrow">Detalle del proyecto</p><h1>{{ $proyecto->codigo }}</h1><p class="muted">{{ $proyecto->descripcion }}</p></div>
+    <div><p class="eyebrow">Detalle del proyecto</p><h1>{{ $proyecto->codigo }}</h1>@if($proyecto->nombre_alias)<h2 class="project-alias">{{ $proyecto->nombre_alias }}</h2>@endif<p class="muted">{{ $proyecto->descripcion }}</p></div>
     <div class="heading-actions"><a class="button button-secondary" href="{{ route('proyectos.index') }}">&larr; Volver a proyectos</a><a class="button button-primary" href="{{ route('proyectos.sectores.index', $proyecto) }}">Gestionar sectores</a></div>
 </section>
 

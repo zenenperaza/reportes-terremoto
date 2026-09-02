@@ -95,6 +95,7 @@ class ProyectoController extends Controller
             'donante_id' => ['required', 'integer', 'exists:donantes,id'],
             'estatus' => ['required', 'boolean'],
             'codigo' => ['required', 'string', 'max:50', Rule::unique('proyectos')->ignore($proyecto)],
+            'nombre_alias' => ['nullable', 'string', 'max:255'],
             'descripcion' => ['required', 'string', 'max:255'],
             'inicio' => ['nullable', 'date'],
             'fin' => ['nullable', 'date', 'after_or_equal:inicio'],
@@ -103,6 +104,10 @@ class ProyectoController extends Controller
             'municipality_ids' => ['nullable', 'array'],
             'municipality_ids.*' => ['integer', 'distinct', 'exists:municipalities,id'],
         ]);
+
+        $data['nombre_alias'] = filled($data['nombre_alias'] ?? null)
+            ? trim($data['nombre_alias'])
+            : null;
 
         $validMunicipalityIds = Municipality::whereIn('state_id', $data['state_ids'])->pluck('id');
         if (collect($data['municipality_ids'] ?? [])->map(fn ($id) => (int) $id)->diff($validMunicipalityIds)->isNotEmpty()) {
