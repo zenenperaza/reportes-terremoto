@@ -77,6 +77,22 @@ class TemporaryMaintenanceController extends Controller
                 '--path' => 'database/migrations/2026_08_28_120000_add_nombre_alias_to_proyectos_table.php',
                 '--force' => true,
             ]],
+            ['name' => 'migrate', 'parameters' => [
+                '--path' => 'database/migrations/2026_09_02_115244_create_permission_tables.php',
+                '--force' => true,
+            ]],
+            ['name' => 'migrate', 'parameters' => [
+                '--path' => 'database/migrations/2026_09_02_120000_sync_legacy_user_roles_with_spatie.php',
+                '--force' => true,
+            ]],
+            ['name' => 'migrate', 'parameters' => [
+                '--path' => 'database/migrations/2026_09_02_121000_create_core_permissions.php',
+                '--force' => true,
+            ]],
+            ['name' => 'migrate', 'parameters' => [
+                '--path' => 'database/migrations/2026_09_02_122000_add_report_management_permissions.php',
+                '--force' => true,
+            ]],
             ['name' => 'db:seed', 'parameters' => [
                 '--class' => 'Database\\Seeders\\ActividadSeeder',
                 '--force' => true,
@@ -124,6 +140,11 @@ class TemporaryMaintenanceController extends Controller
                     $results[] = 'Proceso detenido porque el comando anterior no terminó correctamente.';
                     break;
                 }
+            }
+
+            if ($exitCode === 0 && class_exists(\Spatie\Permission\PermissionRegistrar::class)) {
+                app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+                $results[] = 'PERMISSION CACHE: caché de roles y permisos limpiada correctamente.';
             }
 
             return response(

@@ -60,7 +60,7 @@
                 <div class="app-context d-none d-md-block"><span class="app-context-title">Respuesta al terremoto</span><small>Venezuela</small></div>
             </div>
             <div class="d-flex align-items-center gap-1">
-                <a class="btn btn-primary d-none d-sm-inline-flex align-items-center" href="{{ route('reports.create') }}"><i class="ri-add-line me-1"></i> Nuevo registro</a>
+                @can('registrar actividad')<a class="btn btn-primary d-none d-sm-inline-flex align-items-center" href="{{ route('reports.create') }}"><i class="ri-add-line me-1"></i> Nuevo registro</a>@endcan
                 <div class="dropdown ms-1 header-item topbar-user">
                     <button type="button" class="btn" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span class="d-flex align-items-center"><span class="avatar-sm"><img class="rounded-circle header-profile-user" src="{{ auth()->user()->profile_photo_url }}" alt="Foto de {{ auth()->user()->name }}"></span><span class="text-start ms-xl-2 d-none d-xl-block"><span class="d-block fw-semibold user-name-text">{{ auth()->user()->name }}</span><span class="d-block fs-12 text-muted user-name-sub-text">{{ \App\Models\User::roleLabels()[auth()->user()->role] ?? auth()->user()->role }}</span></span></span></button>
                     <div class="dropdown-menu dropdown-menu-end">
@@ -82,18 +82,20 @@
         <div id="scrollbar"><div class="container-fluid"><ul class="navbar-nav" id="navbar-nav">
             <li class="menu-title"><span>Principal</span></li>
             <li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}"><i class="ri-dashboard-2-line"></i><span>Panel</span></a></li>
-            <li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('reports.create') ? 'active' : '' }}" href="{{ route('reports.create') }}"><i class="ri-add-circle-line"></i><span>Nuevo registro</span></a></li>
-            <li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('reports.index', 'reports.show', 'reports.edit') ? 'active' : '' }}" href="{{ route('reports.index') }}"><i class="ri-file-list-3-line"></i><span>Registros</span></a></li>
+            @can('registrar actividad')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('reports.create') ? 'active' : '' }}" href="{{ route('reports.create') }}"><i class="ri-add-circle-line"></i><span>Nuevo registro</span></a></li>@endcan
+            @can('solo ver registros')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('reports.index', 'reports.show', 'reports.edit') ? 'active' : '' }}" href="{{ route('reports.index') }}"><i class="ri-file-list-3-line"></i><span>Registros</span></a></li>@endcan
             <li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('beneficiaries.summary') ? 'active' : '' }}" href="{{ route('beneficiaries.summary') }}"><i class="ri-group-line"></i><span>Informe de beneficiarios</span></a></li>
             @if(auth()->user()->isAdministrator())
-                @php($catalogOpen = request()->routeIs('users.*', 'user-groups.*', 'place-names.*', 'donantes.*', 'proyectos.*', 'sectores.*', 'indicadores.*', 'actividades.*', 'servicios.*', 'system-maintenance.*'))
+                @php($catalogOpen = request()->routeIs('users.*', 'user-groups.*', 'roles.*', 'permissions.*', 'place-names.*', 'donantes.*', 'proyectos.*', 'sectores.*', 'indicadores.*', 'actividades.*', 'servicios.*', 'system-maintenance.*'))
                 <li class="menu-title"><span>Administraci&oacute;n</span></li>
                 <li class="nav-item">
                     <a class="nav-link menu-link {{ $catalogOpen ? '' : 'collapsed' }}" href="#sidebarConfiguration" data-bs-toggle="collapse" role="button" aria-expanded="{{ $catalogOpen ? 'true' : 'false' }}" aria-controls="sidebarConfiguration"><i class="ri-settings-3-line"></i><span>Configuraci&oacute;n</span></a>
                     <div class="collapse menu-dropdown {{ $catalogOpen ? 'show' : '' }}" id="sidebarConfiguration"><ul class="nav nav-sm flex-column">
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('users.*') ? 'active' : '' }}" href="{{ route('users.index') }}">Usuarios</a></li>
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('user-groups.*') ? 'active' : '' }}" href="{{ route('user-groups.index') }}">Grupos de usuarios</a></li>
-                        <li class="nav-item"><a class="nav-link {{ request()->routeIs('place-names.*') ? 'active' : '' }}" href="{{ route('place-names.index') }}">Lugares</a></li>
+                        <li class="nav-item"><a class="nav-link {{ request()->routeIs('roles.*') ? 'active' : '' }}" href="{{ route('roles.index') }}">Roles</a></li>
+                        <li class="nav-item"><a class="nav-link {{ request()->routeIs('permissions.*') ? 'active' : '' }}" href="{{ route('permissions.index') }}">Permisos</a></li>
+                        @can('manejar lugares')<li class="nav-item"><a class="nav-link {{ request()->routeIs('place-names.*') ? 'active' : '' }}" href="{{ route('place-names.index') }}">Lugares</a></li>@endcan
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('donantes.*') ? 'active' : '' }}" href="{{ route('donantes.index') }}">Donantes</a></li>
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('proyectos.*') ? 'active' : '' }}" href="{{ route('proyectos.index') }}">Proyectos</a></li>
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('sectores.*') ? 'active' : '' }}" href="{{ route('sectores.index') }}">Sectores</a></li>

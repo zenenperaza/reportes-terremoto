@@ -11,7 +11,7 @@
                 <p class="text-muted mb-0">{{ $isCoordinator ? 'Seguimiento consolidado de registros y beneficiarios.' : 'Resumen de sus actividades y beneficiarios registrados.' }}</p>
             </div>
             <div class="page-title-right mt-3 mt-sm-0">
-                <a class="btn btn-primary" href="{{ route('reports.create') }}"><i class="ri-add-circle-line align-middle me-1"></i> Registrar actividad</a>
+                @can('registrar actividad')<a class="btn btn-primary" href="{{ route('reports.create') }}"><i class="ri-add-circle-line align-middle me-1"></i> Registrar actividad</a>@endcan
             </div>
         </div>
     </div>
@@ -149,7 +149,7 @@
             <div class="card-header align-items-center d-flex"><div class="flex-grow-1"><h4 class="card-title mb-1">Registros recientes</h4><p class="text-muted mb-0">&Uacute;ltimas actividades incorporadas al sistema.</p></div><a class="btn btn-soft-primary btn-sm" href="{{ route('reports.index') }}">Ver todos <i class="ri-arrow-right-line align-middle"></i></a></div>
             <div class="card-body p-0">
                 @if($recentReports->isEmpty())
-                    <div class="dashboard-empty"><i class="ri-file-add-line"></i><p>A&uacute;n no se han registrado actividades.</p><a class="btn btn-primary" href="{{ route('reports.create') }}">Crear el primer registro</a></div>
+                    <div class="dashboard-empty"><i class="ri-file-add-line"></i><p>A&uacute;n no se han registrado actividades.</p>@can('registrar actividad')<a class="btn btn-primary" href="{{ route('reports.create') }}">Crear el primer registro</a>@endcan</div>
                 @else
                     <div class="table-responsive"><table class="table table-hover table-nowrap align-middle mb-0">
                         <thead class="table-light"><tr><th>Fecha</th><th>Ubicaci&oacute;n</th><th>Proyecto / Indicador</th><th class="text-center">Beneficiarios</th><th>Estado</th><th></th></tr></thead>

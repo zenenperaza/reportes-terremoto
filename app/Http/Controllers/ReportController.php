@@ -300,11 +300,11 @@ class ReportController extends Controller
         return view('reports.show', [
             'report' => $report,
             'isCoordinator' => $request->user()->isCoordinator(),
-            'canEditBeneficiaries' => (
+            'canEditBeneficiaries' => $request->user()->can('editar registros') && (
                 $report->user_id === $request->user()->id
                 || $request->user()->isAdministrator()
             ) && $report->status !== 'reviewed',
-            'canDeleteReport' => $request->user()->isAdministrator(),
+            'canDeleteReport' => $request->user()->can('eliminar registros'),
             'beneficiaryOptions' => config('reports.beneficiary_options'),
             'beneficiaryEditData' => $report->beneficiaries->keyBy('id')->map(fn (Beneficiary $beneficiary): array => [
                 'id' => $beneficiary->id,
@@ -324,7 +324,7 @@ class ReportController extends Controller
 
     public function destroy(Request $request, Report $report): RedirectResponse
     {
-        abort_unless($request->user()->isAdministrator(), 403);
+        abort_unless($request->user()->can('eliminar registros'), 403);
 
         $reportId = $report->id;
 
@@ -577,7 +577,8 @@ class ReportController extends Controller
     private function ensureEditable(Request $request, Report $report): void
     {
         abort_unless(
-            $report->user_id === $request->user()->id || $request->user()->isAdministrator(),
+            $request->user()->can('editar registros')
+                && ($report->user_id === $request->user()->id || $request->user()->isAdministrator()),
             403
         );
         abort_if($report->status === 'reviewed', 409, 'No se puede modificar un registro revisado.');

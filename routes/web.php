@@ -21,6 +21,8 @@ use App\Http\Controllers\SectorController;
 use App\Http\Controllers\SystemMaintenanceController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\UserGroupController;
+use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\RoleController;
 use App\Http\Middleware\EnsureActiveUser;
 use Illuminate\Support\Facades\Route;
 
@@ -49,6 +51,10 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance'])->grou
     Route::middleware('admin')->group(function (): void {
         Route::resource('configuracion/grupos-usuarios', UserGroupController::class)
             ->parameters(['grupos-usuarios' => 'userGroup'])->names('user-groups')->except('show');
+        Route::resource('configuracion/roles', RoleController::class)
+            ->parameters(['roles' => 'role'])->names('roles')->except('show');
+        Route::resource('configuracion/permisos', PermissionController::class)
+            ->parameters(['permisos' => 'permission'])->names('permissions')->except('show');
         Route::resource('donantes', DonanteController::class)->except('show');
         Route::resource('proyectos', ProyectoController::class);
         Route::resource('configuracion/sectores', SectorController::class)
@@ -97,7 +103,7 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance'])->grou
     Route::get('/ubicaciones/municipios/{municipality}/parroquias', [LocationController::class, 'parishes'])->name('locations.parishes');
     Route::get('/ubicaciones/coordenadas', [LocationController::class, 'reverseGeocode'])->name('locations.reverse');
     Route::get('/lugares/sugerencias', [LocationController::class, 'places'])->name('locations.places');
-    Route::middleware('admin')->group(function (): void {
+    Route::middleware('permission:manejar lugares')->group(function (): void {
         Route::get('/nombres-del-lugar', [PlaceNameController::class, 'index'])->name('place-names.index');
         Route::post('/nombres-del-lugar', [PlaceNameController::class, 'store'])->name('place-names.store');
         Route::get('/nombres-del-lugar/{placeName}/editar', [PlaceNameController::class, 'edit'])->name('place-names.edit');
@@ -107,21 +113,21 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance'])->grou
     Route::get('/actividades', [LocationController::class, 'allActivities'])->name('activities.all');
     Route::get('/sectores/{sector}/actividades', [LocationController::class, 'activities'])->name('sectors.activities');
     Route::get('/beneficiarios/verificar-recurrencia', [BeneficiaryLookupController::class, 'recurrence'])->name('beneficiaries.recurrence');
-    Route::post('/beneficiarios', [ReportController::class, 'storeBeneficiary'])->name('beneficiaries.store');
-    Route::put('/beneficiarios/{beneficiary}', [ReportController::class, 'updateBeneficiary'])->name('beneficiaries.update');
-    Route::delete('/beneficiarios/{beneficiary}', [ReportController::class, 'destroyBeneficiary'])->name('beneficiaries.destroy');
+    Route::post('/beneficiarios', [ReportController::class, 'storeBeneficiary'])->middleware('permission:registrar actividad')->name('beneficiaries.store');
+    Route::put('/beneficiarios/{beneficiary}', [ReportController::class, 'updateBeneficiary'])->middleware('permission:editar registros')->name('beneficiaries.update');
+    Route::delete('/beneficiarios/{beneficiary}', [ReportController::class, 'destroyBeneficiary'])->middleware('permission:eliminar registros')->name('beneficiaries.destroy');
     Route::get('/informe-beneficiarios/exportar', [BeneficiaryReportController::class, 'export'])->name('beneficiaries.export');
     Route::get('/informe-beneficiarios', [BeneficiaryReportController::class, 'index'])->name('beneficiaries.summary');
     Route::post('/informe-beneficiarios/marcar-reportados', [BeneficiaryReportController::class, 'markAsReported'])->name('beneficiaries.mark-reported');
 
     Route::get('/reportes/exportar', [ReportController::class, 'export'])->name('reports.export');
-    Route::get('/reportes', [ReportController::class, 'index'])->name('reports.index');
-    Route::get('/reportes/nuevo', [ReportController::class, 'create'])->name('reports.create');
-    Route::post('/reportes', [ReportController::class, 'store'])->name('reports.store');
-    Route::get('/reportes/{report}/editar', [ReportController::class, 'edit'])->name('reports.edit');
-    Route::put('/reportes/{report}', [ReportController::class, 'update'])->name('reports.update');
-    Route::delete('/reportes/{report}', [ReportController::class, 'destroy'])->name('reports.destroy');
-    Route::get('/reportes/{report}', [ReportController::class, 'show'])->name('reports.show');
+    Route::get('/reportes', [ReportController::class, 'index'])->middleware('permission:solo ver registros')->name('reports.index');
+    Route::get('/reportes/nuevo', [ReportController::class, 'create'])->middleware('permission:registrar actividad')->name('reports.create');
+    Route::post('/reportes', [ReportController::class, 'store'])->middleware('permission:registrar actividad')->name('reports.store');
+    Route::get('/reportes/{report}/editar', [ReportController::class, 'edit'])->middleware('permission:editar registros')->name('reports.edit');
+    Route::put('/reportes/{report}', [ReportController::class, 'update'])->middleware('permission:editar registros')->name('reports.update');
+    Route::delete('/reportes/{report}', [ReportController::class, 'destroy'])->middleware('permission:eliminar registros')->name('reports.destroy');
+    Route::get('/reportes/{report}', [ReportController::class, 'show'])->middleware('permission:solo ver registros')->name('reports.show');
     Route::post('/reportes/{report}/revisar', [ReportController::class, 'review'])->name('reports.review');
-    Route::get('/evidencias/{evidence}/descargar', [ReportController::class, 'downloadEvidence'])->name('evidences.download');
+    Route::get('/evidencias/{evidence}/descargar', [ReportController::class, 'downloadEvidence'])->middleware('permission:solo ver registros')->name('evidences.download');
 });

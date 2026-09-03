@@ -8,11 +8,25 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Schema;
+use Spatie\Permission\Traits\HasRoles;
+use Spatie\Permission\Models\Role as SpatieRole;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, SoftDeletes;
+    use HasFactory, HasRoles, Notifiable, SoftDeletes;
+
+    protected static function booted(): void
+    {
+        static::saved(function (User $user): void {
+            $rolesTable = config('permission.table_names.roles', 'roles');
+
+            if ($user->role && Schema::hasTable($rolesTable)) {
+                $user->syncRoles([$user->role]);
+            }
+        });
+    }
 
     public const ROLE_LABELS = [
         'reporter' => 'Registrador',
@@ -168,17 +182,20 @@ class User extends Authenticatable
 
     public function isCoordinator(): bool
     {
-        return in_array($this->role, ['coordinator', 'admin'], true);
+        return $this->hasSystemPermission('coordinar registros')
+            || in_array($this->role, ['coordinator', 'admin'], true);
     }
 
     public function isAdministrator(): bool
     {
-        return $this->role === 'admin';
+        return $this->hasSystemPermission('administrar sistema') || $this->role === 'admin';
     }
 
     public function canMarkAsReported(): bool
     {
-        return $this->isAdministrator() || $this->can_mark_reported;
+        return $this->isAdministrator()
+            || $this->hasSystemPermission('actualizar a reportado')
+            || $this->can_mark_reported;
     }
 
     private function visibleGroupUserIds()
@@ -197,6 +214,23 @@ class User extends Authenticatable
     /** @return array<string, string> */
     public static function roleLabels(): array
     {
-        return self::ROLE_LABELS;
+        if (! Schema::hasTable(config('permission.table_names.roles', 'roles'))) {
+            return self::ROLE_LABELS;
+        }
+
+        return SpatieRole::query()
+            ->where('guard_name', 'web')
+            ->orderBy('name')
+            ->pluck('name')
+            ->mapWithKeys(fn (string $role): array => [
+                $role => self::ROLE_LABELS[$role] ?? str($role)->headline()->toString(),
+            ])->all();
+    }
+
+    private function hasSystemPermission(string $permission): bool
+    {
+        $permissionsTable = config('permission.table_names.permissions', 'permissions');
+
+        return Schema::hasTable($permissionsTable) && $this->hasPermissionTo($permission);
     }
 }

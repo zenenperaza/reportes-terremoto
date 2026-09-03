@@ -18,8 +18,6 @@
                 @method('DELETE')
                 <button class="button button-danger" type="submit">Eliminar registro</button>
             </form>
-        @else
-            <button class="button button-danger report-delete-authorization" type="button">Eliminar registro</button>
         @endif
         <a class="button button-secondary" href="{{ route('reports.index') }}">Volver a registros</a>
     </div>

@@ -25,7 +25,7 @@
         @if (auth()->user()->isAdministrator())
             <a class="button button-secondary" href="{{ route('reports.export', request()->query()) }}">Exportar CSV</a>
         @endif
-        <a class="button button-primary" href="{{ route('reports.create') }}">+ Nuevo registro</a>
+        @can('registrar actividad')<a class="button button-primary" href="{{ route('reports.create') }}">+ Nuevo registro</a>@endcan
     </div>
 </section>
 
