@@ -85,7 +85,16 @@
             <li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}"><i class="ri-dashboard-2-line"></i><span>Panel</span></a></li>
             @can('registrar actividad')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('reports.create') ? 'active' : '' }}" href="{{ route('reports.create') }}"><i class="ri-add-circle-line"></i><span>Nuevo registro</span></a></li>@endcan
             @can('solo ver registros')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('reports.index', 'reports.show', 'reports.edit') ? 'active' : '' }}" href="{{ route('reports.index') }}"><i class="ri-file-list-3-line"></i><span>Registros</span></a></li>@endcan
-            <li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('beneficiaries.summary') ? 'active' : '' }}" href="{{ route('beneficiaries.summary') }}"><i class="ri-group-line"></i><span>Informe de beneficiarios</span></a></li>
+            @php($reportsMenuOpen = request()->routeIs('beneficiaries.summary', 'general-reports.*'))
+            <li class="nav-item">
+                <a class="nav-link menu-link {{ $reportsMenuOpen ? '' : 'collapsed' }}" href="#sidebarReports" data-bs-toggle="collapse" role="button" aria-expanded="{{ $reportsMenuOpen ? 'true' : 'false' }}" aria-controls="sidebarReports"><i class="ri-bar-chart-grouped-line"></i><span>Informes</span></a>
+                    <div class="collapse menu-dropdown {{ $reportsMenuOpen ? 'show' : '' }}" id="sidebarReports"><ul class="nav nav-sm flex-column">
+                        <li class="nav-item"><a class="nav-link {{ request()->routeIs('beneficiaries.summary') ? 'active' : '' }}" href="{{ route('beneficiaries.summary') }}">Informe de beneficiarios</a></li>
+                        @if(Route::has('general-reports.index'))
+                            <li class="nav-item"><a class="nav-link {{ request()->routeIs('general-reports.*') ? 'active' : '' }}" href="{{ route('general-reports.index') }}">Informes generales</a></li>
+                        @endif
+                    </ul></div>
+            </li>
             @if(auth()->user()->isAdministrator())
                 @php($catalogOpen = request()->routeIs('users.*', 'user-groups.*', 'roles.*', 'permissions.*', 'place-names.*', 'donantes.*', 'proyectos.*', 'sectores.*', 'indicadores.*', 'actividades.*', 'servicios.*', 'system-maintenance.*'))
                 <li class="menu-title"><span>Administraci&oacute;n</span></li>

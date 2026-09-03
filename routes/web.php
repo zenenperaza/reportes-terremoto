@@ -7,6 +7,7 @@ use App\Http\Controllers\BeneficiaryLookupController;
 use App\Http\Controllers\BeneficiaryReportController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DonanteController;
+use App\Http\Controllers\GeneralReportController;
 use App\Http\Controllers\IndicadorController;
 use App\Http\Controllers\IndicadorProyectoController;
 use App\Http\Controllers\IndicadorProyectoActividadController;
@@ -122,6 +123,7 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance'])->grou
     Route::get('/informe-beneficiarios/exportar', [BeneficiaryReportController::class, 'export'])->name('beneficiaries.export');
     Route::get('/informe-beneficiarios', [BeneficiaryReportController::class, 'index'])->name('beneficiaries.summary');
     Route::post('/informe-beneficiarios/marcar-reportados', [BeneficiaryReportController::class, 'markAsReported'])->name('beneficiaries.mark-reported');
+    Route::get('/informes-generales', GeneralReportController::class)->name('general-reports.index');
 
     Route::get('/reportes/exportar', [ReportController::class, 'export'])->name('reports.export');
     Route::get('/reportes', [ReportController::class, 'index'])->middleware('permission:solo ver registros')->name('reports.index');
