@@ -49,6 +49,7 @@ class User extends Authenticatable
         'countrywide_access',
         'is_active',
         'can_mark_reported',
+        'requires_two_factor',
     ];
 
     /**
@@ -74,6 +75,7 @@ class User extends Authenticatable
             'is_active' => 'boolean',
             'can_mark_reported' => 'boolean',
             'countrywide_access' => 'boolean',
+            'requires_two_factor' => 'boolean',
         ];
     }
 

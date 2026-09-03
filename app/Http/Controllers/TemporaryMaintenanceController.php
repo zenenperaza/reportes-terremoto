@@ -93,6 +93,10 @@ class TemporaryMaintenanceController extends Controller
                 '--path' => 'database/migrations/2026_09_02_122000_add_report_management_permissions.php',
                 '--force' => true,
             ]],
+            ['name' => 'migrate', 'parameters' => [
+                '--path' => 'database/migrations/2026_09_03_130000_add_email_two_factor_authentication.php',
+                '--force' => true,
+            ]],
             ['name' => 'db:seed', 'parameters' => [
                 '--class' => 'Database\\Seeders\\ActividadSeeder',
                 '--force' => true,

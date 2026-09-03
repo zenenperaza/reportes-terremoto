@@ -51,6 +51,19 @@
             <label class="form-check-label" for="can-mark-reported"><span class="visually-hidden">Cambiar permiso para actualizar a reportado</span></label>
         </div>
     </div>
+    <div class="span-two permission-switch-card two-factor-switch-card">
+        <div class="permission-switch-copy">
+            <span class="permission-switch-icon" aria-hidden="true"><i class="ri-shield-keyhole-line"></i></span>
+            <div>
+                <label class="permission-switch-title" for="requires-two-factor">Exigir Doble Autenticaci&oacute;n</label>
+                <p>Despu&eacute;s de validar su contrase&ntilde;a, el usuario deber&aacute; ingresar un c&oacute;digo de 6 d&iacute;gitos enviado a su correo.</p>
+            </div>
+        </div>
+        <div class="form-check form-switch form-switch-lg permission-switch-control">
+            <input class="form-check-input" type="checkbox" role="switch" id="requires-two-factor" name="requires_two_factor" value="1" @checked((bool) old('requires_two_factor', $managedUser?->requires_two_factor ?? false))>
+            <label class="form-check-label" for="requires-two-factor"><span class="visually-hidden">Exigir doble autenticaci&oacute;n por correo</span></label>
+        </div>
+    </div>
     <label>{{ $managedUser ? 'Nueva contraseña (opcional)' : 'Contraseña *' }}
         <input type="password" name="password" autocomplete="new-password" @required(! $managedUser)>
     </label>

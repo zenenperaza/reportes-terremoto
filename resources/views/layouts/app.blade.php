@@ -40,6 +40,7 @@
     <link rel="stylesheet" href="{{ asset('css/beneficiary-summary.css') }}">
     <link rel="stylesheet" href="{{ asset('css/donor-report.css') }}">
     <link rel="stylesheet" href="{{ asset('css/pwa.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/two-factor-auth.css') }}">
     <link rel="stylesheet" href="{{ asset('css/catalog-management.css') }}">
     <link rel="stylesheet" href="{{ asset('vendor/select2/css/select2.min.css') }}">
     <link rel="stylesheet" href="{{ asset('css/select2-custom.css') }}">

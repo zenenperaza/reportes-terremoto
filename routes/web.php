@@ -31,6 +31,9 @@ Route::redirect('/', '/panel');
 Route::middleware('guest')->group(function (): void {
     Route::get('/ingresar', [AuthController::class, 'createLogin'])->name('login');
     Route::post('/ingresar', [AuthController::class, 'login'])->name('login.store');
+    Route::get('/verificar-acceso', [AuthController::class, 'createTwoFactorChallenge'])->name('two-factor.challenge');
+    Route::post('/verificar-acceso', [AuthController::class, 'verifyTwoFactorChallenge'])->name('two-factor.verify');
+    Route::post('/verificar-acceso/reenviar', [AuthController::class, 'resendTwoFactorCode'])->name('two-factor.resend');
 });
 
 Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance'])->group(function (): void {

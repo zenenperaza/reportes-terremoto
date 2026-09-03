@@ -18,6 +18,7 @@ class UpdateManagedUserRequest extends FormRequest
         $this->merge([
             'countrywide_access' => $countrywide,
             'can_mark_reported' => $this->boolean('can_mark_reported'),
+            'requires_two_factor' => $this->boolean('requires_two_factor'),
             'state_ids' => array_values(array_filter(is_array($states) ? $states : [], fn ($id) => $id !== 'countrywide')),
         ]);
     }
@@ -39,6 +40,7 @@ class UpdateManagedUserRequest extends FormRequest
             'user_group_id' => ['nullable', 'integer', 'exists:user_groups,id'],
             'is_active' => ['required', 'boolean'],
             'can_mark_reported' => ['required', 'boolean'],
+            'requires_two_factor' => ['required', 'boolean'],
             'password' => ['nullable', 'confirmed', Password::min(8)],
             'countrywide_access' => ['required', 'boolean'],
             'state_ids' => ['nullable', 'array'],
