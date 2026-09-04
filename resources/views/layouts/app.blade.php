@@ -112,14 +112,14 @@
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('indicadores.*') ? 'active' : '' }}" href="{{ route('indicadores.index') }}">Indicadores</a></li>
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('actividades.*') ? 'active' : '' }}" href="{{ route('actividades.index') }}">Actividades</a></li>
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('servicios.*') ? 'active' : '' }}" href="{{ route('servicios.index') }}">Servicios</a></li>
-                        @if(auth()->user()->canAny(['generar respaldos', 'descargar respaldos', 'eliminar respaldos']))
+                        @if(Route::has('backups.index') && auth()->user()->canAny(['generar respaldos', 'descargar respaldos', 'eliminar respaldos']))
                             <li class="nav-item"><a class="nav-link {{ request()->routeIs('backups.*') ? 'active' : '' }}" href="{{ route('backups.index') }}">Respaldos</a></li>
                         @endif
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('system-maintenance.*') ? 'active' : '' }}" href="{{ route('system-maintenance.index') }}">Mantenimiento</a></li>
                     </ul></div>
                 </li>
             @endif
-            @if(!auth()->user()->isAdministrator() && auth()->user()->canAny(['generar respaldos', 'descargar respaldos', 'eliminar respaldos']))
+            @if(Route::has('backups.index') && !auth()->user()->isAdministrator() && auth()->user()->canAny(['generar respaldos', 'descargar respaldos', 'eliminar respaldos']))
                 <li class="menu-title"><span>Administraci&oacute;n</span></li>
                 <li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('backups.*') ? 'active' : '' }}" href="{{ route('backups.index') }}"><i class="ri-database-2-line"></i><span>Respaldos</span></a></li>
             @endif
