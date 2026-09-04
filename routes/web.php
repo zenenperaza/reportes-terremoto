@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ActividadController;
 use App\Http\Controllers\ActividadIndicadorServicioController;
+use App\Http\Controllers\BackupController;
 use App\Http\Controllers\BeneficiaryLookupController;
 use App\Http\Controllers\BeneficiaryReportController;
 use App\Http\Controllers\DashboardController;
@@ -103,6 +104,15 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance'])->grou
         Route::delete('servicios-actividades/{servicioActividad}', [ActividadIndicadorServicioController::class, 'destroy'])->name('servicio-actividad.destroy');
     });
 
+    Route::get('configuracion/respaldos', [BackupController::class, 'index'])
+        ->middleware('permission:generar respaldos|descargar respaldos|eliminar respaldos')->name('backups.index');
+    Route::post('configuracion/respaldos', [BackupController::class, 'store'])
+        ->middleware('permission:generar respaldos')->name('backups.store');
+    Route::get('configuracion/respaldos/{backup}/descargar', [BackupController::class, 'download'])
+        ->middleware('permission:descargar respaldos')->name('backups.download');
+    Route::delete('configuracion/respaldos/{backup}', [BackupController::class, 'destroy'])
+        ->middleware('permission:eliminar respaldos')->name('backups.destroy');
+
     Route::get('/ubicaciones/estados/{state}/municipios', [LocationController::class, 'municipalities'])->name('locations.municipalities');
     Route::get('/ubicaciones/municipios/{municipality}/parroquias', [LocationController::class, 'parishes'])->name('locations.parishes');
     Route::get('/ubicaciones/coordenadas', [LocationController::class, 'reverseGeocode'])->name('locations.reverse');
@@ -120,7 +130,7 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance'])->grou
     Route::post('/beneficiarios', [ReportController::class, 'storeBeneficiary'])->middleware('permission:registrar actividad')->name('beneficiaries.store');
     Route::put('/beneficiarios/{beneficiary}', [ReportController::class, 'updateBeneficiary'])->middleware('permission:editar registros')->name('beneficiaries.update');
     Route::delete('/beneficiarios/{beneficiary}', [ReportController::class, 'destroyBeneficiary'])->middleware('permission:eliminar registros')->name('beneficiaries.destroy');
-    Route::get('/informe-beneficiarios/exportar', [BeneficiaryReportController::class, 'export'])->name('beneficiaries.export');
+    Route::get('/informe-beneficiarios/exportar', [BeneficiaryReportController::class, 'export'])->middleware('permission:exportar registros excel')->name('beneficiaries.export');
     Route::get('/informe-beneficiarios', [BeneficiaryReportController::class, 'index'])->name('beneficiaries.summary');
     Route::post('/informe-beneficiarios/marcar-reportados', [BeneficiaryReportController::class, 'markAsReported'])->name('beneficiaries.mark-reported');
     Route::get('/informes-generales', GeneralReportController::class)->name('general-reports.index');
@@ -132,7 +142,7 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance'])->grou
     Route::get('/reportes/{report}/editar', [ReportController::class, 'edit'])->middleware('permission:editar registros')->name('reports.edit');
     Route::put('/reportes/{report}', [ReportController::class, 'update'])->middleware('permission:editar registros')->name('reports.update');
     Route::delete('/reportes/{report}', [ReportController::class, 'destroy'])->middleware('permission:eliminar registros')->name('reports.destroy');
-    Route::get('/reportes/{report}', [ReportController::class, 'show'])->middleware('permission:solo ver registros')->name('reports.show');
+    Route::get('/reportes/{report}', [ReportController::class, 'show'])->middleware('permission:ver detalle de registros')->name('reports.show');
     Route::post('/reportes/{report}/revisar', [ReportController::class, 'review'])->name('reports.review');
     Route::get('/evidencias/{evidence}/descargar', [ReportController::class, 'downloadEvidence'])->middleware('permission:solo ver registros')->name('evidences.download');
 });

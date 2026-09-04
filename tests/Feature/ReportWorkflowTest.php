@@ -484,6 +484,7 @@ class ReportWorkflowTest extends TestCase
             ->assertSee('Editar actividad');
 
         $this->actingAs($owner)->putJson("/beneficiarios/{$ownBeneficiary->id}", [
+            'has_informed_consent' => true,
             'full_name' => 'Ana Niño',
             'age' => 4,
             'sex' => 'Mujer',
@@ -508,9 +509,11 @@ class ReportWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee($owner->name)
             ->assertSee($otherUser->name)
-            ->assertSee('ANA NIÑO')
-            ->assertSee('LUIS MAYOR')
-            ->assertSee('LUIS SEGUNDO')
+            ->assertDontSee('ANA NIÑO')
+            ->assertDontSee('LUIS MAYOR')
+            ->assertDontSee('LUIS SEGUNDO')
+            ->assertSee('4 a&ntilde;os', false)
+            ->assertSee('Mujer')
             ->assertSee('activity-records-table', false)
             ->assertSee('/vendor/datatables/jquery-3.7.1.min.js', false)
             ->assertSee('activityRowsLabel = "beneficiarios"', false);

@@ -45,7 +45,7 @@
     <link rel="stylesheet" href="{{ asset('vendor/select2/css/select2.min.css') }}">
     <link rel="stylesheet" href="{{ asset('css/select2-custom.css') }}">
     <link rel="stylesheet" href="{{ asset('css/indicator-select2.css') }}">
-    @auth<link rel="stylesheet" href="{{ asset('css/admin-shell.css') }}">@endauth
+    @auth<link rel="stylesheet" href="{{ asset('css/admin-shell.css') }}?v={{ @filemtime(public_path('css/admin-shell.css')) ?: 1 }}">@endauth
     @stack('styles')
 </head>
 <body class="{{ auth()->check() ? 'admin-layout' : 'guest-layout' }}">
@@ -96,7 +96,7 @@
                     </ul></div>
             </li>
             @if(auth()->user()->isAdministrator())
-                @php($catalogOpen = request()->routeIs('users.*', 'user-groups.*', 'roles.*', 'permissions.*', 'place-names.*', 'donantes.*', 'proyectos.*', 'sectores.*', 'indicadores.*', 'actividades.*', 'servicios.*', 'system-maintenance.*'))
+                @php($catalogOpen = request()->routeIs('users.*', 'user-groups.*', 'roles.*', 'permissions.*', 'place-names.*', 'donantes.*', 'proyectos.*', 'sectores.*', 'indicadores.*', 'actividades.*', 'servicios.*', 'system-maintenance.*', 'backups.*'))
                 <li class="menu-title"><span>Administraci&oacute;n</span></li>
                 <li class="nav-item">
                     <a class="nav-link menu-link {{ $catalogOpen ? '' : 'collapsed' }}" href="#sidebarConfiguration" data-bs-toggle="collapse" role="button" aria-expanded="{{ $catalogOpen ? 'true' : 'false' }}" aria-controls="sidebarConfiguration"><i class="ri-settings-3-line"></i><span>Configuraci&oacute;n</span></a>
@@ -112,9 +112,16 @@
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('indicadores.*') ? 'active' : '' }}" href="{{ route('indicadores.index') }}">Indicadores</a></li>
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('actividades.*') ? 'active' : '' }}" href="{{ route('actividades.index') }}">Actividades</a></li>
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('servicios.*') ? 'active' : '' }}" href="{{ route('servicios.index') }}">Servicios</a></li>
+                        @if(auth()->user()->canAny(['generar respaldos', 'descargar respaldos', 'eliminar respaldos']))
+                            <li class="nav-item"><a class="nav-link {{ request()->routeIs('backups.*') ? 'active' : '' }}" href="{{ route('backups.index') }}">Respaldos</a></li>
+                        @endif
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('system-maintenance.*') ? 'active' : '' }}" href="{{ route('system-maintenance.index') }}">Mantenimiento</a></li>
                     </ul></div>
                 </li>
+            @endif
+            @if(!auth()->user()->isAdministrator() && auth()->user()->canAny(['generar respaldos', 'descargar respaldos', 'eliminar respaldos']))
+                <li class="menu-title"><span>Administraci&oacute;n</span></li>
+                <li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('backups.*') ? 'active' : '' }}" href="{{ route('backups.index') }}"><i class="ri-database-2-line"></i><span>Respaldos</span></a></li>
             @endif
         </ul></div></div>
         <div class="sidebar-background"></div>
@@ -149,7 +156,7 @@
 <script src="{{ asset('assets/libs/node-waves/waves.min.js') }}"></script>
 <script src="{{ asset('assets/js/plugins.js') }}"></script>
 <script src="{{ asset('assets/js/app.js') }}"></script>
-<script src="{{ asset('js/admin-menu.js') }}"></script>
+<script src="{{ asset('js/admin-menu.js') }}?v={{ @filemtime(public_path('js/admin-menu.js')) ?: 1 }}"></script>
 @else
 <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
 @endauth

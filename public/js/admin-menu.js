@@ -6,10 +6,15 @@
     var body = document.body;
     var button = document.getElementById('topnav-hamburger-icon');
     var overlay = document.querySelector('.vertical-overlay');
+    var sidebarScroll = document.getElementById('scrollbar');
     var storageKey = 'asonacop-sidebar-collapsed';
 
     if (!button || !body.classList.contains('admin-layout')) {
         return;
+    }
+
+    if (sidebarScroll && window.SimpleBar && !sidebarScroll.hasAttribute('data-simplebar')) {
+        new window.SimpleBar(sidebarScroll, { autoHide: false });
     }
 
     function isDesktop() {

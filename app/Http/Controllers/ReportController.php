@@ -371,7 +371,7 @@ class ReportController extends Controller
             $out = fopen('php://output', 'w');
             fputcsv($out, [
                 'ID registro', 'Fecha', 'Organización', 'Estado', 'Municipio', 'Parroquia', 'Sector', 'Actividad',
-                'Nombre y apellido', 'Edad', 'Sexo', 'Cédula', 'Teléfono', 'Discapacidad', 'Indígena',
+                'Edad', 'Sexo', 'Discapacidad', 'Indígena',
                 'Embarazada o lactante', 'Recurrente', 'Reportado', 'Fecha de reporte', 'Estado de revisión',
             ]);
 
@@ -381,8 +381,8 @@ class ReportController extends Controller
                 fputcsv($out, [
                     $report->id, $report->report_date->format('Y-m-d'), $report->organization,
                     $report->state->name, $report->municipality->name, $report->parish->name,
-                    $report->sector->name, $report->activity->title, $beneficiary->full_name,
-                    $beneficiary->age, $beneficiary->sex, $beneficiary->national_id, $beneficiary->phone,
+                    $report->sector->name, $report->activity->title,
+                    $beneficiary->age, $beneficiary->sex,
                     $beneficiary->disability, $beneficiary->ethnicity, $beneficiary->pregnant_lactating,
                     $beneficiary->is_recurrent ? 'Sí' : 'No',
                     $beneficiary->reported_at ? 'Sí' : 'No',

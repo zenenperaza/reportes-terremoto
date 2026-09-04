@@ -111,7 +111,7 @@ class BeneficiaryReportController extends Controller
 
     public function export(Request $request): StreamedResponse
     {
-        abort_unless($request->user()->isAdministrator(), 403);
+        abort_unless($request->user()->can('exportar registros excel'), 403);
 
         $filters = $this->validatedFilters($request);
         $spreadsheet = new Spreadsheet();
@@ -121,8 +121,7 @@ class BeneficiaryReportController extends Controller
         $headers = [
             'ID', 'Estado', 'Municipio', 'Parroquia', 'Tipo de instalación', 'Nombre del lugar',
             'Latitud', 'Longitud', 'Sector programático', 'Indicador a reportar',
-            'Detalles adicionales de la actividad', 'Fecha de atención', 'Nombre y apellido',
-            'Edad', 'Sexo', 'Cédula', 'Teléfono', 'Discapacidad', 'Indígena',
+            'Detalles adicionales de la actividad', 'Fecha de atención', 'Edad', 'Sexo', 'Discapacidad', 'Indígena',
             'Embarazada o lactante', 'Recurrente', 'Fecha de reporte', 'Fecha de inclusión', 'Usuario',
         ];
         $lastColumn = Coordinate::stringFromColumnIndex(count($headers));
@@ -145,7 +144,7 @@ class BeneficiaryReportController extends Controller
             'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF8DA99D']]],
         ]);
 
-        $widths = [8, 18, 20, 18, 26, 28, 13, 13, 22, 48, 48, 16, 28, 10, 16, 16, 18, 18, 18, 22, 14, 18, 20, 28];
+        $widths = [8, 18, 20, 18, 26, 28, 13, 13, 22, 48, 48, 16, 10, 16, 18, 18, 22, 14, 18, 20, 28];
         foreach ($widths as $index => $width) {
             $worksheet->getColumnDimension(Coordinate::stringFromColumnIndex($index + 1))->setWidth($width);
         }
@@ -165,11 +164,8 @@ class BeneficiaryReportController extends Controller
                 $beneficiary->activity_title,
                 $beneficiary->activity_details,
                 $this->excelDate($beneficiary->report_date),
-                $beneficiary->full_name,
                 $beneficiary->age,
                 $beneficiary->sex,
-                $beneficiary->national_id,
-                $beneficiary->phone,
                 $beneficiary->disability,
                 $beneficiary->ethnicity,
                 $beneficiary->pregnant_lactating,
@@ -182,11 +178,11 @@ class BeneficiaryReportController extends Controller
             foreach ($values as $index => $value) {
                 $cell = Coordinate::stringFromColumnIndex($index + 1).$rowNumber;
 
-                if (in_array($index, [0, 13], true) && $value !== null && $value !== '') {
+                if (in_array($index, [0, 12], true) && $value !== null && $value !== '') {
                     $worksheet->setCellValue($cell, (int) $value);
                 } elseif (in_array($index, [6, 7], true) && $value !== null && $value !== '') {
                     $worksheet->setCellValue($cell, (float) $value);
-                } elseif (in_array($index, [11, 21, 22], true) && $value !== null) {
+                } elseif (in_array($index, [11, 18, 19], true) && $value !== null) {
                     $worksheet->setCellValue($cell, $value);
                 } else {
                     $worksheet->setCellValueExplicit($cell, $this->spreadsheetText($value), DataType::TYPE_STRING);
@@ -199,8 +195,8 @@ class BeneficiaryReportController extends Controller
         $lastDataRow = max(2, $rowNumber - 1);
         $worksheet->getStyle("A2:{$lastColumn}{$lastDataRow}")->getAlignment()->setVertical(Alignment::VERTICAL_TOP)->setWrapText(true);
         $worksheet->getStyle("L2:L{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
-        $worksheet->getStyle("V2:V{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
-        $worksheet->getStyle("W2:W{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy hh:mm');
+        $worksheet->getStyle("S2:S{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+        $worksheet->getStyle("T2:T{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy hh:mm');
 
         $writer = new Xlsx($spreadsheet);
         $fileName = 'beneficiarios-'.now()->format('Ymd-His').'.xlsx';

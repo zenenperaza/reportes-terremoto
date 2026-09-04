@@ -9,6 +9,9 @@
 @endpush
 
 @section('content')
+@php($canViewReportDetail = auth()->user()->can('ver detalle de registros'))
+@php($canExportExcel = auth()->user()->can('exportar registros excel'))
+@php($canExportPdf = auth()->user()->can('exportar registros pdf'))
 <section class="page-heading">
     <div>
         <p class="eyebrow">{{ $isCoordinator ? 'Consolidado de respuesta' : 'Historial personal' }}</p>
@@ -50,9 +53,9 @@
         <div class="table-wrap"><table id="activity-records-table" class="activity-records-table">
             <thead>
                 @if ($isCoordinator)
-                    <tr><th>Fecha atención</th><th>Registrado por</th><th>Fecha registro</th><th>Beneficiario</th><th>Ubicación</th><th>Actividad</th><th>Recurrente</th><th>Reportado</th><th></th></tr>
+                    <tr><th>Fecha atención</th><th>Registrado por</th><th>Fecha registro</th><th>Edad / sexo</th><th>Ubicación</th><th>Actividad</th><th>Recurrente</th><th>Reportado</th>@if($canViewReportDetail)<th>Acciones</th>@endif</tr>
                 @else
-                    <tr><th>Fecha atención</th><th>Ubicación</th><th>Actividad</th><th>Beneficiarios</th><th>Reportado</th><th></th></tr>
+                    <tr><th>Fecha atención</th><th>Ubicación</th><th>Actividad</th><th>Beneficiarios</th><th>Reportado</th>@if($canViewReportDetail)<th>Acciones</th>@endif</tr>
                 @endif
             </thead>
             <tbody>
@@ -63,16 +66,12 @@
                         <td data-order="{{ $report->report_date->format('Y-m-d') }}">{{ $report->report_date->format('d/m/Y') }}</td>
                         <td>{{ $report->reporter_first_name }} {{ $report->reporter_last_name }}<br><small>{{ $report->organization }}</small></td>
                         <td data-order="{{ $beneficiary->created_at->format('Y-m-d H:i:s') }}">{{ $beneficiary->created_at->format('d/m/Y') }}<br><small>{{ $beneficiary->created_at->format('h:i A') }}</small></td>
-                        <td>
-                            {{ $beneficiary->full_name ?: 'Sin nombre registrado' }}
-                            <br><small>{{ $beneficiary->age }} años · {{ $beneficiary->sex }}@if($beneficiary->national_id) · Cédula: {{ $beneficiary->national_id }}@endif</small>
-                            @if($beneficiary->phone)<br><small>Tel.: {{ $beneficiary->phone }}</small>@endif
-                        </td>
+                        <td data-order="{{ $beneficiary->age }}"><strong>{{ $beneficiary->age }} a&ntilde;os</strong><br><small>{{ $beneficiary->sex }}</small></td>
                         <td>{{ $report->state->name }}<br><small>{{ $report->municipality->name }}, {{ $report->parish->name }}</small><br><small>{{ $report->place_name }}</small></td>
                         <td>{{ $report->proyecto?->codigo ?? $report->sector?->name }}<br><small>{{ \Illuminate\Support\Str::limit($report->indicadorProyecto?->indicador?->descripcion ?? $report->activity?->title, 72) }}</small></td>
                         <td><span class="status status-{{ $beneficiary->is_recurrent ? 'submitted' : 'reviewed' }}">{{ $beneficiary->is_recurrent ? 'Sí' : 'No' }}</span></td>
                         <td><span class="status status-{{ $beneficiary->reported_at ? 'reviewed' : 'submitted' }}">{{ $beneficiary->reported_at ? 'Sí' : 'No' }}</span>@if($beneficiary->reported_at)<br><small>{{ $beneficiary->reported_at->format('d/m/Y') }}</small>@endif</td>
-                        <td><a href="{{ route('reports.show', $report) }}">Ver</a></td>
+                        @if($canViewReportDetail)<td><a href="{{ route('reports.show', $report) }}">Ver</a></td>@endif
                     </tr>
                 @endforeach
             @else
@@ -84,7 +83,7 @@
                     <td data-order="{{ $report->total_beneficiaries }}">{{ number_format($report->total_beneficiaries) }}</td>
                     @php($isReported = $report->beneficiaries_count > 0 && $report->unreported_beneficiaries_count === 0)
                     <td><span class="status status-{{ $isReported ? 'reviewed' : 'submitted' }}">{{ $isReported ? 'Sí' : 'No' }}</span>@if(! $isReported && $report->beneficiaries_count > $report->unreported_beneficiaries_count)<br><small>{{ $report->beneficiaries_count - $report->unreported_beneficiaries_count }} de {{ $report->beneficiaries_count }} beneficiarios reportados</small>@endif</td>
-                    <td><a href="{{ route('reports.show', $report) }}">Ver</a></td>
+                    @if($canViewReportDetail)<td><a href="{{ route('reports.show', $report) }}">Ver</a></td>@endif
                 </tr>
             @endforeach
             @endif
@@ -109,15 +108,15 @@
     if (activityRecordsTable && typeof DataTable !== 'undefined') {
         new DataTable(activityRecordsTable, {
             layout: {
-                topStart: ['pageLength'@if (auth()->user()->isAdministrator()), {
+                topStart: ['pageLength', {
                     buttons: [
                         {extend: 'copyHtml5', text: 'Copiar'},
                         {extend: 'csvHtml5', text: 'CSV', title: activityExportTitle},
-                        {extend: 'excelHtml5', text: 'Excel', title: activityExportTitle},
-                        {extend: 'pdfHtml5', text: 'PDF', title: activityExportTitle, orientation: 'landscape', pageSize: 'A4'},
+                        @if($canExportExcel){extend: 'excelHtml5', text: 'Excel', title: activityExportTitle},@endif
+                        @if($canExportPdf){extend: 'pdfHtml5', text: 'PDF', title: activityExportTitle, orientation: 'landscape', pageSize: 'A4'},@endif
                         {extend: 'print', text: 'Imprimir', title: activityExportTitle},
                     ],
-                }@endif],
+                }],
                 topEnd: 'search',
                 bottomStart: 'info',
                 bottomEnd: 'paging',
@@ -125,7 +124,7 @@
             pageLength: 15,
             lengthMenu: [[15, 25, 50, -1], [15, 25, 50, 'Todos']],
             order: [],
-            columnDefs: [{targets: -1, orderable: false, searchable: false}],
+            columnDefs: [@if($canViewReportDetail){targets: -1, orderable: false, searchable: false}@endif],
             language: {
                 emptyTable: 'No hay ' + activityRowsLabel + ' que coincidan con los filtros.',
                 info: 'Mostrando _START_ a _END_ de _TOTAL_ ' + activityRowsLabel,

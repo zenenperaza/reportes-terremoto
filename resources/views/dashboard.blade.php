@@ -152,7 +152,7 @@
                     <div class="dashboard-empty"><i class="ri-file-add-line"></i><p>A&uacute;n no se han registrado actividades.</p>@can('registrar actividad')<a class="btn btn-primary" href="{{ route('reports.create') }}">Crear el primer registro</a>@endcan</div>
                 @else
                     <div class="table-responsive"><table class="table table-hover table-nowrap align-middle mb-0">
-                        <thead class="table-light"><tr><th>Fecha</th><th>Ubicaci&oacute;n</th><th>Proyecto / Indicador</th><th class="text-center">Beneficiarios</th><th>Estado</th><th></th></tr></thead>
+                        <thead class="table-light"><tr><th>Fecha</th><th>Ubicaci&oacute;n</th><th>Proyecto / Indicador</th><th class="text-center">Beneficiarios</th><th>Estado</th>@can('ver detalle de registros')<th></th>@endcan</tr></thead>
                         <tbody>@foreach($recentReports as $report)
                             <tr>
                                 <td><span class="fw-medium">{{ $report->report_date->format('d/m/Y') }}</span></td>
@@ -160,7 +160,7 @@
                                 <td><strong class="text-primary">{{ $report->proyecto?->codigo ?? $report->sector?->name ?? 'Sin proyecto' }}</strong><br><small class="text-muted dashboard-indicator-text">{{ \Illuminate\Support\Str::limit($report->indicadorProyecto?->indicador?->descripcion ?? $report->activity?->title ?? 'Sin indicador', 95) }}</small></td>
                                 <td class="text-center"><span class="badge bg-info-subtle text-info fs-12">{{ number_format($report->total_beneficiaries) }}</span></td>
                                 <td><span class="badge {{ $report->status === 'reviewed' ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning' }}">{{ $report->status === 'reviewed' ? 'Revisado' : 'Enviado' }}</span></td>
-                                <td class="text-end"><a class="btn btn-soft-primary btn-sm" href="{{ route('reports.show', $report) }}" title="Ver registro"><i class="ri-eye-line"></i></a></td>
+                                @can('ver detalle de registros')<td class="text-end"><a class="btn btn-soft-primary btn-sm" href="{{ route('reports.show', $report) }}" title="Ver registro"><i class="ri-eye-line"></i></a></td>@endcan
                             </tr>
                         @endforeach</tbody>
                     </table></div>

@@ -60,7 +60,7 @@
         </label>
         <div class="filter-actions">
             <button class="button button-primary" type="submit">Generar informe</button>
-            @if (auth()->user()->isAdministrator())
+            @can('exportar registros excel')
                 <a class="button button-excel" id="beneficiary-export-button"
                     data-export-url="{{ route('beneficiaries.export') }}"
                     href="{{ route('beneficiaries.export', request()->query()) }}">
@@ -70,7 +70,7 @@
                     </svg>
                     Exportar Excel
                 </a>
-            @endif
+            @endcan
             <a class="button button-secondary" href="{{ route('beneficiaries.summary') }}">Limpiar</a>
         </div>
     </form>
@@ -228,8 +228,8 @@ summarySector.addEventListener('change', async () => { setSummaryOptions(summary
                     buttons: [
                         {extend: 'copyHtml5', text: 'Copiar'},
                         {extend: 'csvHtml5', text: 'CSV', title: 'Beneficiarios por atención'},
-                        {extend: 'excelHtml5', text: 'Excel', title: 'Beneficiarios por atención'},
-                        {extend: 'pdfHtml5', text: 'PDF', title: 'Beneficiarios por atención', orientation: 'landscape', pageSize: 'A4'},
+                        @can('exportar registros excel'){extend: 'excelHtml5', text: 'Excel', title: 'Beneficiarios por atención'},@endcan
+                        @can('exportar registros pdf'){extend: 'pdfHtml5', text: 'PDF', title: 'Beneficiarios por atención', orientation: 'landscape', pageSize: 'A4'},@endcan
                         {extend: 'print', text: 'Imprimir', title: 'Beneficiarios por atención'},
                     ],
                 },

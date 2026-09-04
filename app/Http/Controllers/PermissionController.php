@@ -20,6 +20,12 @@ class PermissionController extends Controller
         'editar registros',
         'eliminar registros',
         'solo ver registros',
+        'generar respaldos',
+        'descargar respaldos',
+        'eliminar respaldos',
+        'exportar registros excel',
+        'exportar registros pdf',
+        'ver detalle de registros',
     ];
 
     public function index(): View
