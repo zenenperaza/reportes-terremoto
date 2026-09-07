@@ -42,6 +42,7 @@
     <link rel="stylesheet" href="{{ $versionedAsset('css/donor-report.css') }}">
     <link rel="stylesheet" href="{{ $versionedAsset('css/pwa.css') }}">
     <link rel="stylesheet" href="{{ $versionedAsset('css/two-factor-auth.css') }}">
+    <link rel="stylesheet" href="{{ $versionedAsset('css/password-reset.css') }}">
     <link rel="stylesheet" href="{{ $versionedAsset('css/catalog-management.css') }}">
     <link rel="stylesheet" href="{{ asset('vendor/select2/css/select2.min.css') }}">
     <link rel="stylesheet" href="{{ $versionedAsset('css/select2-custom.css') }}">

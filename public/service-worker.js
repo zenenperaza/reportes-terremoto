@@ -18,6 +18,7 @@ const APP_SHELL = [
     "/css/beneficiary-summary.css",
     "/css/donor-report.css",
     "/css/pwa.css",
+    "/css/password-reset.css",
     "/css/catalog-management.css",
     "/css/select2-custom.css",
     "/css/indicator-select2.css",

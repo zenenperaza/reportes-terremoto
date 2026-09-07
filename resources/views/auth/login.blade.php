@@ -16,6 +16,7 @@
             <label>Contrase&ntilde;a
                 <input type="password" name="password" autocomplete="current-password" required>
             </label>
+            <div class="auth-password-help"><a href="{{ route('password.request') }}">&iquest;Olvid&oacute; su contrase&ntilde;a?</a></div>
             <label class="checkbox-label"><input type="checkbox" name="remember" value="1"> Mantener mi sesi&oacute;n abierta</label>
             <button class="button button-primary" type="submit">Ingresar</button>
         </form>

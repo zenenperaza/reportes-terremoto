@@ -24,6 +24,7 @@ use App\Http\Controllers\SystemMaintenanceController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\UserGroupController;
 use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\RoleController;
 use App\Http\Middleware\EnsureActiveUser;
 use Illuminate\Support\Facades\Route;
@@ -33,6 +34,12 @@ Route::redirect('/', '/panel');
 Route::middleware('guest')->group(function (): void {
     Route::get('/ingresar', [AuthController::class, 'createLogin'])->name('login');
     Route::post('/ingresar', [AuthController::class, 'login'])->name('login.store');
+    Route::get('/recuperar-contrasena', [PasswordResetController::class, 'requestForm'])->name('password.request');
+    Route::post('/recuperar-contrasena', [PasswordResetController::class, 'sendLink'])
+        ->middleware('throttle:5,1')->name('password.email');
+    Route::get('/restablecer-contrasena/{token}', [PasswordResetController::class, 'resetForm'])->name('password.reset');
+    Route::post('/restablecer-contrasena', [PasswordResetController::class, 'reset'])
+        ->middleware('throttle:5,1')->name('password.update');
     Route::get('/verificar-acceso', [AuthController::class, 'createTwoFactorChallenge'])->name('two-factor.challenge');
     Route::post('/verificar-acceso', [AuthController::class, 'verifyTwoFactorChallenge'])->name('two-factor.verify');
     Route::post('/verificar-acceso/reenviar', [AuthController::class, 'resendTwoFactorCode'])->name('two-factor.resend');
