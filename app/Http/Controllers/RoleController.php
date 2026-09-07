@@ -32,7 +32,7 @@ class RoleController extends Controller
     {
         $data = $this->validateData($request);
         $role = Role::create(['name' => trim($data['name']), 'guard_name' => 'web']);
-        $role->syncPermissions($data['permissions'] ?? []);
+        $role->syncPermissions($this->selectedPermissions($data));
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         return redirect()->route('roles.index')->with('success', 'Rol creado correctamente.');
@@ -59,15 +59,15 @@ class RoleController extends Controller
             $data['name'] = $originalName;
         }
 
-        $permissionIds = collect($data['permissions'] ?? []);
+        $selectedPermissions = $this->selectedPermissions($data);
         if ($originalName === 'admin') {
             $adminPermission = Permission::findByName('administrar sistema', 'web');
-            $permissionIds->push($adminPermission->id);
+            $selectedPermissions->push($adminPermission);
         }
 
-        DB::transaction(function () use ($role, $originalName, $data, $permissionIds): void {
+        DB::transaction(function () use ($role, $originalName, $data, $selectedPermissions): void {
             $role->update(['name' => trim($data['name'])]);
-            $role->syncPermissions($permissionIds->unique()->all());
+            $role->syncPermissions($selectedPermissions->unique('id')->values());
 
             if ($originalName !== $role->name) {
                 User::query()->where('role', $originalName)->update(['role' => $role->name]);
@@ -108,5 +108,13 @@ class RoleController extends Controller
     private function permissions()
     {
         return Permission::query()->where('guard_name', 'web')->orderBy('name')->get();
+    }
+
+    private function selectedPermissions(array $data)
+    {
+        return Permission::query()
+            ->where('guard_name', 'web')
+            ->whereIn('id', array_map('intval', $data['permissions'] ?? []))
+            ->get();
     }
 }

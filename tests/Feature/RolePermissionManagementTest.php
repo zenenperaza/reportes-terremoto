@@ -30,6 +30,15 @@ class RolePermissionManagementTest extends TestCase
         $role = Role::findByName('auditor', 'web');
         $this->assertTrue($role->hasPermissionTo($permission));
 
+        $secondPermission = Permission::findByName('solo ver registros', 'web');
+        $this->actingAs($administrator)->put(route('roles.update', $role), [
+            'name' => 'auditor',
+            // Los valores de los checkbox llegan como cadenas desde el navegador.
+            'permissions' => [(string) $permission->id, (string) $secondPermission->id],
+        ])->assertRedirect(route('roles.index'));
+
+        $this->assertTrue($role->fresh()->hasAllPermissions([$permission, $secondPermission]));
+
         $this->actingAs($administrator)->get(route('roles.index'))
             ->assertOk()
             ->assertSee('Auditor')
