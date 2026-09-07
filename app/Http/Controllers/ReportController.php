@@ -486,6 +486,7 @@ class ReportController extends Controller
                     'code' => $assignment->indicador->codigo,
                     'title' => $assignment->indicador->descripcion,
                     'unit' => $assignment->indicador->unidad_conteo,
+                    'coordination' => $assignment->indicador->espacio_coordinacion,
                     'ageFrom' => $assignment->indicador->edad_desde,
                     'ageTo' => $assignment->indicador->edad_hasta,
                     'activities' => $assignment->asignacionesActividades->map(function ($projectActivity): array {

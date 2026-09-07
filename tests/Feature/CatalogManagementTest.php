@@ -242,6 +242,10 @@ class CatalogManagementTest extends TestCase
             ->assertSee('name="proyecto_id"', false)
             ->assertSee('name="sector_proyecto_id"', false)
             ->assertSee('name="indicador_proyecto_id"', false)
+            ->assertSee('id="indicator-card-grid"', false)
+            ->assertSee('id="indicator-card-search"', false)
+            ->assertSee('indicator-coordination', false)
+            ->assertSee('coordination', false)
             ->assertSee('PROY-001');
         $this->get(route('indicador-proyecto.edit', $asignacion))->assertOk();
     }

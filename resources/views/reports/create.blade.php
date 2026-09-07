@@ -41,14 +41,22 @@
                         <option value="">Seleccione primero el proyecto</option>
                     </select>
                 </label><br>
-                <label class="indicator-select-field">Seleccione indicador *<select name="indicador_proyecto_id" id="indicador_proyecto_id" required>
+                <div class="indicator-select-field">
+                    <div class="indicator-picker-heading">
+                        <div><label for="indicator-card-search">Seleccione indicador *</label><small>Todos los indicadores disponibles para el sector seleccionado.</small></div>
+                        <span id="indicator-card-count" class="indicator-card-count">0 indicadores</span>
+                    </div>
+                    <select class="indicator-native-select" name="indicador_proyecto_id" id="indicador_proyecto_id" required aria-hidden="true" tabindex="-1">
                         <option value="">Seleccione primero el sector</option>
-                    </select><small class="indicator-select-help">Escriba para buscar por la descripción del indicador.</small>
+                    </select>
+                    <div class="indicator-search-wrap"><i class="ri-search-line" aria-hidden="true"></i><input id="indicator-card-search" type="search" placeholder="Buscar por código o descripción" autocomplete="off"></div>
+                    <div id="indicator-card-grid" class="indicator-card-grid" role="radiogroup" aria-label="Indicadores disponibles"></div>
+                    <p id="indicator-card-empty" class="indicator-card-empty" hidden>No hay indicadores disponibles para este sector.</p>
                     <span id="selected-indicator-summary" class="selected-indicator-summary" hidden>
                         <strong id="selected-indicator-code" class="selected-indicator-code"></strong>
                         <span id="selected-indicator-description" class="selected-indicator-description"></span>
                     </span>
-                </label><br>
+                </div><br>
                 <label id="report-activity-field" hidden>Actividad a reportar <small>(opcional)</small><select name="actividad_indicador_id" id="actividad_indicador_id">
                         <option value="">Seleccione primero el indicador</option>
                     </select>
@@ -366,6 +374,10 @@
             project = select('proyecto_id'),
             projectSector = select('sector_proyecto_id'),
             activity = select('indicador_proyecto_id'),
+            indicatorCardGrid = select('indicator-card-grid'),
+            indicatorCardSearch = select('indicator-card-search'),
+            indicatorCardCount = select('indicator-card-count'),
+            indicatorCardEmpty = select('indicator-card-empty'),
             indicatorSummary = select('selected-indicator-summary'),
             indicatorCode = select('selected-indicator-code'),
             indicatorDescription = select('selected-indicator-description'),
@@ -432,9 +444,62 @@
             if (activities.length === 0) reportedActivity.value = '';
             syncServices(selectedServices);
         };
+        const coordinationClass = value => {
+            const normalized = String(value || '').toLocaleUpperCase('es-VE');
+            if (normalized === 'VBG') return 'is-vbg';
+            if (normalized === 'NNA/VBG') return 'is-mixed';
+            return 'is-nna';
+        };
+        const renderIndicatorCards = () => {
+            const query = indicatorCardSearch.value.trim().toLocaleLowerCase('es-VE');
+            const indicators = selectedSectorIndicators().filter(item =>
+                !query || `${item.code} ${item.title} ${item.coordination}`.toLocaleLowerCase('es-VE').includes(query)
+            );
+            indicatorCardGrid.replaceChildren();
+            indicators.forEach(item => {
+                const card = document.createElement('button');
+                const isSelected = String(item.id) === String(activity.value);
+                card.type = 'button';
+                card.className = `indicator-card ${isSelected ? 'is-selected' : ''}`;
+                card.setAttribute('role', 'radio');
+                card.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+
+                const top = document.createElement('span');
+                top.className = 'indicator-card-top';
+                const badge = document.createElement('span');
+                badge.className = `indicator-coordination ${coordinationClass(item.coordination)}`;
+                badge.textContent = item.coordination || 'General';
+                const code = document.createElement('strong');
+                code.textContent = item.code;
+                const check = document.createElement('i');
+                check.className = 'ri-checkbox-circle-fill indicator-card-check';
+                check.setAttribute('aria-hidden', 'true');
+                top.append(badge, code, check);
+
+                const description = document.createElement('span');
+                description.className = 'indicator-card-description';
+                description.textContent = item.title;
+                const meta = document.createElement('span');
+                meta.className = 'indicator-card-meta';
+                meta.textContent = `${item.unit || 'Sin unidad'} · Edad: ${item.ageFrom ?? 0} a ${item.ageTo ?? 120} años`;
+                card.append(top, description, meta);
+                card.addEventListener('click', () => {
+                    activity.value = String(item.id);
+                    activity.dispatchEvent(new Event('change', {bubbles: true}));
+                });
+                indicatorCardGrid.append(card);
+            });
+            const total = selectedSectorIndicators().length;
+            indicatorCardCount.textContent = `${total} ${total === 1 ? 'indicador' : 'indicadores'}`;
+            indicatorCardEmpty.textContent = projectSector.value
+                ? 'No hay indicadores que coincidan con la búsqueda.'
+                : 'Seleccione un sector para ver sus indicadores.';
+            indicatorCardEmpty.hidden = indicators.length !== 0;
+        };
         const syncProjectIndicators = (selected = '', selectedActivity = '', selectedServices = []) => {
             setOptions(activity, selectedSectorIndicators(), projectSector.value ? 'Seleccione un indicador' : 'Seleccione primero el sector', selected);
-            if (window.jQuery && jQuery.fn.select2) jQuery(activity).trigger('change.select2');
+            indicatorCardSearch.value = '';
+            renderIndicatorCards();
             syncIndicatorActivities(selectedActivity, selectedServices);
         };
         const syncProjectSectors = (selected = '', selectedIndicator = '', selectedActivity = '', selectedServices = []) => {
@@ -443,19 +508,15 @@
         };
         project.addEventListener('change', () => syncProjectSectors());
         projectSector.addEventListener('change', () => syncProjectIndicators());
+        indicatorCardSearch.addEventListener('input', renderIndicatorCards);
         reportedActivity.addEventListener('change', () => syncServices());
         if (window.jQuery && jQuery.fn.select2) {
-            jQuery(activity).select2({
-                width: '100%',
-                placeholder: 'Seleccione un indicador',
-                dropdownCssClass: 'indicator-select2-dropdown',
-                language: {noResults: () => 'No se encontraron indicadores'},
-            });
-            jQuery(activity).on('change', () => syncIndicatorActivities());
             jQuery(services).select2({width: '100%', placeholder: 'Seleccione uno o varios servicios'});
-        } else {
-            activity.addEventListener('change', () => syncIndicatorActivities());
         }
+        activity.addEventListener('change', () => {
+            syncIndicatorActivities();
+            renderIndicatorCards();
+        });
         syncProjectSectors(initialProjectSector, initialIndicator, initialActivity, initialServices);
         const placeName = select('place_name'),
             installationType = select('installation_type'),
@@ -849,6 +910,11 @@
                 return false;
             }
             setMessage(entryError, `Antes de guardar, complete ${missing[1]}.`);
+            if (missing[0] === 'indicador_proyecto_id') {
+                indicatorCardSearch.focus();
+                indicatorCardGrid.scrollIntoView({behavior: 'smooth', block: 'center'});
+                return false;
+            }
             const communityField = {
                 state_id: communityState,
                 municipality_id: communityMunicipality,

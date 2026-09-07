@@ -147,3 +147,189 @@
     white-space: normal;
     overflow-wrap: anywhere;
 }
+
+/* Catálogo visual de indicadores del formulario de actividad. */
+.indicator-select-field {
+    position: relative;
+}
+
+.indicator-native-select {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.indicator-picker-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.indicator-picker-heading label,
+.indicator-picker-heading small {
+    display: block;
+}
+
+.indicator-picker-heading small {
+    margin-top: 3px;
+    font-weight: 400;
+}
+
+.indicator-card-count {
+    flex: 0 0 auto;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: #e8f5fb;
+    color: #09648d;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.indicator-search-wrap {
+    position: relative;
+    margin-bottom: 14px;
+}
+
+.indicator-search-wrap i {
+    position: absolute;
+    top: 50%;
+    left: 13px;
+    z-index: 1;
+    color: #6b7f8d;
+    font-size: 18px;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.indicator-search-wrap input {
+    height: 44px;
+    padding-left: 40px;
+    border-color: #bdd0da;
+    background: #fbfdfe;
+}
+
+.indicator-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 12px;
+}
+
+.indicator-card {
+    display: flex;
+    min-width: 0;
+    min-height: 138px;
+    flex-direction: column;
+    gap: 9px;
+    padding: 16px;
+    border: 1px solid #d8e2e8;
+    border-radius: 9px;
+    background: #f7f9fc;
+    color: #183447;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(23, 57, 77, .05);
+    transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease, background .16s ease;
+}
+
+.indicator-card:hover {
+    border-color: #79bfdc;
+    background: #fff;
+    box-shadow: 0 7px 18px rgba(23, 57, 77, .10);
+    transform: translateY(-1px);
+}
+
+.indicator-card:focus-visible {
+    outline: 3px solid rgba(28, 171, 226, .22);
+    outline-offset: 2px;
+}
+
+.indicator-card.is-selected {
+    border-color: #1cabe2;
+    background: #eefaff;
+    box-shadow: 0 0 0 2px rgba(28, 171, 226, .18), 0 7px 18px rgba(23, 57, 77, .08);
+}
+
+.indicator-card-top {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 9px;
+}
+
+.indicator-card-top strong {
+    overflow-wrap: anywhere;
+    color: #0b3b60;
+    font-size: 14px;
+}
+
+.indicator-coordination {
+    display: inline-flex;
+    justify-content: center;
+    min-width: 48px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+.indicator-coordination.is-nna { background: #087f8c; }
+.indicator-coordination.is-vbg { background: #b02a60; }
+.indicator-coordination.is-mixed { background: #6559cc; }
+
+.indicator-card-check {
+    color: #1cabe2;
+    font-size: 21px;
+    opacity: 0;
+}
+
+.indicator-card.is-selected .indicator-card-check {
+    opacity: 1;
+}
+
+.indicator-card-description {
+    flex: 1;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.indicator-card-meta {
+    padding-top: 9px;
+    border-top: 1px solid #e1e9ed;
+    color: #617484;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.indicator-card-empty {
+    margin: 0;
+    padding: 20px;
+    border: 1px dashed #b9cad4;
+    border-radius: 8px;
+    background: #f8fbfc;
+    color: #617484;
+    text-align: center;
+}
+
+.indicator-card-empty[hidden] {
+    display: none;
+}
+
+@media (max-width: 720px) {
+    .indicator-picker-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .indicator-card-grid {
+        grid-template-columns: 1fr;
+    }
+}

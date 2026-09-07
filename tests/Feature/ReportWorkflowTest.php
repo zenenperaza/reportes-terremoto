@@ -131,6 +131,7 @@ class ReportWorkflowTest extends TestCase
 
         $this->actingAs($user)->post("/beneficiarios/{$firstBeneficiary->id}", [
             '_method' => 'PUT',
+            'has_informed_consent' => '1',
             'full_name' => $firstBeneficiary->full_name,
             'age' => $firstBeneficiary->age,
             'sex' => 'Hombre',
