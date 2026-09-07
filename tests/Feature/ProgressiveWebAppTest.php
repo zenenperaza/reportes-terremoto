@@ -17,7 +17,7 @@ class ProgressiveWebAppTest extends TestCase
         $this->assertFileExists(public_path('css/pwa.css'));
         $this->assertFileExists(public_path('icons/asonacop-app.png'));
         $this->assertStringContainsString(
-            'No estás conectado a Internet',
+            'No est&aacute;s conectado a Internet',
             file_get_contents(public_path('offline.html'))
         );
 
@@ -26,6 +26,10 @@ class ProgressiveWebAppTest extends TestCase
         $this->assertSame('standalone', $manifest['display']);
         $this->assertSame('/panel?source=pwa', $manifest['start_url']);
         $this->assertNotEmpty($manifest['icons']);
+
+        $serviceWorker = file_get_contents(public_path('service-worker.js'));
+        $this->assertStringContainsString('asonacop-pwa-v43', $serviceWorker);
+        $this->assertStringContainsString('fetch(request)', $serviceWorker);
     }
 
     public function test_login_page_exposes_pwa_metadata(): void
@@ -42,8 +46,9 @@ class ProgressiveWebAppTest extends TestCase
     {
         $script = file_get_contents(public_path('js/pwa.js'));
 
-        $this->assertStringContainsString('No estás conectado a Internet', $script);
+        $this->assertStringContainsString('No est\\u00e1s conectado a Internet', $script);
         $this->assertStringContainsString('addEventListener("offline"', $script);
         $this->assertStringContainsString('addEventListener("online"', $script);
+        $this->assertStringContainsString('/service-worker.js?v=43', $script);
     }
 }

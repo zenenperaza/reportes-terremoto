@@ -1,4 +1,4 @@
-const CACHE_VERSION = "asonacop-pwa-v42";
+const CACHE_VERSION = "asonacop-pwa-v43";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const OFFLINE_URL = "/offline.html";
 
@@ -66,20 +66,18 @@ self.addEventListener("fetch", event => {
         return;
     }
 
+    // Network first: published CSS/JS changes are visible immediately. The
+    // precache remains available only as an offline fallback.
     event.respondWith(
-        caches.match(request).then(cached => {
-            if (cached) {
-                return cached;
-            }
-
-            return fetch(request).then(response => {
+        fetch(request)
+            .then(response => {
                 if (response.ok) {
                     const copy = response.clone();
                     caches.open(STATIC_CACHE).then(cache => cache.put(request, copy));
                 }
 
                 return response;
-            });
-        })
+            })
+            .catch(() => caches.match(request).then(cached => cached || caches.match(url.pathname)))
     );
 });

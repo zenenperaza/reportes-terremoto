@@ -3,6 +3,7 @@
 <head>
     @php($asonacopIconUrl = asset('icons/asonacop-app.png').'?v='.(@filemtime(public_path('icons/asonacop-app.png')) ?: 1))
     @php($faviconUrl = asset('favicon.ico').'?v='.(@filemtime(public_path('favicon.ico')) ?: 1))
+    @php($versionedAsset = static fn (string $path): string => asset($path).'?v='.(@filemtime(public_path($path)) ?: 1))
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -27,24 +28,24 @@
     @else
         <link rel="stylesheet" href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}">
     @endauth
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/navigation-fixes.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/geolocation.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/report-form-fixes.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/beneficiary-records.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/recurrence-alert.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/beneficiary-immediate.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/beneficiary-entry.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/informed-consent.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/user-management.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/beneficiary-summary.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/donor-report.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/pwa.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/two-factor-auth.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/catalog-management.css') }}">
+    <link rel="stylesheet" href="{{ $versionedAsset('css/app.css') }}">
+    <link rel="stylesheet" href="{{ $versionedAsset('css/navigation-fixes.css') }}">
+    <link rel="stylesheet" href="{{ $versionedAsset('css/geolocation.css') }}">
+    <link rel="stylesheet" href="{{ $versionedAsset('css/report-form-fixes.css') }}">
+    <link rel="stylesheet" href="{{ $versionedAsset('css/beneficiary-records.css') }}">
+    <link rel="stylesheet" href="{{ $versionedAsset('css/recurrence-alert.css') }}">
+    <link rel="stylesheet" href="{{ $versionedAsset('css/beneficiary-immediate.css') }}">
+    <link rel="stylesheet" href="{{ $versionedAsset('css/beneficiary-entry.css') }}">
+    <link rel="stylesheet" href="{{ $versionedAsset('css/informed-consent.css') }}">
+    <link rel="stylesheet" href="{{ $versionedAsset('css/user-management.css') }}">
+    <link rel="stylesheet" href="{{ $versionedAsset('css/beneficiary-summary.css') }}">
+    <link rel="stylesheet" href="{{ $versionedAsset('css/donor-report.css') }}">
+    <link rel="stylesheet" href="{{ $versionedAsset('css/pwa.css') }}">
+    <link rel="stylesheet" href="{{ $versionedAsset('css/two-factor-auth.css') }}">
+    <link rel="stylesheet" href="{{ $versionedAsset('css/catalog-management.css') }}">
     <link rel="stylesheet" href="{{ asset('vendor/select2/css/select2.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/select2-custom.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/indicator-select2.css') }}">
+    <link rel="stylesheet" href="{{ $versionedAsset('css/select2-custom.css') }}">
+    <link rel="stylesheet" href="{{ $versionedAsset('css/indicator-select2.css') }}">
     @auth<link rel="stylesheet" href="{{ asset('css/admin-shell.css') }}?v={{ @filemtime(public_path('css/admin-shell.css')) ?: 1 }}">@endauth
     @stack('styles')
 </head>
@@ -160,7 +161,7 @@
 @else
 <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
 @endauth
-<script src="{{ asset('js/pwa.js') }}" defer></script>
+<script src="{{ $versionedAsset('js/pwa.js') }}" defer></script>
 @stack('scripts')
 </body>
 </html>
