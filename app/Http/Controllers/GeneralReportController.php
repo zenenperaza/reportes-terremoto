@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Activity;
 use App\Models\Beneficiary;
+use App\Models\IndicadorProyecto;
 use App\Models\Municipality;
 use App\Models\Sector;
 use App\Models\State;
@@ -35,7 +35,29 @@ class GeneralReportController extends Controller
 
         $selectedState = State::find($filters['state_id'] ?? null);
         $selectedMunicipality = Municipality::find($filters['municipality_id'] ?? null);
-        $selectedSector = Sector::find($filters['sector_id'] ?? null);
+        $indicatorAssignments = IndicadorProyecto::query()
+            ->with(['indicador:id,codigo,descripcion', 'asignacionSector:id,sector_id'])
+            ->whereIn('id', $this->visibleReports($request)
+                ->whereNotNull('indicador_proyecto_id')
+                ->distinct()
+                ->pluck('indicador_proyecto_id'))
+            ->where('estatus', true)
+            ->get(['id', 'indicador_id', 'sector_proyecto_id']);
+
+        $indicators = $indicatorAssignments
+            ->filter(fn (IndicadorProyecto $assignment): bool => $assignment->indicador !== null)
+            ->groupBy('indicador_id')
+            ->map(function ($assignments): array {
+                $indicator = $assignments->first()->indicador;
+
+                return [
+                    'id' => $indicator->id,
+                    'label' => trim($indicator->codigo.' - '.$indicator->descripcion, ' -'),
+                    'sector_ids' => $assignments->pluck('asignacionSector.sector_id')->filter()->unique()->values()->all(),
+                ];
+            })
+            ->sortBy('label', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
 
         return view('general-reports.index', [
             'filters' => $filters,
@@ -44,9 +66,7 @@ class GeneralReportController extends Controller
             'municipalities' => $selectedState ? $selectedState->municipalities()->orderBy('name')->get(['id', 'name']) : collect(),
             'parishes' => $selectedMunicipality ? $selectedMunicipality->parishes()->orderBy('name')->get(['id', 'name']) : collect(),
             'sectors' => Sector::where('estatus', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
-            'activities' => $selectedSector
-                ? $selectedSector->activities()->where('active', true)->orderBy('sort_order')->get(['id', 'title'])
-                : Activity::where('active', true)->orderBy('sector_id')->orderBy('sort_order')->get(['id', 'title']),
+            'indicators' => $indicators,
             'installationTypes' => config('reports.installation_types'),
             'places' => $this->visibleReports($request)->whereNotNull('place_name')->where('place_name', '<>', '')->distinct()->orderBy('place_name')->pluck('place_name'),
             'summary' => $this->summary($beneficiaries),
@@ -77,7 +97,10 @@ class GeneralReportController extends Controller
                     ->when($filters['installation_type'] ?? null, fn (Builder $q, string $type) => $q->where('installation_type', $type))
                     ->when($filters['place_name'] ?? null, fn (Builder $q, string $place) => $q->where('place_name', $place))
                     ->when($filters['sector_id'] ?? null, fn (Builder $q, int $id) => $q->where('sector_id', $id))
-                    ->when($filters['activity_id'] ?? null, fn (Builder $q, int $id) => $q->where('activity_id', $id));
+                    ->when($filters['indicador_id'] ?? null, fn (Builder $q, int $id) => $q->whereHas(
+                        'indicadorProyecto',
+                        fn (Builder $assignment) => $assignment->where('indicador_id', $id),
+                    ));
             })
             ->when($filters['registered_from'] ?? null, fn (Builder $q, string $date) => $q->whereDate('beneficiaries.created_at', '>=', $date))
             ->when($filters['registered_to'] ?? null, fn (Builder $q, string $date) => $q->whereDate('beneficiaries.created_at', '<=', $date))
@@ -96,7 +119,17 @@ class GeneralReportController extends Controller
     /** @return array<string, mixed> */
     private function validatedFilters(Request $request): array
     {
-        return $request->validate([
+        $input = $request->all();
+
+        // El grupo etario y el rango manual representan el mismo criterio. Si una
+        // URL antigua contiene ambos, el grupo etario tiene prioridad para evitar
+        // aplicar dos rangos de edad simultáneamente.
+        if (filled($input['age_group'] ?? null)) {
+            $input['age_from'] = null;
+            $input['age_to'] = null;
+        }
+
+        return validator($input, [
             'attention_from' => ['nullable', 'date'],
             'attention_to' => ['nullable', 'date', 'after_or_equal:attention_from'],
             'registered_from' => ['nullable', 'date'],
@@ -111,10 +144,10 @@ class GeneralReportController extends Controller
             'installation_type' => ['nullable', Rule::in(config('reports.installation_types'))],
             'place_name' => ['nullable', 'string', 'max:200'],
             'sector_id' => ['nullable', 'integer', 'exists:sectors,id'],
-            'activity_id' => ['nullable', 'integer', 'exists:activities,id'],
+            'indicador_id' => ['nullable', 'integer', 'exists:indicadores,id'],
             'is_recurrent' => ['nullable', Rule::in(['0', '1', 0, 1])],
             'reported' => ['nullable', Rule::in(['0', '1', 0, 1])],
-        ]);
+        ])->validate();
     }
 
     private function summary($beneficiaries): array

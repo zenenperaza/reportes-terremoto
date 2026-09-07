@@ -3,10 +3,15 @@
 namespace Tests\Feature;
 
 use App\Models\Activity;
+use App\Models\Donante;
+use App\Models\Indicador;
+use App\Models\IndicadorProyecto;
 use App\Models\Municipality;
 use App\Models\Parish;
+use App\Models\Proyecto;
 use App\Models\Report;
 use App\Models\Sector;
+use App\Models\SectorProyecto;
 use App\Models\State;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -24,8 +29,15 @@ class GeneralReportsTest extends TestCase
         $parish = Parish::create(['municipality_id' => $municipality->id, 'code' => 'VE130101', 'name' => 'Unión']);
         $sector = Sector::create(['codigo' => 'PN', 'descripcion' => 'Protección', 'estatus' => true, 'name' => 'Protección', 'slug' => 'proteccion', 'sort_order' => 1]);
         $activity = Activity::create(['sector_id' => $sector->id, 'code' => 'PN-01', 'title' => 'Atención de protección', 'sort_order' => 1, 'active' => true]);
+        $donor = Donante::create(['nombre' => 'UNICEF', 'estatus' => true]);
+        $project = Proyecto::create(['donante_id' => $donor->id, 'estatus' => true, 'codigo' => 'PR-1', 'descripcion' => 'Proyecto']);
+        $projectSector = SectorProyecto::create(['proyecto_id' => $project->id, 'sector_id' => $sector->id]);
+        $indicator = Indicador::create(['codigo' => 'PN/01', 'descripcion' => 'Personas atendidas', 'unidad_conteo' => 'Personas', 'espacio_coordinacion' => 'NNA', 'edad_desde' => 0, 'edad_hasta' => 120]);
+        $indicatorAssignment = IndicadorProyecto::create(['proyecto_id' => $project->id, 'sector_proyecto_id' => $projectSector->id, 'indicador_id' => $indicator->id, 'estatus' => true]);
         $report = Report::create([
             'user_id' => $user->id,
+            'proyecto_id' => $project->id,
+            'indicador_proyecto_id' => $indicatorAssignment->id,
             'report_date' => '2026-08-04',
             'reporter_first_name' => 'Ana',
             'reporter_last_name' => 'Pérez',
@@ -52,12 +64,25 @@ class GeneralReportsTest extends TestCase
             ->assertSee('Informes Generales')
             ->assertSee('Personas atendidas')
             ->assertSee('general-age-chart', false)
-            ->assertSee('general-sex-chart', false);
+            ->assertSee('general-sex-chart', false)
+            ->assertSee('PN/01 - Personas atendidas')
+            ->assertDontSee('Otra actividad del sector');
+
+        $this->actingAs($user)->get(route('general-reports.index', ['indicador_id' => $indicator->id]))
+            ->assertOk()
+            ->assertSee('value="'.$indicator->id.'" selected', false);
 
         $this->actingAs($user)->get(route('general-reports.index', ['age_from' => 18, 'sex' => 'Mujer']))
             ->assertOk()
             ->assertSee('value="18"', false)
             ->assertSee('value="Mujer" selected', false)
             ->assertSee('1', false);
+
+        $this->actingAs($user)->get(route('general-reports.index', ['age_from' => 18, 'age_to' => 59, 'age_group' => '0-5']))
+            ->assertOk()
+            ->assertSee('id="general_age_from"', false)
+            ->assertDontSee('name="age_from" min="0" max="120" value="18"', false)
+            ->assertSee('value="0-5" selected', false)
+            ->assertSee('Use el rango de edad o el grupo etario, no ambos.');
     }
 }
