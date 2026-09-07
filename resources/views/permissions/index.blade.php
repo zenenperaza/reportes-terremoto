@@ -20,7 +20,7 @@
                         <td>{{ $permission->roles_count }}</td>
                         <td class="row-actions">
                             <a href="{{ route('permissions.edit', $permission) }}">Editar</a>
-                            @if(!in_array($permission->name, ['administrar sistema', 'coordinar registros', 'actualizar a reportado', 'registrar actividad', 'manejar lugares', 'editar registros', 'eliminar registros', 'solo ver registros'], true) && $permission->roles_count === 0)
+                            @if(!in_array($permission->name, ['administrar sistema', 'coordinar registros', 'registrar actividad', 'manejar lugares', 'editar registros', 'eliminar registros', 'solo ver registros'], true) && $permission->roles_count === 0)
                                 <form action="{{ route('permissions.destroy', $permission) }}" method="post" onsubmit="return confirm('&iquest;Eliminar este permiso?');">
                                     @csrf @method('DELETE')
                                     <button class="danger-link" type="submit">Eliminar</button>

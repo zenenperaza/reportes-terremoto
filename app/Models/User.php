@@ -195,9 +195,7 @@ class User extends Authenticatable
 
     public function canMarkAsReported(): bool
     {
-        return $this->isAdministrator()
-            || $this->hasSystemPermission('actualizar a reportado')
-            || $this->can_mark_reported;
+        return (bool) $this->can_mark_reported;
     }
 
     private function visibleGroupUserIds()

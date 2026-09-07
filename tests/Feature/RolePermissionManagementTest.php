@@ -77,4 +77,17 @@ class RolePermissionManagementTest extends TestCase
         $this->actingAs($user)->get(route('reports.create'))->assertForbidden();
         $this->actingAs($user)->get(route('place-names.index'))->assertForbidden();
     }
+
+    public function test_mark_as_reported_is_controlled_only_by_the_user_switch(): void
+    {
+        $administrator = User::factory()->create(['role' => 'admin', 'can_mark_reported' => false]);
+        $reporter = User::factory()->create(['role' => 'reporter', 'can_mark_reported' => false]);
+
+        $this->assertFalse($administrator->canMarkAsReported());
+        $this->assertFalse($reporter->canMarkAsReported());
+
+        $reporter->update(['can_mark_reported' => true]);
+
+        $this->assertTrue($reporter->fresh()->canMarkAsReported());
+    }
 }

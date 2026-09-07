@@ -105,6 +105,10 @@ class TemporaryMaintenanceController extends Controller
                 '--path' => 'database/migrations/2026_09_04_130000_add_report_output_permissions.php',
                 '--force' => true,
             ]],
+            ['name' => 'migrate', 'parameters' => [
+                '--path' => 'database/migrations/2026_09_07_120000_remove_mark_reported_role_permission.php',
+                '--force' => true,
+            ]],
             ['name' => 'db:seed', 'parameters' => [
                 '--class' => 'Database\\Seeders\\ActividadSeeder',
                 '--force' => true,
