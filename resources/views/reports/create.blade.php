@@ -453,16 +453,58 @@
         const renderIndicatorCards = () => {
             const query = indicatorCardSearch.value.trim().toLocaleLowerCase('es-VE');
             const indicators = selectedSectorIndicators().filter(item =>
-                !query || `${item.code} ${item.title} ${item.coordination}`.toLocaleLowerCase('es-VE').includes(query)
+                !query || `${item.code} ${item.shortName || ''} ${item.title} ${item.coordination} ${item.groupName || ''}`.toLocaleLowerCase('es-VE').includes(query)
             );
             indicatorCardGrid.replaceChildren();
+            const groupedIndicators = new Map();
             indicators.forEach(item => {
-                const card = document.createElement('button');
-                const isSelected = String(item.id) === String(activity.value);
-                card.type = 'button';
-                card.className = `indicator-card ${isSelected ? 'is-selected' : ''}`;
-                card.setAttribute('role', 'radio');
-                card.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+                const key = item.groupId ? `group-${item.groupId}` : 'ungrouped';
+                if (!groupedIndicators.has(key)) {
+                    groupedIndicators.set(key, {
+                        name: item.groupName || 'Sin grupo',
+                        description: item.groupDescription || (item.groupId ? '' : 'Indicadores pendientes de clasificación.'),
+                        order: item.groupId ? Number(item.groupOrder ?? 0) : Number.MAX_SAFE_INTEGER,
+                        items: [],
+                    });
+                }
+                groupedIndicators.get(key).items.push(item);
+            });
+            [...groupedIndicators.values()]
+                .sort((left, right) => left.order - right.order || left.name.localeCompare(right.name, 'es'))
+                .forEach(group => {
+                    group.items.sort((left, right) => String(left.code).localeCompare(String(right.code), 'es', {
+                        numeric: true,
+                        sensitivity: 'base',
+                    }));
+                    const panel = document.createElement('section');
+                    panel.className = 'indicator-group-panel';
+
+                    const heading = document.createElement('header');
+                    heading.className = 'indicator-group-header';
+                    const title = document.createElement('strong');
+                    title.textContent = `${group.order === Number.MAX_SAFE_INTEGER ? '' : `${group.order}. `}${group.name}`;
+                    const count = document.createElement('span');
+                    count.className = 'indicator-group-total';
+                    count.textContent = String(group.items.length);
+                    heading.append(title, count);
+                    panel.append(heading);
+
+                    if (group.description) {
+                        const groupDescription = document.createElement('p');
+                        groupDescription.className = 'indicator-group-description';
+                        groupDescription.textContent = group.description;
+                        panel.append(groupDescription);
+                    }
+
+                    const items = document.createElement('div');
+                    items.className = 'indicator-group-items';
+                    group.items.forEach(item => {
+                        const card = document.createElement('button');
+                        const isSelected = String(item.id) === String(activity.value);
+                        card.type = 'button';
+                        card.className = `indicator-card ${isSelected ? 'is-selected' : ''}`;
+                        card.setAttribute('role', 'radio');
+                        card.setAttribute('aria-checked', isSelected ? 'true' : 'false');
 
                 const top = document.createElement('span');
                 top.className = 'indicator-card-top';
@@ -478,7 +520,7 @@
 
                 const description = document.createElement('span');
                 description.className = 'indicator-card-description';
-                description.textContent = item.title;
+                description.textContent = item.shortName || item.title;
                 const meta = document.createElement('span');
                 meta.className = 'indicator-card-meta';
                 meta.textContent = `${item.unit || 'Sin unidad'} · Edad: ${item.ageFrom ?? 0} a ${item.ageTo ?? 120} años`;
@@ -487,8 +529,11 @@
                     activity.value = String(item.id);
                     activity.dispatchEvent(new Event('change', {bubbles: true}));
                 });
-                indicatorCardGrid.append(card);
-            });
+                        items.append(card);
+                    });
+                    panel.append(items);
+                    indicatorCardGrid.append(panel);
+                });
             const total = selectedSectorIndicators().length;
             indicatorCardCount.textContent = `${total} ${total === 1 ? 'indicador' : 'indicadores'}`;
             indicatorCardEmpty.textContent = projectSector.value

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Services\DatabaseBackupService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -10,6 +11,18 @@ use Tests\TestCase;
 class BackupManagementTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_backup_service_creates_the_missing_private_directory(): void
+    {
+        Storage::fake('local');
+        Storage::disk('local')->deleteDirectory(DatabaseBackupService::DIRECTORY);
+
+        $method = new \ReflectionMethod(DatabaseBackupService::class, 'ensureBackupDirectory');
+        $directory = $method->invoke(new DatabaseBackupService, Storage::disk('local'));
+
+        $this->assertDirectoryExists($directory);
+        Storage::disk('local')->assertMissing(DatabaseBackupService::DIRECTORY.'/.write-test');
+    }
 
     public function test_only_administrators_can_manage_private_backups(): void
     {

@@ -12,6 +12,7 @@ class DatabaseSeeder extends Seeder
             AdminUserSeeder::class,
             ReferenceDataSeeder::class,
             IndicadorSeeder::class,
+            IndicatorGroupSeeder::class,
         ]);
     }
 }

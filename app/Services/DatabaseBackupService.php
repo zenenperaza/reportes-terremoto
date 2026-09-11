@@ -18,11 +18,13 @@ class DatabaseBackupService
         }
 
         $disk = Storage::disk('local');
-        $disk->makeDirectory(self::DIRECTORY);
+        $directory = $this->ensureBackupDirectory($disk);
         $filename = 'asonacop-'.now()->format('Y-m-d_H-i-s').'-'.bin2hex(random_bytes(3)).'.sql.gz';
         $temporary = self::DIRECTORY.'/'.$filename.'.part';
         $relativePath = self::DIRECTORY.'/'.$filename;
-        $stream = gzopen($disk->path($temporary), 'wb9');
+        $temporaryPath = $directory.DIRECTORY_SEPARATOR.$filename.'.part';
+        $finalPath = $directory.DIRECTORY_SEPARATOR.$filename;
+        $stream = @gzopen($temporaryPath, 'wb9');
 
         if ($stream === false) {
             throw new RuntimeException('No fue posible crear el archivo de respaldo. Verifique los permisos de storage.');
@@ -42,7 +44,7 @@ class DatabaseBackupService
             gzclose($stream);
             $stream = null;
 
-            if (! rename($disk->path($temporary), $disk->path($relativePath))) {
+            if (! @rename($temporaryPath, $finalPath)) {
                 throw new RuntimeException('No fue posible finalizar el archivo de respaldo.');
             }
 
@@ -54,6 +56,29 @@ class DatabaseBackupService
             $disk->delete([$temporary, $relativePath]);
             throw $exception;
         }
+    }
+
+    private function ensureBackupDirectory($disk): string
+    {
+        $directory = $disk->path(self::DIRECTORY);
+
+        if (! is_dir($directory) && ! @mkdir($directory, 0775, true) && ! is_dir($directory)) {
+            throw new RuntimeException(
+                'No fue posible crear la carpeta privada de respaldos. Verifique que storage/app tenga permisos de escritura.',
+            );
+        }
+
+        $probePath = $directory.DIRECTORY_SEPARATOR.'.write-test-'.bin2hex(random_bytes(4));
+        $probe = @fopen($probePath, 'xb');
+        if ($probe === false) {
+            throw new RuntimeException(
+                'La carpeta storage/app/private/backups no tiene permisos de escritura para PHP.',
+            );
+        }
+        fclose($probe);
+        @unlink($probePath);
+
+        return $directory;
     }
 
     /** @return array<int, string> */

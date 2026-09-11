@@ -10,6 +10,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DonanteController;
 use App\Http\Controllers\GeneralReportController;
 use App\Http\Controllers\IndicadorController;
+use App\Http\Controllers\IndicatorGroupController;
 use App\Http\Controllers\IndicadorProyectoController;
 use App\Http\Controllers\IndicadorProyectoActividadController;
 use App\Http\Controllers\LocationController;
@@ -75,6 +76,8 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance'])->grou
             ->name('sectores.toggle-status');
         Route::resource('indicadores', IndicadorController::class)
             ->parameters(['indicadores' => 'indicador'])->except('show');
+        Route::resource('configuracion/grupos-indicadores', IndicatorGroupController::class)
+            ->parameters(['grupos-indicadores' => 'indicatorGroup'])->names('indicator-groups')->except('show');
         Route::resource('configuracion/actividades', ActividadController::class)
             ->parameters(['actividades' => 'actividad'])->names('actividades')->except('show');
         Route::resource('configuracion/servicios', ServicioController::class)

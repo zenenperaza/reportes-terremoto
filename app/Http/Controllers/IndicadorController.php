@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Indicador;
+use App\Models\IndicatorGroup;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -13,7 +14,7 @@ class IndicadorController extends Controller
     public function index(): View
     {
         return view('indicadores.index', [
-            'indicadores' => Indicador::withCount('proyectos')->orderBy('codigo')->paginate(20),
+            'indicadores' => Indicador::with('indicatorGroup')->withCount('proyectos')->orderBy('codigo')->paginate(20),
         ]);
     }
 
@@ -25,6 +26,7 @@ class IndicadorController extends Controller
     public function store(Request $request): RedirectResponse
     {
         Indicador::create($this->validated($request));
+
         return redirect()->route('indicadores.index')->with('success', 'Indicador creado correctamente.');
     }
 
@@ -36,6 +38,7 @@ class IndicadorController extends Controller
     public function update(Request $request, Indicador $indicador): RedirectResponse
     {
         $indicador->update($this->validated($request, $indicador));
+
         return redirect()->route('indicadores.index')->with('success', 'Indicador actualizado correctamente.');
     }
 
@@ -45,6 +48,7 @@ class IndicadorController extends Controller
             return back()->with('error', 'No puede eliminar el indicador porque está asignado a uno o más proyectos.');
         }
         $indicador->delete();
+
         return redirect()->route('indicadores.index')->with('success', 'Indicador eliminado correctamente.');
     }
 
@@ -53,13 +57,16 @@ class IndicadorController extends Controller
         return [
             'espacios' => Indicador::ESPACIOS_COORDINACION,
             'unidadesConteo' => Indicador::UNIDADES_CONTEO,
+            'indicatorGroups' => IndicatorGroup::query()->orderBy('sort_order')->orderBy('name')->get(),
         ];
     }
 
     private function validated(Request $request, ?Indicador $indicador = null): array
     {
         return $request->validate([
+            'indicator_group_id' => ['nullable', 'integer', 'exists:indicator_groups,id'],
             'codigo' => ['required', 'string', 'max:50', Rule::unique('indicadores')->ignore($indicador)],
+            'nombre_corto' => ['nullable', 'string', 'max:150'],
             'descripcion' => ['required', 'string', 'max:255'],
             'unidad_conteo' => ['required', Rule::in(Indicador::UNIDADES_CONTEO)],
             'espacio_coordinacion' => ['required', Rule::in(Indicador::ESPACIOS_COORDINACION)],

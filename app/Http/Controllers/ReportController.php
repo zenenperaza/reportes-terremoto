@@ -398,7 +398,7 @@ class ReportController extends Controller
         return Proyecto::query()
             ->with(['donante', 'estados:id', 'municipios:id', 'asignacionesIndicadores' => fn ($query) => $query
                 ->with([
-                    'indicador',
+                    'indicador.indicatorGroup',
                     'asignacionSector.sector',
                     'asignacionesActividades' => fn ($activities) => $activities
                         ->with(['actividad', 'asignacionesServicios' => fn ($services) => $services->with('servicio')->where('estatus', true)])
@@ -485,8 +485,13 @@ class ReportController extends Controller
                         ?: $assignment->asignacionSector?->sector?->name,
                     'code' => $assignment->indicador->codigo,
                     'title' => $assignment->indicador->descripcion,
+                    'shortName' => $assignment->indicador->nombre_corto,
                     'unit' => $assignment->indicador->unidad_conteo,
                     'coordination' => $assignment->indicador->espacio_coordinacion,
+                    'groupId' => $assignment->indicador->indicator_group_id,
+                    'groupName' => $assignment->indicador->indicatorGroup?->name,
+                    'groupDescription' => $assignment->indicador->indicatorGroup?->description,
+                    'groupOrder' => $assignment->indicador->indicatorGroup?->sort_order,
                     'ageFrom' => $assignment->indicador->edad_desde,
                     'ageTo' => $assignment->indicador->edad_hasta,
                     'activities' => $assignment->asignacionesActividades->map(function ($projectActivity): array {

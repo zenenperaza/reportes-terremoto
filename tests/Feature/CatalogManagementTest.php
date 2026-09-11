@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Donante;
 use App\Models\Indicador;
 use App\Models\IndicadorProyecto;
+use App\Models\IndicatorGroup;
 use App\Models\Municipality;
 use App\Models\Proyecto;
 use App\Models\Sector;
@@ -197,14 +198,23 @@ class CatalogManagementTest extends TestCase
         $this->assertDatabaseHas('sector_proyecto', ['proyecto_id' => $proyecto->id, 'sector_id' => $proteccion->id]);
         $this->assertDatabaseHas('sector_proyecto', ['proyecto_id' => $proyecto->id, 'sector_id' => $educacion->id]);
         $sectorProyecto = $proyecto->asignacionesSectores()->where('sector_id', $proteccion->id)->firstOrFail();
+        $indicatorGroup = IndicatorGroup::create([
+            'name' => 'Apoyo psicosocial (SMAPS)',
+            'description' => 'Indicadores de apoyo psicosocial.',
+            'sort_order' => 1,
+        ]);
 
         $indicador = Indicador::create([
+            'indicator_group_id' => $indicatorGroup->id,
             'codigo' => 'GCLPR/SCA10/IC1/IE2',
+            'nombre_corto' => 'Nuevos casos de gestión de protección',
             'descripcion' => 'Número de nuevos casos de gestión de protección.',
             'unidad_conteo' => 'Personas', 'espacio_coordinacion' => 'NNA', 'edad_desde' => 0, 'edad_hasta' => 17,
         ]);
         $segundoIndicador = Indicador::create([
+            'indicator_group_id' => $indicatorGroup->id,
             'codigo' => 'GCLPR/SCA12/IC1/IE1',
+            'nombre_corto' => 'NNA en actividades grupales',
             'descripcion' => 'Número de niñas, niños y adolescentes que reciben apoyo psicosocial mediante actividades grupales.',
             'unidad_conteo' => 'Personas', 'espacio_coordinacion' => 'NNA', 'edad_desde' => 0, 'edad_hasta' => 17,
         ]);
@@ -245,6 +255,10 @@ class CatalogManagementTest extends TestCase
             ->assertSee('id="indicator-card-grid"', false)
             ->assertSee('id="indicator-card-search"', false)
             ->assertSee('indicator-coordination', false)
+            ->assertSee('Apoyo psicosocial (SMAPS)')
+            ->assertSee('groupName', false)
+            ->assertSee('NNA en actividades grupales')
+            ->assertSee('shortName', false)
             ->assertSee('coordination', false)
             ->assertSee('PROY-001');
         $this->get(route('indicador-proyecto.edit', $asignacion))->assertOk();
@@ -262,6 +276,7 @@ class CatalogManagementTest extends TestCase
         $this->actingAs($reporter)->get(route('donantes.index'))->assertForbidden();
         $this->actingAs($reporter)->get(route('proyectos.index'))->assertForbidden();
         $this->actingAs($reporter)->get(route('indicadores.index'))->assertForbidden();
+        $this->actingAs($reporter)->get(route('indicator-groups.index'))->assertForbidden();
         $this->actingAs($reporter)->get(route('proyectos.indicadores.index', $proyecto))->assertForbidden();
         $this->actingAs($reporter)->get(route('proyectos.sectores.index', $proyecto))->assertForbidden();
     }
@@ -278,6 +293,7 @@ class CatalogManagementTest extends TestCase
             ->assertSee('Actividades de incidencia');
         $data = [
             'codigo' => 'IND-EDAD-01',
+            'nombre_corto' => 'Personas adultas atendidas',
             'descripcion' => 'Indicador para personas adultas',
             'unidad_conteo' => 'Personas',
             'espacio_coordinacion' => 'NNA',
@@ -288,7 +304,8 @@ class CatalogManagementTest extends TestCase
         $this->actingAs($admin)->post(route('indicadores.store'), $data)
             ->assertRedirect(route('indicadores.index'));
         $this->assertDatabaseHas('indicadores', [
-            'codigo' => 'IND-EDAD-01', 'edad_desde' => 20, 'edad_hasta' => 49,
+            'codigo' => 'IND-EDAD-01', 'nombre_corto' => 'Personas adultas atendidas',
+            'edad_desde' => 20, 'edad_hasta' => 49,
         ]);
 
         $this->actingAs($admin)->post(route('indicadores.store'), array_replace($data, [
@@ -306,6 +323,48 @@ class CatalogManagementTest extends TestCase
         $this->actingAs($admin)->post(route('indicadores.store'), array_replace($data, [
             'codigo' => 'IND-UNIDAD-INVALIDA', 'unidad_conteo' => 'Otra unidad',
         ]))->assertSessionHasErrors('unidad_conteo');
+    }
+
+    public function test_administrator_can_manage_indicator_groups_and_assign_them_to_indicators(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+
+        $this->actingAs($admin)->get(route('indicator-groups.index'))
+            ->assertOk()
+            ->assertSee('Grupos de indicadores')
+            ->assertSee('Nuevo grupo');
+
+        $this->post(route('indicator-groups.store'), [
+            'name' => 'Apoyo psicosocial (SMAPS)',
+            'description' => 'Indicadores de apoyo psicosocial.',
+            'sort_order' => 1,
+        ])->assertRedirect(route('indicator-groups.index'));
+
+        $group = IndicatorGroup::firstOrFail();
+
+        $this->get(route('indicadores.create'))
+            ->assertOk()
+            ->assertSee('name="indicator_group_id"', false)
+            ->assertSee($group->name);
+
+        $this->post(route('indicadores.store'), [
+            'indicator_group_id' => $group->id,
+            'codigo' => 'GCLPR/SMAPS/01',
+            'descripcion' => 'Personas que reciben apoyo psicosocial.',
+            'unidad_conteo' => 'Personas',
+            'espacio_coordinacion' => 'NNA',
+            'edad_desde' => 0,
+            'edad_hasta' => 17,
+        ])->assertRedirect(route('indicadores.index'));
+
+        $this->assertDatabaseHas('indicadores', [
+            'codigo' => 'GCLPR/SMAPS/01',
+            'indicator_group_id' => $group->id,
+        ]);
+
+        $this->delete(route('indicator-groups.destroy', $group))
+            ->assertSessionHas('error');
+        $this->assertDatabaseHas('indicator_groups', ['id' => $group->id]);
     }
 
     public function test_indicator_pagination_uses_bootstrap_controls(): void

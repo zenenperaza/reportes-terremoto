@@ -98,7 +98,7 @@
                     </ul></div>
             </li>
             @if(auth()->user()->isAdministrator())
-                @php($catalogOpen = request()->routeIs('users.*', 'user-groups.*', 'roles.*', 'permissions.*', 'place-names.*', 'donantes.*', 'proyectos.*', 'sectores.*', 'indicadores.*', 'actividades.*', 'servicios.*', 'system-maintenance.*', 'backups.*'))
+                @php($catalogOpen = request()->routeIs('users.*', 'user-groups.*', 'roles.*', 'permissions.*', 'place-names.*', 'donantes.*', 'proyectos.*', 'sectores.*', 'indicator-groups.*', 'indicadores.*', 'actividades.*', 'servicios.*', 'system-maintenance.*', 'backups.*'))
                 <li class="menu-title"><span>Administraci&oacute;n</span></li>
                 <li class="nav-item">
                     <a class="nav-link menu-link {{ $catalogOpen ? '' : 'collapsed' }}" href="#sidebarConfiguration" data-bs-toggle="collapse" role="button" aria-expanded="{{ $catalogOpen ? 'true' : 'false' }}" aria-controls="sidebarConfiguration"><i class="ri-settings-3-line"></i><span>Configuraci&oacute;n</span></a>
@@ -111,6 +111,9 @@
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('donantes.*') ? 'active' : '' }}" href="{{ route('donantes.index') }}">Donantes</a></li>
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('proyectos.*') ? 'active' : '' }}" href="{{ route('proyectos.index') }}">Proyectos</a></li>
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('sectores.*') ? 'active' : '' }}" href="{{ route('sectores.index') }}">Sectores</a></li>
+                        @if(Route::has('indicator-groups.index'))
+                            <li class="nav-item"><a class="nav-link {{ request()->routeIs('indicator-groups.*') ? 'active' : '' }}" href="{{ route('indicator-groups.index') }}">Grupos de indicadores</a></li>
+                        @endif
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('indicadores.*') ? 'active' : '' }}" href="{{ route('indicadores.index') }}">Indicadores</a></li>
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('actividades.*') ? 'active' : '' }}" href="{{ route('actividades.index') }}">Actividades</a></li>
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('servicios.*') ? 'active' : '' }}" href="{{ route('servicios.index') }}">Servicios</a></li>
