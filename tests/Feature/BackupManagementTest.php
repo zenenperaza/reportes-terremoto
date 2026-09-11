@@ -2,10 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\SystemSetting;
 use App\Models\User;
+use App\Services\AutomaticBackupService;
 use App\Services\DatabaseBackupService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use Mockery;
 use Tests\TestCase;
 
 class BackupManagementTest extends TestCase
@@ -24,6 +28,39 @@ class BackupManagementTest extends TestCase
         Storage::disk('local')->assertMissing(DatabaseBackupService::DIRECTORY.'/.write-test');
     }
 
+    public function test_old_backups_are_removed_after_fifteen_days(): void
+    {
+        Storage::fake('local');
+        Carbon::setTestNow('2026-09-11 10:00:00');
+        $oldBackup = 'backups/asonacop-2026-08-20_10-00-00-abcdef.sql.gz';
+        $recentBackup = 'backups/asonacop-2026-09-10_10-00-00-fedcba.sql.gz';
+        Storage::disk('local')->put($oldBackup, 'old');
+        Storage::disk('local')->put($recentBackup, 'recent');
+        touch(Storage::disk('local')->path($oldBackup), now()->subDays(20)->timestamp);
+        touch(Storage::disk('local')->path($recentBackup), now()->subDay()->timestamp);
+
+        $deleted = (new DatabaseBackupService)->pruneOlderThanDays(15);
+
+        $this->assertSame(1, $deleted);
+        Storage::disk('local')->assertMissing($oldBackup);
+        Storage::disk('local')->assertExists($recentBackup);
+    }
+
+    public function test_automatic_backup_runs_only_once_per_day(): void
+    {
+        Carbon::setTestNow('2026-09-11 08:30:00');
+        $backupService = Mockery::mock(DatabaseBackupService::class);
+        $backupService->shouldReceive('create')->once()->andReturn('asonacop-automatic.sql.gz');
+        $backupService->shouldReceive('pruneOlderThanDays')->once()->with(15)->andReturn(2);
+        $automaticBackupService = new AutomaticBackupService($backupService);
+
+        $this->assertSame('asonacop-automatic.sql.gz', $automaticBackupService->runIfDue());
+        $this->assertNull($automaticBackupService->runIfDue());
+        $this->assertDatabaseHas('system_settings', [
+            'key' => SystemSetting::AUTOMATIC_BACKUP_LAST_AT,
+        ]);
+    }
+
     public function test_only_administrators_can_manage_private_backups(): void
     {
         Storage::fake('local');
@@ -36,6 +73,8 @@ class BackupManagementTest extends TestCase
         $this->actingAs($admin)->get(route('backups.index'))
             ->assertOk()
             ->assertSee('Respaldos disponibles')
+            ->assertSee('Respaldo autom&aacute;tico diario activo', false)
+            ->assertSee('15 d&iacute;as', false)
             ->assertSee($filename);
 
         $this->actingAs($admin)->get(route('backups.download', $filename))

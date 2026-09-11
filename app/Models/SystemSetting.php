@@ -8,6 +8,8 @@ class SystemSetting extends Model
 {
     public const MAINTENANCE_MODE = 'maintenance_mode';
 
+    public const AUTOMATIC_BACKUP_LAST_AT = 'automatic_backup_last_at';
+
     protected $fillable = ['key', 'value', 'updated_by'];
 
     public static function maintenanceEnabled(): bool

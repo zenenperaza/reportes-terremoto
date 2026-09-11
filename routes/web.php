@@ -1,8 +1,8 @@
 <?php
 
-use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ActividadController;
 use App\Http\Controllers\ActividadIndicadorServicioController;
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\BeneficiaryLookupController;
 use App\Http\Controllers\BeneficiaryReportController;
@@ -10,23 +10,23 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DonanteController;
 use App\Http\Controllers\GeneralReportController;
 use App\Http\Controllers\IndicadorController;
-use App\Http\Controllers\IndicatorGroupController;
-use App\Http\Controllers\IndicadorProyectoController;
 use App\Http\Controllers\IndicadorProyectoActividadController;
+use App\Http\Controllers\IndicadorProyectoController;
+use App\Http\Controllers\IndicatorGroupController;
 use App\Http\Controllers\LocationController;
+use App\Http\Controllers\PasswordResetController;
+use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PlaceNameController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProyectoController;
 use App\Http\Controllers\ReportController;
-use App\Http\Controllers\ServicioController;
-use App\Http\Controllers\SectorProyectoController;
-use App\Http\Controllers\SectorController;
-use App\Http\Controllers\SystemMaintenanceController;
-use App\Http\Controllers\UserManagementController;
-use App\Http\Controllers\UserGroupController;
-use App\Http\Controllers\PermissionController;
-use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\SectorController;
+use App\Http\Controllers\SectorProyectoController;
+use App\Http\Controllers\ServicioController;
+use App\Http\Controllers\SystemMaintenanceController;
+use App\Http\Controllers\UserGroupController;
+use App\Http\Controllers\UserManagementController;
 use App\Http\Middleware\EnsureActiveUser;
 use Illuminate\Support\Facades\Route;
 
@@ -46,7 +46,7 @@ Route::middleware('guest')->group(function (): void {
     Route::post('/verificar-acceso/reenviar', [AuthController::class, 'resendTwoFactorCode'])->name('two-factor.resend');
 });
 
-Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance'])->group(function (): void {
+Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'automatic.backup'])->group(function (): void {
     Route::get('/panel', DashboardController::class)->name('dashboard');
     Route::post('/salir', [AuthController::class, 'logout'])->name('logout');
     Route::get('/mi-perfil', [ProfileController::class, 'show'])->name('profile.show');

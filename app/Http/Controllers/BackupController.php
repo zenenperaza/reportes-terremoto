@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\AutomaticBackupService;
 use App\Services\DatabaseBackupService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
@@ -11,7 +12,7 @@ use Throwable;
 
 class BackupController extends Controller
 {
-    public function index(): View
+    public function index(AutomaticBackupService $automaticBackupService): View
     {
         $disk = Storage::disk('local');
         $backups = collect($disk->files(DatabaseBackupService::DIRECTORY))
@@ -24,7 +25,11 @@ class BackupController extends Controller
             ->sortByDesc('modified_at')
             ->values();
 
-        return view('backups.index', compact('backups'));
+        return view('backups.index', [
+            'backups' => $backups,
+            'automaticBackupLastAt' => $automaticBackupService->lastCompletedAt(),
+            'retentionDays' => AutomaticBackupService::RETENTION_DAYS,
+        ]);
     }
 
     public function store(DatabaseBackupService $backupService): RedirectResponse

@@ -21,6 +21,21 @@
     <div><strong>Almacenamiento privado</strong><p>Los respaldos no son p&uacute;blicos. Cada operaci&oacute;n est&aacute; protegida por los permisos asignados al usuario.</p></div>
 </section>
 
+<section class="alert alert-success backup-notice" role="status">
+    <i class="ri-time-line"></i>
+    <div>
+        <strong>Respaldo autom&aacute;tico diario activo</strong>
+        <p>
+            Se genera con el primer acceso autenticado de cada d&iacute;a y conserva los archivos de los &uacute;ltimos {{ $retentionDays }} d&iacute;as.
+            @if($automaticBackupLastAt)
+                &Uacute;ltima ejecuci&oacute;n: {{ $automaticBackupLastAt->timezone(config('app.timezone'))->format('d/m/Y h:i A') }}.
+            @else
+                La primera ejecuci&oacute;n est&aacute; pendiente.
+            @endif
+        </p>
+    </div>
+</section>
+
 <section class="card backup-card">
     <div class="card-header d-flex align-items-center justify-content-between"><div><h2 class="card-title mb-1">Respaldos disponibles</h2><p class="text-muted mb-0">{{ $backups->count() }} {{ $backups->count() === 1 ? 'archivo almacenado' : 'archivos almacenados' }}</p></div><span class="badge bg-primary-subtle text-primary fs-13">SQL comprimido</span></div>
     <div class="card-body p-0">

@@ -129,6 +129,7 @@ class TemporaryMaintenanceController extends Controller
                 '--class' => 'Database\\Seeders\\ServicioSeeder',
                 '--force' => true,
             ]],
+            ['name' => 'backup:automatic', 'parameters' => []],
         ];
 
         $excelImportCommands = [

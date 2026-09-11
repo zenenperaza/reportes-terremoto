@@ -58,6 +58,25 @@ class DatabaseBackupService
         }
     }
 
+    public function pruneOlderThanDays(int $days): int
+    {
+        $disk = Storage::disk('local');
+        $cutoff = now()->subDays($days)->getTimestamp();
+        $deleted = 0;
+
+        foreach ($disk->files(self::DIRECTORY) as $path) {
+            if (! preg_match('/^backups\/asonacop-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-[a-f0-9]{6}\.sql\.gz$/', str_replace('\\', '/', $path))) {
+                continue;
+            }
+
+            if ($disk->lastModified($path) < $cutoff && $disk->delete($path)) {
+                $deleted++;
+            }
+        }
+
+        return $deleted;
+    }
+
     private function ensureBackupDirectory($disk): string
     {
         $directory = $disk->path(self::DIRECTORY);
