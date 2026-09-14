@@ -1,17 +1,25 @@
 /* Puente visual entre las vistas existentes y la estructura administrativa de assets. */
 .admin-layout{background:#f3f6f9}.admin-layout .page-content{min-height:calc(100vh - 130px)}
-.admin-layout .page-content>.container-fluid{max-width:none}.admin-layout .page-shell{max-width:none;margin:0;padding:0}
+[data-layout=vertical] .admin-layout .page-content>.container-fluid{max-width:none}.admin-layout .page-shell{max-width:none;margin:0;padding:0}
 .admin-layout .app-context{padding-left:12px;border-left:1px solid #e9ebec;line-height:1.15}.admin-layout .app-context-title{display:block;font-weight:600;color:#495057}.admin-layout .app-context small{color:#878a99}
 .sidebar-brand .logo-lg{align-items:center;justify-content:center;gap:9px;color:#fff}.sidebar-brand .logo-lg span{display:flex;flex-direction:column;text-align:left;line-height:1.1}.sidebar-brand .logo-lg strong{font-size:17px;letter-spacing:.03em}.sidebar-brand .logo-lg small{font-size:10px;color:#adb5bd;font-weight:500}
-.admin-layout .navbar-menu .navbar-nav .nav-link.active{color:#fff}.admin-layout .navbar-menu .navbar-nav .nav-link.active i{color:#fff}
-.admin-layout .navbar-menu #scrollbar{height:calc(100vh - 70px);max-height:calc(100vh - 70px);overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.32) transparent}
-.admin-layout .navbar-menu #scrollbar::-webkit-scrollbar{width:7px}.admin-layout .navbar-menu #scrollbar::-webkit-scrollbar-track{background:transparent}.admin-layout .navbar-menu #scrollbar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.3);border-radius:10px}.admin-layout .navbar-menu #scrollbar::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.5)}
-.admin-layout .navbar-menu #scrollbar>.simplebar-wrapper,.admin-layout .navbar-menu #scrollbar .simplebar-mask,.admin-layout .navbar-menu #scrollbar .simplebar-content-wrapper{max-height:100%}.admin-layout .navbar-menu #scrollbar .simplebar-content{padding-bottom:28px!important}
+[data-layout=vertical] .admin-layout .navbar-menu .navbar-nav .nav-link.active{color:#fff}[data-layout=vertical] .admin-layout .navbar-menu .navbar-nav .nav-link.active i{color:#fff}
+[data-layout=vertical] .admin-layout .navbar-menu #scrollbar{height:calc(100vh - 70px);max-height:calc(100vh - 70px);overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.32) transparent}
+[data-layout=vertical] .admin-layout .navbar-menu #scrollbar::-webkit-scrollbar{width:7px}[data-layout=vertical] .admin-layout .navbar-menu #scrollbar::-webkit-scrollbar-track{background:transparent}[data-layout=vertical] .admin-layout .navbar-menu #scrollbar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.3);border-radius:10px}[data-layout=vertical] .admin-layout .navbar-menu #scrollbar::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.5)}
+[data-layout=vertical] .admin-layout .navbar-menu #scrollbar>.simplebar-wrapper,[data-layout=vertical] .admin-layout .navbar-menu #scrollbar .simplebar-mask,[data-layout=vertical] .admin-layout .navbar-menu #scrollbar .simplebar-content-wrapper{max-height:100%}[data-layout=vertical] .admin-layout .navbar-menu #scrollbar .simplebar-content{padding-bottom:28px!important}
 .admin-layout .page-heading{margin-top:0}.admin-layout .content-card{background:#fff}.admin-layout .footer{border-top:1px solid #e9ebec}
 .admin-layout .main-content .button{display:inline-flex;align-items:center;justify-content:center}.admin-layout .topbar-user .dropdown-item{width:100%;border:0;background:transparent;text-align:left}
 .admin-layout #topnav-hamburger-icon{width:48px;height:48px;padding:0!important;display:inline-flex;align-items:center;justify-content:center;flex:0 0 48px}
 .admin-layout #topnav-hamburger-icon:focus-visible{outline:2px solid #405189;outline-offset:2px}
-.admin-layout #topnav-hamburger-icon .menu-closed-icon{display:none;font-size:28px;line-height:1;color:#878a99}
-.admin-layout #topnav-hamburger-icon.menu-is-collapsed .hamburger-icon{display:none}
-.admin-layout #topnav-hamburger-icon.menu-is-collapsed .menu-closed-icon{display:block}
+[data-layout=horizontal] .admin-layout .horizontal-brand .logo-lg{display:flex;align-items:center;gap:9px;color:#405189}
+[data-layout=horizontal] .admin-layout .horizontal-brand .logo-lg>span{display:flex;flex-direction:column;line-height:1.05}
+[data-layout=horizontal] .admin-layout .horizontal-brand strong{font-size:16px;letter-spacing:.025em}
+[data-layout=horizontal] .admin-layout .horizontal-brand small{font-size:9px;font-weight:500;color:#878a99}
+[data-layout=horizontal] .admin-layout .navbar-menu #scrollbar{overflow:visible}
+[data-layout=horizontal] .admin-layout .navbar-menu .navbar-nav>.nav-item>.nav-link{display:flex;align-items:center;gap:7px;white-space:nowrap}
+[data-layout=horizontal] .admin-layout .navbar-menu .menu-dropdown{max-height:min(65vh,520px);overflow-y:auto;overscroll-behavior:contain}
+[data-layout=horizontal] .admin-layout .navbar-menu .menu-dropdown .nav-link{white-space:nowrap}
+[data-layout=horizontal] .admin-layout .navbar-menu .navbar-nav>.nav-item>.nav-link.active,[data-layout=horizontal] .admin-layout .navbar-menu .navbar-nav>.nav-item>.nav-link.active i{color:var(--vz-topnav-item-color-active)}
+@media(min-width:1024.1px){[data-layout=horizontal] .admin-layout .page-content>.container-fluid,[data-layout=horizontal] .admin-layout .navbar-menu .container-fluid{max-width:90%}[data-layout=horizontal] .admin-layout #sidebarConfiguration{min-width:245px}}
+@media(max-width:1024.98px){[data-layout=horizontal] .admin-layout .navbar-menu #scrollbar{max-height:calc(100vh - 70px);overflow-y:auto}[data-layout=horizontal] .admin-layout .navbar-menu .navbar-nav{padding-bottom:24px}[data-layout=horizontal] .admin-layout .navbar-menu .menu-dropdown{max-height:none;overflow:visible}}
 @media(max-width:767.98px){.admin-layout .page-content{padding-left:0;padding-right:0}.admin-layout .page-content>.container-fluid{padding-left:12px;padding-right:12px}}

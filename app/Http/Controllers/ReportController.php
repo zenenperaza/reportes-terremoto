@@ -59,6 +59,7 @@ class ReportController extends Controller
             'beneficiaries' => $beneficiaries,
             'states' => State::orderBy('name')->get(['id', 'name']),
             'isCoordinator' => $isCoordinator,
+            'canViewPersonalData' => $request->user()->isAdministrator(),
             'filters' => $request->only(['state_id', 'reported', 'from', 'to']),
         ]);
     }
@@ -371,6 +372,7 @@ class ReportController extends Controller
             $out = fopen('php://output', 'w');
             fputcsv($out, [
                 'ID registro', 'Fecha', 'Organización', 'Estado', 'Municipio', 'Parroquia', 'Sector', 'Actividad',
+                'Nombres', 'Cédula', 'Teléfono',
                 'Edad', 'Sexo', 'Discapacidad', 'Indígena',
                 'Embarazada o lactante', 'Recurrente', 'Reportado', 'Fecha de reporte', 'Estado de revisión',
             ]);
@@ -382,6 +384,7 @@ class ReportController extends Controller
                     $report->id, $report->report_date->format('Y-m-d'), $report->organization,
                     $report->state->name, $report->municipality->name, $report->parish->name,
                     $report->sector->name, $report->activity->title,
+                    $beneficiary->full_name, $beneficiary->national_id, $beneficiary->phone,
                     $beneficiary->age, $beneficiary->sex,
                     $beneficiary->disability, $beneficiary->ethnicity, $beneficiary->pregnant_lactating,
                     $beneficiary->is_recurrent ? 'Sí' : 'No',

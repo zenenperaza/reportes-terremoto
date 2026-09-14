@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es" data-layout="vertical" data-topbar="light" data-sidebar="dark" data-sidebar-size="lg" data-sidebar-image="none">
+<html lang="es" data-layout="horizontal" data-layout-style="" data-layout-position="fixed" data-topbar="light">
 <head>
     @php($asonacopIconUrl = asset('icons/asonacop-app.png').'?v='.(@filemtime(public_path('icons/asonacop-app.png')) ?: 1))
     @php($faviconUrl = asset('favicon.ico').'?v='.(@filemtime(public_path('favicon.ico')) ?: 1))
@@ -57,9 +57,12 @@
         <div class="layout-width"><div class="navbar-header">
             <div class="d-flex align-items-center">
                 <div class="navbar-brand-box horizontal-logo">
-                    <a href="{{ route('dashboard') }}" class="logo logo-dark"><span class="logo-sm"><img src="{{ $asonacopIconUrl }}" alt="ASONACOP" height="34"></span><span class="logo-lg"></span></a>
+                    <a href="{{ route('dashboard') }}" class="logo logo-dark horizontal-brand">
+                        <span class="logo-sm"><img src="{{ $asonacopIconUrl }}" alt="ASONACOP" height="34"></span>
+                        <span class="logo-lg"><img src="{{ $asonacopIconUrl }}" alt="" height="38"><span><strong>ASONACOP</strong><small>Respuesta Venezuela</small></span></span>
+                    </a>
                 </div>
-                <button type="button" class="btn btn-sm px-3 fs-16 header-item vertical-menu-btn topnav-hamburger" id="topnav-hamburger-icon" aria-label="Abrir o cerrar men&uacute;"><span class="hamburger-icon" aria-hidden="true"><span></span><span></span><span></span></span><i class="ri-arrow-right-line menu-closed-icon" aria-hidden="true"></i></button>
+                <button type="button" class="btn btn-sm px-3 fs-16 header-item vertical-menu-btn topnav-hamburger" id="topnav-hamburger-icon" aria-label="Abrir o cerrar men&uacute;" aria-expanded="false"><span class="hamburger-icon" aria-hidden="true"><span></span><span></span><span></span></span></button>
                 <div class="app-context d-none d-md-block"><span class="app-context-title">Respuesta al terremoto</span><small>Venezuela</small></div>
             </div>
             <div class="d-flex align-items-center gap-1">
@@ -89,8 +92,8 @@
             @can('solo ver registros')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('reports.index', 'reports.show', 'reports.edit') ? 'active' : '' }}" href="{{ route('reports.index') }}"><i class="ri-file-list-3-line"></i><span>Registros</span></a></li>@endcan
             @php($reportsMenuOpen = request()->routeIs('beneficiaries.summary', 'general-reports.*'))
             <li class="nav-item">
-                <a class="nav-link menu-link {{ $reportsMenuOpen ? '' : 'collapsed' }}" href="#sidebarReports" data-bs-toggle="collapse" role="button" aria-expanded="{{ $reportsMenuOpen ? 'true' : 'false' }}" aria-controls="sidebarReports"><i class="ri-bar-chart-grouped-line"></i><span>Informes</span></a>
-                    <div class="collapse menu-dropdown {{ $reportsMenuOpen ? 'show' : '' }}" id="sidebarReports"><ul class="nav nav-sm flex-column">
+                <a class="nav-link menu-link collapsed {{ $reportsMenuOpen ? 'active' : '' }}" href="#sidebarReports" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarReports"><i class="ri-bar-chart-grouped-line"></i><span>Informes</span></a>
+                    <div class="collapse menu-dropdown" id="sidebarReports"><ul class="nav nav-sm flex-column">
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('beneficiaries.summary') ? 'active' : '' }}" href="{{ route('beneficiaries.summary') }}">Informe de beneficiarios</a></li>
                         @if(Route::has('general-reports.index'))
                             <li class="nav-item"><a class="nav-link {{ request()->routeIs('general-reports.*') ? 'active' : '' }}" href="{{ route('general-reports.index') }}">Informes generales</a></li>
@@ -101,8 +104,8 @@
                 @php($catalogOpen = request()->routeIs('users.*', 'user-groups.*', 'roles.*', 'permissions.*', 'place-names.*', 'donantes.*', 'proyectos.*', 'sectores.*', 'indicator-groups.*', 'indicadores.*', 'actividades.*', 'servicios.*', 'system-maintenance.*', 'backups.*'))
                 <li class="menu-title"><span>Administraci&oacute;n</span></li>
                 <li class="nav-item">
-                    <a class="nav-link menu-link {{ $catalogOpen ? '' : 'collapsed' }}" href="#sidebarConfiguration" data-bs-toggle="collapse" role="button" aria-expanded="{{ $catalogOpen ? 'true' : 'false' }}" aria-controls="sidebarConfiguration"><i class="ri-settings-3-line"></i><span>Configuraci&oacute;n</span></a>
-                    <div class="collapse menu-dropdown {{ $catalogOpen ? 'show' : '' }}" id="sidebarConfiguration"><ul class="nav nav-sm flex-column">
+                    <a class="nav-link menu-link collapsed {{ $catalogOpen ? 'active' : '' }}" href="#sidebarConfiguration" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarConfiguration"><i class="ri-settings-3-line"></i><span>Configuraci&oacute;n</span></a>
+                    <div class="collapse menu-dropdown" id="sidebarConfiguration"><ul class="nav nav-sm flex-column">
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('users.*') ? 'active' : '' }}" href="{{ route('users.index') }}">Usuarios</a></li>
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('user-groups.*') ? 'active' : '' }}" href="{{ route('user-groups.index') }}">Grupos de usuarios</a></li>
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('roles.*') ? 'active' : '' }}" href="{{ route('roles.index') }}">Roles</a></li>
@@ -161,7 +164,6 @@
 <script src="{{ asset('assets/libs/node-waves/waves.min.js') }}"></script>
 <script src="{{ asset('assets/js/plugins.js') }}"></script>
 <script src="{{ asset('assets/js/app.js') }}"></script>
-<script src="{{ asset('js/admin-menu.js') }}?v={{ @filemtime(public_path('js/admin-menu.js')) ?: 1 }}"></script>
 @else
 <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
 @endauth

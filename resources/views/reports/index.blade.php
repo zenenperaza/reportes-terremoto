@@ -53,7 +53,7 @@
         <div class="table-wrap"><table id="activity-records-table" class="activity-records-table">
             <thead>
                 @if ($isCoordinator)
-                    <tr><th>Fecha atención</th><th>Registrado por</th><th>Fecha registro</th><th>Edad / sexo</th><th>Ubicación</th><th>Actividad</th><th>Recurrente</th><th>Reportado</th>@if($canViewReportDetail)<th>Acciones</th>@endif</tr>
+                    <tr><th>Fecha atención</th><th>Registrado por</th><th>Fecha registro</th>@if($canViewPersonalData)<th>Nombres</th><th>Cédula</th><th>Teléfono</th>@endif<th>Edad / sexo</th><th>Ubicación</th><th>Actividad</th><th>Recurrente</th><th>Reportado</th>@if($canViewReportDetail)<th>Acciones</th>@endif</tr>
                 @else
                     <tr><th>Fecha atención</th><th>Ubicación</th><th>Actividad</th><th>Beneficiarios</th><th>Reportado</th>@if($canViewReportDetail)<th>Acciones</th>@endif</tr>
                 @endif
@@ -66,6 +66,11 @@
                         <td data-order="{{ $report->report_date->format('Y-m-d') }}">{{ $report->report_date->format('d/m/Y') }}</td>
                         <td>{{ $report->reporter_first_name }} {{ $report->reporter_last_name }}<br><small>{{ $report->organization }}</small></td>
                         <td data-order="{{ $beneficiary->created_at->format('Y-m-d H:i:s') }}">{{ $beneficiary->created_at->format('d/m/Y') }}<br><small>{{ $beneficiary->created_at->format('h:i A') }}</small></td>
+                        @if($canViewPersonalData)
+                            <td>{{ $beneficiary->full_name }}</td>
+                            <td>{{ $beneficiary->national_id ?: 'Sin cédula' }}</td>
+                            <td>{{ $beneficiary->phone ?: 'Sin teléfono' }}</td>
+                        @endif
                         <td data-order="{{ $beneficiary->age }}"><strong>{{ $beneficiary->age }} a&ntilde;os</strong><br><small>{{ $beneficiary->sex }}</small></td>
                         <td>{{ $report->state->name }}<br><small>{{ $report->municipality->name }}, {{ $report->parish->name }}</small><br><small>{{ $report->place_name }}</small></td>
                         <td>{{ $report->proyecto?->codigo ?? $report->sector?->name }}<br><small>{{ \Illuminate\Support\Str::limit($report->indicadorProyecto?->indicador?->descripcion ?? $report->activity?->title, 72) }}</small></td>

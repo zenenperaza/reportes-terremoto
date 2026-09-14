@@ -9,6 +9,7 @@ use App\Models\Report;
 use App\Models\Sector;
 use App\Models\State;
 use App\Models\User;
+use App\Models\UserGroup;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -54,9 +55,28 @@ class ReportOutputPermissionsTest extends TestCase
         $user->givePermissionTo('exportar registros pdf');
         $this->actingAs($user->fresh())->get(route('reports.index'))->assertOk()->assertSee("text: 'PDF'", false);
 
+        $group = UserGroup::create(['name' => 'Equipo confidencial', 'is_active' => true]);
+        $user->userGroups()->attach($group);
+        $coordinator = User::factory()->create(['role' => 'coordinator']);
+        $coordinator->userGroups()->attach($group);
+        $this->actingAs($coordinator)->get(route('reports.index'))
+            ->assertOk()
+            ->assertDontSee('NOMBRE CONFIDENCIAL')
+            ->assertDontSee('V123456')
+            ->assertDontSee('04140000000')
+            ->assertDontSee('<th>Nombres</th>', false)
+            ->assertSee('9 a&ntilde;os', false);
+
         $administrator = User::factory()->create(['role' => 'admin']);
         $this->actingAs($administrator)->get(route('reports.index'))
-            ->assertOk()->assertDontSee('NOMBRE CONFIDENCIAL')->assertDontSee('V123456')->assertDontSee('04140000000')
+            ->assertOk()->assertSee('<th>Nombres</th>', false)->assertSee('<th>Cédula</th>', false)->assertSee('<th>Teléfono</th>', false)
+            ->assertSee('NOMBRE CONFIDENCIAL')->assertSee('V123456')->assertSee('04140000000')
             ->assertSee('9 a&ntilde;os', false)->assertSee('Mujer');
+
+        $csv = $this->actingAs($administrator)->get(route('reports.export'));
+        $csv->assertOk();
+        $this->assertStringContainsString('NOMBRE CONFIDENCIAL', $csv->streamedContent());
+        $this->assertStringContainsString('V123456', $csv->streamedContent());
+        $this->assertStringContainsString('04140000000', $csv->streamedContent());
     }
 }
