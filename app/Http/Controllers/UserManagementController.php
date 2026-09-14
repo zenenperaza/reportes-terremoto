@@ -17,7 +17,7 @@ class UserManagementController extends Controller
     public function index(): View
     {
         return view('users.index', [
-            'users' => User::query()->with(['userGroup', 'assignedStates', 'assignedMunicipalities.state', 'projects'])->withCount(['reports', 'beneficiaries'])->orderBy('name')->get(),
+            'users' => User::query()->with(['userGroups', 'assignedStates', 'assignedMunicipalities.state', 'projects'])->withCount(['reports', 'beneficiaries'])->orderBy('name')->get(),
             'roleLabels' => User::roleLabels(),
         ]);
     }
@@ -30,9 +30,12 @@ class UserManagementController extends Controller
     public function store(StoreManagedUserRequest $request): RedirectResponse
     {
         $data = $request->validated();
-        $user = User::create(collect($data)->except(['state_ids', 'municipality_ids', 'project_ids'])->all());
+        $groupIds = $data['user_group_ids'] ?? [];
+        $data['user_group_id'] = $groupIds[0] ?? null;
+        $user = User::create(collect($data)->except(['state_ids', 'municipality_ids', 'project_ids', 'user_group_ids'])->all());
         $this->syncLocations($user, $data);
         $user->projects()->sync($data['project_ids'] ?? []);
+        $user->userGroups()->sync($groupIds);
 
         return redirect()->route('users.edit', $user)->with('success', 'Usuario creado correctamente.');
     }
@@ -64,10 +67,13 @@ class UserManagementController extends Controller
             unset($data['password']);
         }
 
+        $groupIds = $data['user_group_ids'] ?? [];
+        $data['user_group_id'] = $groupIds[0] ?? null;
         $locations = $data;
-        $user->update(collect($data)->except(['state_ids', 'municipality_ids', 'project_ids'])->all());
+        $user->update(collect($data)->except(['state_ids', 'municipality_ids', 'project_ids', 'user_group_ids'])->all());
         $this->syncLocations($user, $locations);
         $user->projects()->sync($data['project_ids'] ?? []);
+        $user->userGroups()->sync($groupIds);
 
         return redirect()->route('users.index')->with('success', 'Usuario actualizado correctamente.');
     }

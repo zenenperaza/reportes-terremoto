@@ -16,14 +16,23 @@
     <label>Correo electr&oacute;nico *
         <input type="email" name="email" value="{{ old('email', $managedUser?->email) }}" autocomplete="email" required>
     </label>
-    <label>Grupo de usuarios
-        <select name="user_group_id">
-            <option value="">Sin grupo asignado</option>
+    @php
+        $selectedUserGroups = old('user_group_ids');
+        if ($selectedUserGroups === null) {
+            $selectedUserGroups = $managedUser?->userGroups()->pluck('user_groups.id')->all() ?? [];
+            if ($selectedUserGroups === [] && $managedUser?->user_group_id) {
+                $selectedUserGroups = [$managedUser->user_group_id];
+            }
+        }
+        $selectedUserGroups = array_map('strval', is_array($selectedUserGroups) ? $selectedUserGroups : []);
+    @endphp
+    <label>Grupos de usuarios
+        <select name="user_group_ids[]" id="assigned-user-group-ids" multiple data-placeholder="Seleccione uno o varios grupos">
             @foreach ($userGroups as $group)
-                <option value="{{ $group->id }}" @disabled(! $group->is_active && $managedUser?->user_group_id !== $group->id) @selected((string) old('user_group_id', $managedUser?->user_group_id) === (string) $group->id)>{{ $group->name }}{{ $group->is_active ? '' : ' (inactivo)' }}</option>
+                <option value="{{ $group->id }}" @disabled(! $group->is_active && ! in_array((string) $group->id, $selectedUserGroups, true)) @selected(in_array((string) $group->id, $selectedUserGroups, true))>{{ $group->name }}{{ $group->is_active ? '' : ' (inactivo)' }}</option>
             @endforeach
         </select>
-        <small>Los registradores y coordinadores del mismo grupo pueden consultar los registros creados por sus compa&ntilde;eros.</small>
+        <small>Puede seleccionar varios grupos. El usuario podr&aacute; consultar los registros de los integrantes de cualquiera de ellos.</small>
     </label>
     <label>Rol *
         <select name="role" required>
@@ -187,6 +196,16 @@
 </script>
 @push('scripts')
 <script>
+    $('#assigned-user-group-ids').select2({
+        width: '100%',
+        placeholder: $('#assigned-user-group-ids').data('placeholder'),
+        closeOnSelect: false,
+        allowClear: true,
+        language: {
+            noResults: () => 'No se encontraron grupos',
+            searching: () => 'Buscando…'
+        }
+    });
     $('#assigned-project-ids').select2({
         width: '100%',
         placeholder: $('#assigned-project-ids').data('placeholder'),

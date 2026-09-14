@@ -43,6 +43,78 @@ class UserGroupManagementTest extends TestCase
             'email' => 'grupo@example.test',
             'user_group_id' => $group->id,
         ]);
+        $this->assertDatabaseHas('user_group_user', [
+            'user_id' => User::where('email', 'grupo@example.test')->value('id'),
+            'user_group_id' => $group->id,
+        ]);
+    }
+
+    public function test_administrator_can_assign_multiple_groups_to_a_user(): void
+    {
+        $administrator = User::factory()->create(['role' => 'admin']);
+        $laGuaira = UserGroup::create(['name' => 'Equipo La Guaira', 'is_active' => true]);
+        $miranda = UserGroup::create(['name' => 'Equipo Miranda', 'is_active' => true]);
+
+        $this->actingAs($administrator)->post(route('users.store'), [
+            'name' => 'Registrador multigrupo',
+            'email' => 'multigrupo@example.test',
+            'role' => 'reporter',
+            'user_group_ids' => [$laGuaira->id, $miranda->id],
+            'is_active' => '1',
+            'password' => 'password-segura',
+            'password_confirmation' => 'password-segura',
+        ])->assertRedirect();
+
+        $user = User::where('email', 'multigrupo@example.test')->firstOrFail();
+        $this->assertEqualsCanonicalizing(
+            [$laGuaira->id, $miranda->id],
+            $user->userGroups()->pluck('user_groups.id')->all(),
+        );
+        $this->actingAs($administrator)->get(route('users.edit', $user))
+            ->assertOk()
+            ->assertSee('name="user_group_ids[]"', false)
+            ->assertSee('multiple', false);
+
+        $this->actingAs($administrator)->put(route('users.update', $user), [
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => 'reporter',
+            'user_group_ids' => [$miranda->id],
+            'is_active' => '1',
+        ])->assertRedirect(route('users.index'));
+
+        $this->assertDatabaseMissing('user_group_user', [
+            'user_id' => $user->id,
+            'user_group_id' => $laGuaira->id,
+        ]);
+        $this->assertDatabaseHas('user_group_user', [
+            'user_id' => $user->id,
+            'user_group_id' => $miranda->id,
+        ]);
+    }
+
+    public function test_user_sees_reports_from_every_assigned_group(): void
+    {
+        $laGuaira = UserGroup::create(['name' => 'Equipo La Guaira', 'is_active' => true]);
+        $miranda = UserGroup::create(['name' => 'Equipo Miranda', 'is_active' => true]);
+        $zulia = UserGroup::create(['name' => 'Equipo Zulia', 'is_active' => true]);
+        $viewer = User::factory()->create(['role' => 'reporter']);
+        $viewer->userGroups()->attach([$laGuaira->id, $miranda->id]);
+        $laGuairaPartner = User::factory()->create(['role' => 'reporter']);
+        $laGuairaPartner->userGroups()->attach($laGuaira);
+        $mirandaPartner = User::factory()->create(['role' => 'reporter']);
+        $mirandaPartner->userGroups()->attach($miranda);
+        $outsider = User::factory()->create(['role' => 'reporter']);
+        $outsider->userGroups()->attach($zulia);
+
+        $laGuairaReport = $this->createReport($laGuairaPartner, 'Registro de La Guaira');
+        $mirandaReport = $this->createReport($mirandaPartner, 'Registro de Miranda');
+        $outsiderReport = $this->createReport($outsider, 'Registro de Zulia');
+        $visibleIds = $viewer->constrainVisibleReports(Report::query())->pluck('reports.id');
+
+        $this->assertTrue($visibleIds->contains($laGuairaReport->id));
+        $this->assertTrue($visibleIds->contains($mirandaReport->id));
+        $this->assertFalse($visibleIds->contains($outsiderReport->id));
     }
 
     public function test_reporter_sees_reports_from_own_group_but_not_another_group(): void

@@ -117,6 +117,10 @@ class TemporaryMaintenanceController extends Controller
                 '--path' => 'database/migrations/2026_09_10_130000_add_nombre_corto_to_indicadores_table.php',
                 '--force' => true,
             ]],
+            ['name' => 'migrate', 'parameters' => [
+                '--path' => 'database/migrations/2026_09_11_120000_create_user_group_user_table.php',
+                '--force' => true,
+            ]],
             ['name' => 'db:seed', 'parameters' => [
                 '--class' => 'Database\\Seeders\\IndicatorGroupSeeder',
                 '--force' => true,

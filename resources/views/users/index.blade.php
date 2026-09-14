@@ -25,7 +25,7 @@
             <td>{{ $managedUser->email }}</td>
             <td><span class="role role-{{ $managedUser->role }}">{{ $roleLabels[$managedUser->role] ?? $managedUser->role }}</span></td>
             <td><span class="status {{ $managedUser->is_active ? 'status-active' : 'status-inactive' }}">{{ $managedUser->is_active ? 'Activo' : 'Inactivo' }}</span></td>
-            <td>{{ $managedUser->userGroup?->name ?? 'Sin grupo' }}</td>
+            <td>{{ $managedUser->userGroups->pluck('name')->join(', ') ?: 'Sin grupo' }}</td>
             <td class="projects-cell" title="{{ $managedUser->projects->map(fn ($project) => $project->codigo.' — '.$project->descripcion)->join(' | ') }}">{{ $managedUser->projects->pluck('codigo')->join(', ') ?: 'Sin asignación' }}</td>
             <td>
                 @if ($managedUser->isAdministrator() || $managedUser->countrywide_access) Todo el pa&iacute;s

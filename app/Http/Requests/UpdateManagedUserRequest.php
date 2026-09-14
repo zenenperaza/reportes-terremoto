@@ -14,12 +14,17 @@ class UpdateManagedUserRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $states = $this->input('state_ids', []);
+        $groups = $this->input('user_group_ids', []);
+        if ((! is_array($groups) || $groups === []) && $this->filled('user_group_id')) {
+            $groups = [$this->input('user_group_id')];
+        }
         $countrywide = in_array('countrywide', is_array($states) ? $states : [], true);
         $this->merge([
             'countrywide_access' => $countrywide,
             'can_mark_reported' => $this->boolean('can_mark_reported'),
             'requires_two_factor' => $this->boolean('requires_two_factor'),
             'state_ids' => array_values(array_filter(is_array($states) ? $states : [], fn ($id) => $id !== 'countrywide')),
+            'user_group_ids' => array_values(is_array($groups) ? $groups : []),
         ]);
     }
 
@@ -38,6 +43,8 @@ class UpdateManagedUserRequest extends FormRequest
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')->ignore($managedUser)],
             'role' => ['required', Rule::in(array_keys(User::roleLabels()))],
             'user_group_id' => ['nullable', 'integer', 'exists:user_groups,id'],
+            'user_group_ids' => ['nullable', 'array'],
+            'user_group_ids.*' => ['integer', 'distinct', 'exists:user_groups,id'],
             'is_active' => ['required', 'boolean'],
             'can_mark_reported' => ['required', 'boolean'],
             'requires_two_factor' => ['required', 'boolean'],

@@ -6,6 +6,7 @@ namespace App\Models;
 use App\Notifications\ResetPasswordNotification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -25,6 +26,10 @@ class User extends Authenticatable
 
             if ($user->role && Schema::hasTable($rolesTable)) {
                 $user->syncRoles([$user->role]);
+            }
+
+            if ($user->user_group_id && Schema::hasTable('user_group_user')) {
+                $user->userGroups()->syncWithoutDetaching([$user->user_group_id]);
             }
         });
     }
@@ -88,6 +93,11 @@ class User extends Authenticatable
     public function userGroup()
     {
         return $this->belongsTo(UserGroup::class);
+    }
+
+    public function userGroups(): BelongsToMany
+    {
+        return $this->belongsToMany(UserGroup::class, 'user_group_user')->withTimestamps();
     }
 
     public function getProfilePhotoUrlAttribute(): string
@@ -206,12 +216,30 @@ class User extends Authenticatable
 
     private function visibleGroupUserIds()
     {
-        if (! $this->user_group_id || ! $this->userGroup?->is_active) {
+        if (! Schema::hasTable('user_group_user')) {
+            if (! $this->user_group_id || ! $this->userGroup?->is_active) {
+                return collect([$this->id]);
+            }
+
+            return User::query()
+                ->where('user_group_id', $this->user_group_id)
+                ->pluck('id')
+                ->push($this->id)
+                ->unique();
+        }
+
+        $activeGroupIds = $this->userGroups()
+            ->where('user_groups.is_active', true)
+            ->pluck('user_groups.id');
+
+        if ($activeGroupIds->isEmpty()) {
             return collect([$this->id]);
         }
 
         return User::query()
-            ->where('user_group_id', $this->user_group_id)
+            ->whereHas('userGroups', fn (Builder $groups) => $groups
+                ->whereIn('user_groups.id', $activeGroupIds)
+                ->where('user_groups.is_active', true))
             ->pluck('id')
             ->push($this->id)
             ->unique();
