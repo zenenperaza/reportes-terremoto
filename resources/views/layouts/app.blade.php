@@ -107,7 +107,7 @@
                     </ul></div>
             </li>
             @if(auth()->user()->isAdministrator())
-                @php($catalogOpen = request()->routeIs('users.*', 'user-groups.*', 'roles.*', 'permissions.*', 'place-names.*', 'donantes.*', 'proyectos.*', 'sectores.*', 'indicator-groups.*', 'indicadores.*', 'actividades.*', 'servicios.*', 'system-maintenance.*', 'backups.*'))
+                @php($catalogOpen = request()->routeIs('users.*', 'user-groups.*', 'roles.*', 'permissions.*', 'place-names.*', 'donantes.*', 'proyectos.*', 'sectores.*', 'indicator-groups.*', 'indicadores.*', 'actividades.*', 'servicios.*', 'system-maintenance.*', 'backups.*', 'audit-logs.*'))
                 <li class="menu-title"><span>Administraci&oacute;n</span></li>
                 <li class="nav-item">
                     <a class="nav-link menu-link collapsed {{ $catalogOpen ? 'active' : '' }}" href="#sidebarConfiguration" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarConfiguration"><i class="ri-settings-3-line"></i><span>Configuraci&oacute;n</span></a>
@@ -130,6 +130,7 @@
                             <li class="nav-item"><a class="nav-link {{ request()->routeIs('backups.*') ? 'active' : '' }}" href="{{ route('backups.index') }}">Respaldos</a></li>
                         @endif
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('system-maintenance.*') ? 'active' : '' }}" href="{{ route('system-maintenance.index') }}">Mantenimiento</a></li>
+                        <li class="nav-item"><a class="nav-link {{ request()->routeIs('audit-logs.*') ? 'active' : '' }}" href="{{ route('audit-logs.index') }}">Bit&aacute;cora</a></li>
                     </ul></div>
                 </li>
             @endif

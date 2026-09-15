@@ -3,6 +3,7 @@
 use App\Http\Controllers\ActividadController;
 use App\Http\Controllers\ActividadIndicadorServicioController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\BeneficiaryLookupController;
 use App\Http\Controllers\BeneficiaryReportController;
@@ -84,6 +85,9 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
             ->parameters(['servicios' => 'servicio'])->names('servicios')->except('show');
         Route::get('configuracion/mantenimiento', [SystemMaintenanceController::class, 'index'])->name('system-maintenance.index');
         Route::put('configuracion/mantenimiento', [SystemMaintenanceController::class, 'update'])->name('system-maintenance.update');
+        Route::get('configuracion/bitacora', [AuditLogController::class, 'index'])->name('audit-logs.index');
+        Route::get('configuracion/bitacora/datos', [AuditLogController::class, 'data'])->name('audit-logs.data');
+        Route::get('configuracion/bitacora/{auditLog}', [AuditLogController::class, 'show'])->name('audit-logs.show');
         Route::get('proyectos/{proyecto}/sectores', [SectorProyectoController::class, 'index'])
             ->name('proyectos.sectores.index');
         Route::post('proyectos/{proyecto}/sectores', [SectorProyectoController::class, 'store'])

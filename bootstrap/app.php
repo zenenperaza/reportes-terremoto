@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\BlockDuringSystemMaintenance;
 use App\Http\Middleware\EnsureAdministrator;
+use App\Http\Middleware\RecordAuditLog;
 use App\Http\Middleware\RunAutomaticBackup;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -23,6 +24,8 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->appendToGroup('web', RecordAuditLog::class);
+
         $middleware->alias([
             'admin' => EnsureAdministrator::class,
             'system.maintenance' => BlockDuringSystemMaintenance::class,

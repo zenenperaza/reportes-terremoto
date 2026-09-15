@@ -121,6 +121,10 @@ class TemporaryMaintenanceController extends Controller
                 '--path' => 'database/migrations/2026_09_11_120000_create_user_group_user_table.php',
                 '--force' => true,
             ]],
+            ['name' => 'migrate', 'parameters' => [
+                '--path' => 'database/migrations/2026_09_15_120000_create_audit_logs_table.php',
+                '--force' => true,
+            ]],
             ['name' => 'db:seed', 'parameters' => [
                 '--class' => 'Database\\Seeders\\IndicatorGroupSeeder',
                 '--force' => true,
