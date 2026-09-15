@@ -1,0 +1,110 @@
+/* Compatibilidad del diseño propio con las variables oscuras de Velzon. */
+[data-layout-mode="dark"] {
+    color-scheme: dark;
+    --navy: #e9ecef;
+    --ink: #ced4da;
+    --muted: #9ba7b3;
+    --line: #32383e;
+    --paper: #212529;
+    --soft: #1a1d21;
+}
+
+[data-layout-mode="dark"] body.admin-layout,
+[data-layout-mode="dark"] .admin-layout,
+[data-layout-mode="dark"] .admin-layout .page-content {
+    background: var(--vz-body-bg);
+    color: var(--vz-body-color);
+}
+
+[data-layout-mode="dark"] .admin-layout :is(.content-card, .form-section, .stat-card, .auth-card, .beneficiary-entry, .beneficiary-list-card, .card, .card-header, .modal-content, .users-table-card, .users-table-card__header, .indicator-choice, .indicator-bulk-item, .permission-choice, .project-tree-indicator) {
+    background-color: var(--vz-card-bg) !important;
+    border-color: var(--vz-border-color) !important;
+    color: var(--vz-body-color);
+}
+
+[data-layout-mode="dark"] .admin-layout :is(.project-summary-grid div, .project-tree-sector, .project-tree-sector-heading, .project-tree-services li, .scheme-picker, .selected-indicator-preview, .results-345w-totals div) {
+    background-color: var(--vz-light) !important;
+    border-color: var(--vz-border-color) !important;
+    color: var(--vz-body-color);
+}
+
+[data-layout-mode="dark"] .admin-layout :is(.page-heading h1, .card-heading h2, .content-card h2, .content-card h3, .section-heading h2, .beneficiary-number, .breakdown-total, .general-kpi-card strong, .project-summary-grid dd, .project-tree-sector-heading h3, .project-tree-indicator h3, .tree-activity-heading h4, .permission-selector legend, .indicator-picker legend, .indicator-choice strong, .permission-choice strong, .catalog-modal .modal-title, .general-empty h2, .backup-empty h3) {
+    color: var(--vz-heading-color) !important;
+}
+
+[data-layout-mode="dark"] .admin-layout :is(label, fieldset, legend, .form-label, .dt-container, .users-table-card .dt-length, .users-table-card .dt-search) {
+    color: var(--vz-body-color) !important;
+}
+
+[data-layout-mode="dark"] .admin-layout :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea, .form-control, .form-select, .dt-input, .users-table-card .dt-length select, .users-table-card .dt-search input) {
+    background-color: var(--vz-input-bg) !important;
+    border-color: var(--vz-input-border) !important;
+    color: var(--vz-body-color) !important;
+}
+
+[data-layout-mode="dark"] .admin-layout :is(input, textarea)::placeholder {
+    color: #878a99;
+    opacity: 1;
+}
+
+[data-layout-mode="dark"] .admin-layout :is(th, td) {
+    border-color: var(--vz-border-color) !important;
+}
+
+[data-layout-mode="dark"] .admin-layout .users-datatable :is(thead th, tbody td),
+[data-layout-mode="dark"] .admin-layout .summary-table tfoot tr:not(:first-child) td {
+    background-color: var(--vz-card-bg) !important;
+    color: var(--vz-body-color) !important;
+}
+
+[data-layout-mode="dark"] .admin-layout .users-datatable tbody tr:hover td,
+[data-layout-mode="dark"] .admin-layout .beneficiary-group-row:hover td,
+[data-layout-mode="dark"] .admin-layout .beneficiary-group-row:focus td {
+    background-color: var(--vz-light) !important;
+}
+
+[data-layout-mode="dark"] .admin-layout :is(.button-secondary, .button-small, .dt-button, .users-table-card button.dt-button, .users-table-card .dt-paging .dt-paging-button) {
+    background: var(--vz-light) !important;
+    border-color: var(--vz-input-border) !important;
+    color: var(--vz-body-color) !important;
+}
+
+[data-layout-mode="dark"] .select2-container--default .select2-selection--multiple,
+[data-layout-mode="dark"] .select2-container--default .select2-selection--single,
+[data-layout-mode="dark"] .select2-dropdown,
+[data-layout-mode="dark"] .select2-search__field {
+    background: var(--vz-input-bg) !important;
+    border-color: var(--vz-input-border) !important;
+    color: var(--vz-body-color) !important;
+}
+
+[data-layout-mode="dark"] .select2-container--default .select2-results__option--selected {
+    background: var(--vz-light);
+    color: var(--vz-body-color);
+}
+
+[data-layout-mode="dark"] .select2-container--default .select2-selection__rendered,
+[data-layout-mode="dark"] .select2-container--default .select2-selection__placeholder {
+    color: var(--vz-body-color) !important;
+}
+
+[data-layout-mode="dark"] .admin-layout .horizontal-brand .logo-lg {
+    color: var(--vz-heading-color);
+}
+
+[data-layout-mode="dark"] .apexcharts-text,
+[data-layout-mode="dark"] .apexcharts-legend-text {
+    fill: #adb5bd !important;
+    color: #adb5bd !important;
+}
+
+[data-layout-mode="dark"] .apexcharts-gridline {
+    stroke: var(--vz-border-color);
+}
+
+[data-layout-mode="dark"] .apexcharts-tooltip,
+[data-layout-mode="dark"] .apexcharts-tooltip-title {
+    background: var(--vz-card-bg) !important;
+    border-color: var(--vz-border-color) !important;
+    color: var(--vz-body-color) !important;
+}

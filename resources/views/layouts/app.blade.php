@@ -49,6 +49,7 @@
     <link rel="stylesheet" href="{{ $versionedAsset('css/indicator-select2.css') }}">
     @auth<link rel="stylesheet" href="{{ asset('css/admin-shell.css') }}?v={{ @filemtime(public_path('css/admin-shell.css')) ?: 1 }}">@endauth
     @stack('styles')
+    @auth<link rel="stylesheet" href="{{ $versionedAsset('css/dark-theme.css') }}">@endauth
 </head>
 <body class="{{ auth()->check() ? 'admin-layout' : 'guest-layout' }}">
 @auth
@@ -67,6 +68,11 @@
             </div>
             <div class="d-flex align-items-center gap-1">
                 @can('registrar actividad')<a class="btn btn-primary d-none d-sm-inline-flex align-items-center" href="{{ route('reports.create') }}"><i class="ri-add-line me-1"></i> Nuevo registro</a>@endcan
+                <div class="ms-1 header-item d-flex">
+                    <button type="button" class="btn btn-icon btn-topbar btn-ghost-secondary rounded-circle asonacop-theme-toggle" aria-label="Activar tema oscuro" aria-pressed="false" title="Activar tema oscuro">
+                        <i class="bx bx-moon fs-22" aria-hidden="true"></i>
+                    </button>
+                </div>
                 <div class="dropdown ms-1 header-item topbar-user">
                     <button type="button" class="btn" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span class="d-flex align-items-center"><span class="avatar-sm"><img class="rounded-circle header-profile-user" src="{{ auth()->user()->profile_photo_url }}" alt="Foto de {{ auth()->user()->name }}"></span><span class="text-start ms-xl-2 d-none d-xl-block"><span class="d-block fw-semibold user-name-text">{{ auth()->user()->name }}</span><span class="d-block fs-12 text-muted user-name-sub-text">{{ \App\Models\User::roleLabels()[auth()->user()->role] ?? auth()->user()->role }}</span></span></span></button>
                     <div class="dropdown-menu dropdown-menu-end">
@@ -164,6 +170,7 @@
 <script src="{{ asset('assets/libs/node-waves/waves.min.js') }}"></script>
 <script src="{{ asset('assets/js/plugins.js') }}"></script>
 <script src="{{ asset('assets/js/app.js') }}"></script>
+<script src="{{ $versionedAsset('js/theme-switcher.js') }}"></script>
 @else
 <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
 @endauth
