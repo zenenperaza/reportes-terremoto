@@ -119,8 +119,8 @@ class BeneficiaryReportController extends Controller
         $worksheet->setTitle('Beneficiarios');
 
         $headers = [
-            'ID', 'Estado', 'Municipio', 'Parroquia', 'Tipo de instalación', 'Nombre del lugar',
-            'Latitud', 'Longitud', 'Sector programático', 'Código del indicador', 'Indicador a reportar',
+            'ID', 'Estado', 'Municipio', 'Parroquia', 'Tipo de instalación', 'Nombre específico del lugar',
+            'Latitud', 'Longitud', 'Código del proyecto', 'Sector programático', 'Código del indicador', 'Indicador a reportar',
             'Detalles adicionales de la actividad', 'Fecha de atención', 'Edad', 'Sexo', 'Discapacidad', 'Indígena',
             'Embarazada o lactante', 'Recurrente', 'Fecha de reporte', 'Fecha de inclusión', 'Usuario',
         ];
@@ -144,7 +144,7 @@ class BeneficiaryReportController extends Controller
             'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF8DA99D']]],
         ]);
 
-        $widths = [8, 18, 20, 18, 26, 28, 13, 13, 22, 24, 48, 48, 16, 10, 16, 18, 18, 22, 14, 18, 20, 28];
+        $widths = [8, 18, 20, 18, 26, 30, 13, 13, 22, 24, 24, 48, 48, 16, 10, 16, 18, 18, 22, 14, 18, 20, 28];
         foreach ($widths as $index => $width) {
             $worksheet->getColumnDimension(Coordinate::stringFromColumnIndex($index + 1))->setWidth($width);
         }
@@ -160,6 +160,7 @@ class BeneficiaryReportController extends Controller
                 $beneficiary->place_name,
                 $beneficiary->latitude,
                 $beneficiary->longitude,
+                $beneficiary->project_code,
                 $beneficiary->sector_name,
                 $beneficiary->indicator_code,
                 $beneficiary->activity_title,
@@ -179,11 +180,11 @@ class BeneficiaryReportController extends Controller
             foreach ($values as $index => $value) {
                 $cell = Coordinate::stringFromColumnIndex($index + 1).$rowNumber;
 
-                if (in_array($index, [0, 13], true) && $value !== null && $value !== '') {
+                if (in_array($index, [0, 14], true) && $value !== null && $value !== '') {
                     $worksheet->setCellValue($cell, (int) $value);
                 } elseif (in_array($index, [6, 7], true) && $value !== null && $value !== '') {
                     $worksheet->setCellValue($cell, (float) $value);
-                } elseif (in_array($index, [12, 19, 20], true) && $value !== null) {
+                } elseif (in_array($index, [13, 20, 21], true) && $value !== null) {
                     $worksheet->setCellValue($cell, $value);
                 } else {
                     $worksheet->setCellValueExplicit($cell, $this->spreadsheetText($value), DataType::TYPE_STRING);
@@ -195,9 +196,9 @@ class BeneficiaryReportController extends Controller
 
         $lastDataRow = max(2, $rowNumber - 1);
         $worksheet->getStyle("A2:{$lastColumn}{$lastDataRow}")->getAlignment()->setVertical(Alignment::VERTICAL_TOP)->setWrapText(true);
-        $worksheet->getStyle("M2:M{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
-        $worksheet->getStyle("T2:T{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
-        $worksheet->getStyle("U2:U{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy hh:mm');
+        $worksheet->getStyle("N2:N{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+        $worksheet->getStyle("U2:U{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+        $worksheet->getStyle("V2:V{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy hh:mm');
 
         $writer = new Xlsx($spreadsheet);
         $fileName = 'beneficiarios-'.now()->format('Ymd-His').'.xlsx';
@@ -300,6 +301,8 @@ class BeneficiaryReportController extends Controller
             ->leftJoin('activities as export_activities', 'export_reports.activity_id', '=', 'export_activities.id')
             ->leftJoin('proyectos as export_projects', 'export_reports.proyecto_id', '=', 'export_projects.id')
             ->leftJoin('indicador_proyecto as export_indicator_projects', 'export_reports.indicador_proyecto_id', '=', 'export_indicator_projects.id')
+            ->leftJoin('sector_proyecto as export_sector_projects', 'export_indicator_projects.sector_proyecto_id', '=', 'export_sector_projects.id')
+            ->leftJoin('sectors as export_project_sectors', 'export_sector_projects.sector_id', '=', 'export_project_sectors.id')
             ->leftJoin('indicadores as export_indicators', 'export_indicator_projects.indicador_id', '=', 'export_indicators.id')
             ->leftJoin('users as export_users', 'export_reports.user_id', '=', 'export_users.id')
             ->select([
@@ -310,7 +313,8 @@ class BeneficiaryReportController extends Controller
                 'export_municipalities.name as municipality_name', 'export_parishes.name as parish_name',
                 'export_reports.installation_type', 'export_reports.place_name', 'export_reports.latitude',
                 'export_reports.longitude',
-                DB::raw('COALESCE(export_projects.codigo, export_sectors.name) as sector_name'),
+                'export_projects.codigo as project_code',
+                DB::raw('COALESCE(export_project_sectors.name, export_sectors.name) as sector_name'),
                 'export_indicators.codigo as indicator_code',
                 DB::raw('COALESCE(export_indicators.descripcion, export_activities.title) as activity_title'),
                 'export_reports.activity_details', 'export_reports.report_date', 'export_users.name as user_name',

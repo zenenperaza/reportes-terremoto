@@ -22,7 +22,7 @@ class BeneficiaryExcelExportTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_export_places_indicator_code_between_sector_and_indicator_name(): void
+    public function test_export_separates_project_code_and_sector_and_includes_activity_location_details(): void
     {
         $administrator = User::factory()->create(['role' => 'admin', 'is_active' => true]);
         $state = State::create(['code' => 'VE24', 'name' => 'La Guaira']);
@@ -62,6 +62,7 @@ class BeneficiaryExcelExportTest extends TestCase
             'parish_id' => $parish->id,
             'installation_type' => 'Comunidad / Espacio Comunitario',
             'place_name' => 'Centro comunitario',
+            'activity_details' => 'Entrega de kits y orientación',
             'sector_id' => $sector->id,
             'activity_id' => $activity->id,
             'recurrence_status' => 'nuevo',
@@ -86,12 +87,18 @@ class BeneficiaryExcelExportTest extends TestCase
             file_put_contents($path, $response->streamedContent());
             $worksheet = IOFactory::load($path)->getActiveSheet();
 
-            $this->assertSame('Sector programático', $worksheet->getCell('I1')->getValue());
-            $this->assertSame('Código del indicador', $worksheet->getCell('J1')->getValue());
-            $this->assertSame('Indicador a reportar', $worksheet->getCell('K1')->getValue());
+            $this->assertSame('Nombre específico del lugar', $worksheet->getCell('F1')->getValue());
+            $this->assertSame('Código del proyecto', $worksheet->getCell('I1')->getValue());
+            $this->assertSame('Sector programático', $worksheet->getCell('J1')->getValue());
+            $this->assertSame('Código del indicador', $worksheet->getCell('K1')->getValue());
+            $this->assertSame('Indicador a reportar', $worksheet->getCell('L1')->getValue());
+            $this->assertSame('Detalles adicionales de la actividad', $worksheet->getCell('M1')->getValue());
+            $this->assertSame('Centro comunitario', $worksheet->getCell('F2')->getValue());
             $this->assertSame('PROY-01', $worksheet->getCell('I2')->getValue());
-            $this->assertSame('GCLPR/SCA12/IC1/IE1', $worksheet->getCell('J2')->getValue());
-            $this->assertSame('NNA - Número de personas atendidas', $worksheet->getCell('K2')->getValue());
+            $this->assertSame('Protección', $worksheet->getCell('J2')->getValue());
+            $this->assertSame('GCLPR/SCA12/IC1/IE1', $worksheet->getCell('K2')->getValue());
+            $this->assertSame('NNA - Número de personas atendidas', $worksheet->getCell('L2')->getValue());
+            $this->assertSame('Entrega de kits y orientación', $worksheet->getCell('M2')->getValue());
         } finally {
             @unlink($path);
         }
