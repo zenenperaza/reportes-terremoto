@@ -104,6 +104,8 @@ class RecordAuditLog
         return match ($prefix) {
             'dashboard' => 'el panel',
             'reports' => 'registros de actividades',
+            'cases' => 'expedientes de gestión de casos',
+            'families' => 'grupos familiares de gestión de casos',
             'beneficiaries' => 'beneficiarios',
             'general-reports' => 'informes generales',
             'users' => 'usuarios',
@@ -129,6 +131,12 @@ class RecordAuditLog
 
     private function requestPayload(Request $request): ?array
     {
+        // El historial del expediente conserva la acción y los campos modificados.
+        // No duplicar datos personales ni búsquedas de casos en la bitácora general.
+        if ($request->routeIs('cases.*', 'families.*')) {
+            return null;
+        }
+
         $data = $request->isMethod('GET') ? $request->query() : $request->all();
 
         if ($data === []) {

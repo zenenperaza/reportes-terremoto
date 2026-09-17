@@ -2,13 +2,16 @@
 
 use App\Http\Controllers\ActividadController;
 use App\Http\Controllers\ActividadIndicadorServicioController;
-use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\BeneficiaryLookupController;
 use App\Http\Controllers\BeneficiaryReportController;
+use App\Http\Controllers\CaseAttachmentController;
+use App\Http\Controllers\CaseRecordController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DonanteController;
+use App\Http\Controllers\FamilyRecordController;
 use App\Http\Controllers\GeneralReportController;
 use App\Http\Controllers\IndicadorController;
 use App\Http\Controllers\IndicadorProyectoActividadController;
@@ -29,6 +32,7 @@ use App\Http\Controllers\SystemMaintenanceController;
 use App\Http\Controllers\UserGroupController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Middleware\EnsureActiveUser;
+use App\Http\Middleware\PrivateCaseResponse;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/panel');
@@ -52,6 +56,28 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
     Route::post('/salir', [AuthController::class, 'logout'])->name('logout');
     Route::get('/mi-perfil', [ProfileController::class, 'show'])->name('profile.show');
     Route::put('/mi-perfil', [ProfileController::class, 'update'])->name('profile.update');
+
+    Route::prefix('casos')->name('cases.')->middleware(['permission:ver casos', PrivateCaseResponse::class])->group(function (): void {
+        Route::get('/', [CaseRecordController::class, 'index'])->name('index');
+        Route::get('/nuevo', [CaseRecordController::class, 'start'])->name('start');
+        Route::get('/crear', [CaseRecordController::class, 'create'])->name('create');
+        Route::post('/', [CaseRecordController::class, 'store'])->name('store');
+        Route::post('/{caseRecord}/archivos', [CaseAttachmentController::class, 'store'])->name('attachments.store');
+        Route::get('/{caseRecord}/archivos/{attachment}', [CaseAttachmentController::class, 'download'])->name('attachments.download');
+        Route::get('/{caseRecord}/historial', [CaseRecordController::class, 'history'])->name('history');
+        Route::get('/{caseRecord}/editar', [CaseRecordController::class, 'edit'])->name('edit');
+        Route::put('/{caseRecord}', [CaseRecordController::class, 'update'])->name('update');
+        Route::get('/{caseRecord}', [CaseRecordController::class, 'show'])->name('show');
+    });
+
+    Route::prefix('familias')->name('families.')->middleware(['permission:ver casos', PrivateCaseResponse::class])->group(function (): void {
+        Route::get('/', [FamilyRecordController::class, 'index'])->name('index');
+        Route::get('/crear', [FamilyRecordController::class, 'create'])->name('create');
+        Route::post('/', [FamilyRecordController::class, 'store'])->name('store');
+        Route::get('/{familyRecord}/editar', [FamilyRecordController::class, 'edit'])->name('edit');
+        Route::put('/{familyRecord}', [FamilyRecordController::class, 'update'])->name('update');
+        Route::get('/{familyRecord}', [FamilyRecordController::class, 'show'])->name('show');
+    });
 
     Route::middleware('admin')->prefix('usuarios')->name('users.')->group(function (): void {
         Route::get('/', [UserManagementController::class, 'index'])->name('index');

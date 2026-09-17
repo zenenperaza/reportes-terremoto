@@ -97,6 +97,17 @@
             @can('registrar actividad')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('reports.create') ? 'active' : '' }}" href="{{ route('reports.create') }}"><i class="ri-add-circle-line"></i><span>Nuevo registro</span></a></li>@endcan
             @can('solo ver registros')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('reports.index', 'reports.show', 'reports.edit') ? 'active' : '' }}" href="{{ route('reports.index') }}"><i class="ri-file-list-3-line"></i><span>Registros</span></a></li>@endcan
             @php($reportsMenuOpen = request()->routeIs('beneficiaries.summary', 'general-reports.*'))
+            @if(Route::has('cases.index'))
+                @can('ver casos')
+                    <li class="nav-item">
+                        <a class="nav-link menu-link collapsed {{ request()->routeIs('cases.*', 'families.*') ? 'active' : '' }}" href="#sidebarCases" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarCases"><i class="ri-folder-shield-2-line"></i><span>Gestión de casos</span></a>
+                        <div class="collapse menu-dropdown" id="sidebarCases"><ul class="nav nav-sm flex-column">
+                            <li class="nav-item"><a class="nav-link {{ request()->routeIs('cases.*') ? 'active' : '' }}" href="{{ route('cases.index') }}">Casos</a></li>
+                            <li class="nav-item"><a class="nav-link {{ request()->routeIs('families.*') ? 'active' : '' }}" href="{{ route('families.index') }}">Familias</a></li>
+                        </ul></div>
+                    </li>
+                @endcan
+            @endif
             <li class="nav-item">
                 <a class="nav-link menu-link collapsed {{ $reportsMenuOpen ? 'active' : '' }}" href="#sidebarReports" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarReports"><i class="ri-bar-chart-grouped-line"></i><span>Informes</span></a>
                     <div class="collapse menu-dropdown" id="sidebarReports"><ul class="nav nav-sm flex-column">

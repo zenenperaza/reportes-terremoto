@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Artisan;
+use Spatie\Permission\PermissionRegistrar;
 use Throwable;
 
 class TemporaryMaintenanceController extends Controller
@@ -125,6 +126,14 @@ class TemporaryMaintenanceController extends Controller
                 '--path' => 'database/migrations/2026_09_15_120000_create_audit_logs_table.php',
                 '--force' => true,
             ]],
+            ['name' => 'migrate', 'parameters' => [
+                '--path' => 'database/migrations/2026_09_16_150000_create_case_management_tables.php',
+                '--force' => true,
+            ]],
+            ['name' => 'migrate', 'parameters' => [
+                '--path' => 'database/migrations/2026_09_16_170000_extend_case_forms_and_create_families.php',
+                '--force' => true,
+            ]],
             ['name' => 'db:seed', 'parameters' => [
                 '--class' => 'Database\\Seeders\\IndicatorGroupSeeder',
                 '--force' => true,
@@ -179,8 +188,8 @@ class TemporaryMaintenanceController extends Controller
                 }
             }
 
-            if ($exitCode === 0 && class_exists(\Spatie\Permission\PermissionRegistrar::class)) {
-                app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+            if ($exitCode === 0 && class_exists(PermissionRegistrar::class)) {
+                app(PermissionRegistrar::class)->forgetCachedPermissions();
                 $results[] = 'PERMISSION CACHE: caché de roles y permisos limpiada correctamente.';
             }
 

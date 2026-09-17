@@ -25,6 +25,13 @@ class PermissionController extends Controller
         'exportar registros excel',
         'exportar registros pdf',
         'ver detalle de registros',
+        'ver casos',
+        'crear casos',
+        'editar casos',
+        'asignar casos',
+        'supervisar casos',
+        'ver historial de casos',
+        'gestionar casos vbg',
     ];
 
     public function index(): View
