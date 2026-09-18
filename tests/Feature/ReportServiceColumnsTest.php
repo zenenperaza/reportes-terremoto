@@ -274,6 +274,131 @@ class ReportServiceColumnsTest extends TestCase
         $this->assertSame([], json_decode($response->streamedContent(), true, 512, JSON_THROW_ON_ERROR)['data']);
     }
 
+    public function test_registrant_filter_options_only_include_users_with_records_and_preserve_selection(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $owner = User::factory()->create(['role' => 'reporter']);
+        $report = $this->report($owner);
+        $former = User::factory()->create(['role' => 'reporter']);
+        $this->copyForOwner($report, $former);
+        $former->delete();
+        User::factory()->create(['role' => 'reporter']);
+
+        $response = $this->actingAs($admin)->get(route('reports.index', ['user_id' => $owner->id]))->assertOk()
+            ->assertSee('Registrado por')->assertSee('Todos los usuarios')
+            ->assertSee('value="'.$owner->id.'" selected', false)
+            ->assertViewHas('filters', fn ($filters) => (int) $filters['user_id'] === $owner->id);
+        $this->assertEqualsCanonicalizing([$owner->id, $former->id], $response->viewData('registeringUsers')->pluck('id')->all());
+        $this->assertSame(['id', 'name'], array_keys($response->viewData('registeringUsers')->first()->getAttributes()));
+    }
+
+    public function test_registrant_filter_applies_to_server_rows_search_and_every_export_format(): void
+    {
+        $owner = User::factory()->create(['role' => 'reporter']);
+        $report = $this->report($owner);
+        $other = User::factory()->create(['role' => 'reporter']);
+        $this->copyForOwner($report, $other);
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        $filters = ['draw' => 1, 'user_id' => $owner->id];
+        $this->getJson(route('reports.index', $filters))->assertOk()
+            ->assertJsonPath('recordsTotal', 3)->assertJsonPath('recordsFiltered', 2)->assertJsonCount(2, 'data');
+        $this->getJson(route('reports.index', ['draw' => 1, 'user_id' => '']))->assertOk()->assertJsonCount(3, 'data');
+        $this->getJson(route('reports.index', $filters + ['search' => ['value' => 'no-coincide']]))->assertOk()
+            ->assertJsonPath('recordsFiltered', 0);
+        $this->getJson(route('reports.index', $filters + ['from' => '2026-09-18']))->assertOk()
+            ->assertJsonPath('recordsFiltered', 0);
+
+        foreach (['copy', 'csv', 'excel', 'pdf', 'print'] as $format) {
+            $response = $this->getJson(route('reports.index', $filters + ['export_type' => $format, 'start' => 500, 'length' => 1]))->assertOk();
+            $rows = json_decode($response->streamedContent(), true, 512, JSON_THROW_ON_ERROR)['data'];
+            $this->assertCount(2, $rows);
+            $this->assertStringNotContainsString('BENEFICIARIO DE OTRO USUARIO', json_encode($rows));
+        }
+        $csv = $this->get(route('reports.export', ['user_id' => $owner->id]))->assertOk()->streamedContent();
+        $this->assertStringContainsString('PERSONA RESERVADA UNO', $csv);
+        $this->assertStringNotContainsString('BENEFICIARIO DE OTRO USUARIO', $csv);
+    }
+
+    public function test_registrant_filter_never_expands_coordinator_or_reporter_visibility(): void
+    {
+        $owner = User::factory()->create(['role' => 'reporter']);
+        $report = $this->report($owner);
+        $outsider = User::factory()->create(['role' => 'reporter']);
+        $this->copyForOwner($report, $outsider);
+        $group = UserGroup::create(['name' => 'Equipo de filtro', 'is_active' => true]);
+        $owner->userGroups()->attach($group);
+        $coordinator = User::factory()->create(['role' => 'coordinator']);
+        $coordinator->userGroups()->attach($group);
+        $response = $this->actingAs($coordinator)->get(route('reports.index'))->assertOk();
+        $this->assertSame([$owner->id], $response->viewData('registeringUsers')->pluck('id')->all());
+        $this->getJson(route('reports.index', ['draw' => 1, 'user_id' => $outsider->id]))->assertOk()
+            ->assertJsonPath('recordsTotal', 2)->assertJsonPath('recordsFiltered', 0)->assertJsonCount(0, 'data');
+        $export = $this->getJson(route('reports.index', ['draw' => 0, 'user_id' => $outsider->id, 'export_type' => 'copy']))->assertOk();
+        $this->assertSame([], json_decode($export->streamedContent(), true)['data']);
+        $this->actingAs($owner)->get(route('reports.index', ['user_id' => $outsider->id]))->assertOk()
+            ->assertViewHas('reports', fn ($reports) => $reports->isEmpty());
+    }
+
+    public function test_registrant_filter_rejects_invalid_values_and_unknown_users_return_no_records(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        foreach (['invalid', -1, ['1']] as $value) {
+            $this->getJson(route('reports.index', ['draw' => 1, 'user_id' => $value]))->assertUnprocessable()->assertJsonValidationErrors('user_id');
+            $this->getJson(route('reports.export', ['user_id' => $value]))->assertUnprocessable()->assertJsonValidationErrors('user_id');
+        }
+        $this->getJson(route('reports.index', ['draw' => 1, 'user_id' => 999999]))->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_registered_by_displays_form_name_but_filters_by_account_including_historical_name_changes(): void
+    {
+        $barbara = User::factory()->create(['role' => 'reporter', 'name' => 'Barbara Cisneros']);
+        $grayali = User::factory()->create(['role' => 'reporter', 'name' => 'Grayali Vasquez']);
+        $report = $this->report($barbara);
+        $report->update(['reporter_first_name' => 'Grayali', 'reporter_last_name' => 'Vasquez']);
+        $other = $this->copyForOwner($report, $grayali);
+        $other->update(['reporter_first_name' => 'Barbara', 'reporter_last_name' => 'Cisneros']);
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+
+        $filters = ['draw' => 1, 'user_id' => $barbara->id];
+        $rows = $this->getJson(route('reports.index', $filters))->assertOk()
+            ->assertJsonPath('recordsFiltered', 2)->json('data');
+        foreach ($rows as $row) {
+            $this->assertSame('Grayali Vasquez<br><small>ASONACOP</small>', $row['reporter']);
+            $this->assertStringContainsString(route('reports.show', $report), $row['actions']);
+        }
+        $this->getJson(route('reports.index', $filters + ['search' => ['value' => 'Barbara Cisneros']]))->assertOk()
+            ->assertJsonPath('recordsFiltered', 0);
+        $this->getJson(route('reports.index', $filters + ['search' => ['value' => 'Grayali Vasquez']]))->assertOk()
+            ->assertJsonPath('recordsFiltered', 2);
+        $sorted = $this->getJson(route('reports.index', ['draw' => 1, 'order' => [['column' => 1, 'dir' => 'desc']]]))
+            ->assertOk()->json('data');
+        $this->assertSame('Grayali Vasquez<br><small>ASONACOP</small>', $sorted[0]['reporter']);
+        $this->assertSame('Barbara Cisneros<br><small>ASONACOP</small>', $sorted[2]['reporter']);
+        foreach (['copy', 'csv', 'excel', 'pdf', 'print'] as $format) {
+            $response = $this->getJson(route('reports.index', $filters + ['export_type' => $format]))->assertOk();
+            $exportRows = json_decode($response->streamedContent(), true, 512, JSON_THROW_ON_ERROR)['data'];
+            $this->assertCount(2, $exportRows);
+            foreach ($exportRows as $row) {
+                $this->assertSame('Grayali Vasquez<br><small>ASONACOP</small>', $row['reporter']);
+            }
+        }
+        // No historical form values or ownership are rewritten to fix presentation.
+        $this->assertSame('Grayali', $report->fresh()->reporter_first_name);
+        $this->assertSame($barbara->id, $report->fresh()->user_id);
+        $barbara->delete();
+        $this->getJson(route('reports.index', $filters))->assertOk()
+            ->assertJsonPath('data.0.reporter', 'Grayali Vasquez<br><small>ASONACOP</small>');
+    }
+
+    private function copyForOwner(Report $report, User $owner): Report
+    {
+        $copy = $report->replicate()->fill(['user_id' => $owner->id, 'reporter_first_name' => $owner->name, 'reporter_email' => $owner->email]);
+        $copy->save();
+        $copy->beneficiaries()->create(['full_name' => 'Beneficiario de otro usuario', 'age' => 12, 'sex' => 'Mujer', 'is_recurrent' => false]);
+
+        return $copy;
+    }
+
     public function test_legacy_reports_without_services_render_zero_and_csv_includes_new_columns(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);

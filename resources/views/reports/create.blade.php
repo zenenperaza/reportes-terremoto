@@ -8,7 +8,7 @@
 @section('title', ($editing ? 'Editar registro #'.$report->id : 'Nuevo registro').' | SIA')
 
 @section('content')
-    @php($nameParts = preg_split('/\s+/', trim($user->name), 2))
+    @php($registrant = \App\Services\ReportRegistrant::fields($user, $editing ? $report : null))
     <section class="page-heading compact-heading">
         <div>
             <p class="eyebrow">Formulario de respuesta</p>
@@ -81,11 +81,11 @@
             </div>
             <div class="form-grid three-cols">
                 <label>Nombre *<input type="text" name="reporter_first_name"
-                        value="{{ old('reporter_first_name', $editing ? $report->reporter_first_name : ($nameParts[0] ?? '')) }}" required></label>
-                <label>Apellido *<input type="text" name="reporter_last_name"
-                        value="{{ old('reporter_last_name', $editing ? $report->reporter_last_name : ($nameParts[1] ?? '')) }}" required></label>
+                        value="{{ $registrant['reporter_first_name'] }}" readonly required></label>
+                <label>Apellido<input type="text" name="reporter_last_name"
+                        value="{{ $registrant['reporter_last_name'] }}" readonly></label>
                 <label>Correo electrónico *<input type="email" name="reporter_email"
-                        value="{{ old('reporter_email', $editing ? $report->reporter_email : $user->email) }}" required></label>
+                        value="{{ $registrant['reporter_email'] }}" readonly required></label>
             </div>
             <br>
             <div class="form-grid three-cols">
@@ -933,7 +933,6 @@
         const requiredHeaderFields = [
             ['report_date', 'fecha de registro'],
             ['reporter_first_name', 'nombre de quien registra'],
-            ['reporter_last_name', 'apellido de quien registra'],
             ['reporter_email', 'correo electrónico'],
             ['organization', 'organización'],
             ['state_id', 'estado'],

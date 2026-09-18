@@ -14,6 +14,7 @@ use App\Models\Report;
 use App\Models\Sector;
 use App\Models\State;
 use App\Models\Proyecto;
+use App\Models\User;
 use App\Services\ReportDataTable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -29,6 +30,7 @@ class ReportController extends Controller
 {
     public function index(Request $request): View|JsonResponse|StreamedResponse
     {
+        $request->validate(['user_id' => ['nullable', 'integer', 'min:1']]);
         $isCoordinator = $request->user()->isCoordinator();
         $reports = collect();
 
@@ -71,7 +73,11 @@ class ReportController extends Controller
             'isCoordinator' => $isCoordinator,
             'serverColumns' => $isCoordinator ? ReportDataTable::columns($request->user()) : [],
             'canViewPersonalData' => $request->user()->isAdministrator(),
-            'filters' => $request->only(['state_id', 'reported', 'from', 'to']),
+            'registeringUsers' => $isCoordinator
+                ? User::withTrashed()->whereIn('id', $request->user()->constrainVisibleReports(Report::query())->select('reports.user_id'))
+                    ->orderBy('name')->orderBy('id')->get(['id', 'name'])
+                : collect(),
+            'filters' => $request->only(['state_id', 'reported', 'from', 'to', 'user_id']),
         ]);
     }
 
@@ -373,6 +379,7 @@ class ReportController extends Controller
     public function export(Request $request): StreamedResponse
     {
         abort_unless($request->user()->isAdministrator(), 403);
+        $request->validate(['user_id' => ['nullable', 'integer', 'min:1']]);
         $beneficiaries = $this->filteredBeneficiaries($request)
             ->with(['report.state', 'report.municipality', 'report.parish', 'report.sector', 'report.activity', 'report.proyecto', 'report.indicadorProyecto.indicador', 'report.indicadorProyecto.asignacionSector.sector', 'report.actividadIndicador.actividad', 'report.serviciosActividad.servicio'])
             ->latest('created_at')
@@ -545,6 +552,7 @@ class ReportController extends Controller
         }
 
         return $query
+            ->when($request->integer('user_id'), fn (Builder $query, int $userId) => $query->where('user_id', $userId))
             ->when($request->integer('state_id'), fn (Builder $query, int $stateId) => $query->where('state_id', $stateId))
             ->when($request->input('from'), fn (Builder $query, string $from) => $query->whereDate('report_date', '>=', $from))
             ->when($request->input('to'), fn (Builder $query, string $to) => $query->whereDate('report_date', '<=', $to));
@@ -557,7 +565,8 @@ class ReportController extends Controller
         return Beneficiary::query()
             ->whereHas('report', function (Builder $reports) use ($request): void {
                 $request->user()->constrainVisibleReports($reports);
-                $reports->when($request->integer('state_id'), fn (Builder $query, int $stateId) => $query->where('state_id', $stateId))
+                $reports->when($request->integer('user_id'), fn (Builder $query, int $userId) => $query->where('user_id', $userId))
+                    ->when($request->integer('state_id'), fn (Builder $query, int $stateId) => $query->where('state_id', $stateId))
                     ->when($request->input('from'), fn (Builder $query, string $from) => $query->whereDate('report_date', '>=', $from))
                     ->when($request->input('to'), fn (Builder $query, string $to) => $query->whereDate('report_date', '<=', $to));
             })

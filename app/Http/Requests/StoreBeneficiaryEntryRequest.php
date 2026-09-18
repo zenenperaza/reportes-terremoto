@@ -12,6 +12,8 @@ use App\Models\Parish;
 use App\Models\PlaceName;
 use App\Models\State;
 use App\Services\ReverseGeocoder;
+use App\Services\ReportRegistrant;
+use App\Models\Report;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -34,7 +36,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             'report_id' => ['nullable', 'integer', 'exists:reports,id'],
             'report_date' => ['required', 'date', 'before_or_equal:today'],
             'reporter_first_name' => ['required', 'string', 'max:100'],
-            'reporter_last_name' => ['required', 'string', 'max:100'],
+            'reporter_last_name' => ['present', 'nullable', 'string', 'max:100'],
             'reporter_email' => ['required', 'email', 'max:255'],
             'organization' => ['required', Rule::in(config('reports.organizations'))],
             'other_organization' => ['nullable', 'required_if:organization,Otro Socio Implementador', 'string', 'max:150'],
@@ -80,6 +82,12 @@ class StoreBeneficiaryEntryRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $reportId = filter_var($this->input('report_id'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $report = $reportId ? Report::query()->whereKey($reportId)
+            ->when(! $this->user()->isAdministrator(), fn ($query) => $query->where('user_id', $this->user()->id))
+            ->first() : null;
+        $this->merge(ReportRegistrant::fields($this->user(), $report));
+
         if (! $this->boolean('is_community_location')) {
             return;
         }

@@ -44,6 +44,16 @@
         <label>Reportados
             <select name="reported"><option value="">Todos</option><option value="1" @selected(($filters['reported'] ?? '') === '1')>Sí</option><option value="0" @selected(($filters['reported'] ?? '') === '0')>No</option></select>
         </label>
+        @if ($isCoordinator)
+            <label>Registrado por
+                <select name="user_id">
+                    <option value="">Todos los usuarios</option>
+                    @foreach ($registeringUsers as $registeringUser)
+                        <option value="{{ $registeringUser->id }}" @selected((string) ($filters['user_id'] ?? '') === (string) $registeringUser->id)>{{ $registeringUser->name }}</option>
+                    @endforeach
+                </select>
+            </label>
+        @endif
         <button class="button button-secondary" type="submit">Aplicar filtros</button>
     </form>
 </section>

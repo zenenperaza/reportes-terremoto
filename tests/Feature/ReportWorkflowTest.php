@@ -165,8 +165,8 @@ class ReportWorkflowTest extends TestCase
 
         $this->assertDatabaseHas('reports', [
             'id' => $report->id,
-            'reporter_first_name' => 'Ana María',
-            'reporter_email' => 'ana.actualizada@example.test',
+            'reporter_first_name' => \App\Services\ReportRegistrant::fields($user)['reporter_first_name'],
+            'reporter_email' => $user->email,
             'activity_details' => 'Detalles actualizados.',
             'qualitative_notes' => 'Notas actualizadas.',
             'total_beneficiaries' => 2,
@@ -615,6 +615,7 @@ class ReportWorkflowTest extends TestCase
         ];
 
         $first = $this->actingAs($user)->postJson('/beneficiarios', $header + ['beneficiary' => [
+            'has_informed_consent' => true,
             'full_name' => 'María Gómez', 'age' => 8, 'sex' => 'Mujer', 'national_id' => 'V12345678', 'phone' => null,
             'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'N/A', 'is_recurrent' => false,
         ]])->assertCreated()->assertJsonPath('summary.total', 1);
@@ -625,6 +626,7 @@ class ReportWorkflowTest extends TestCase
         $this->actingAs($user)->get(route('reports.show', $reportId))->assertOk();
 
         $this->actingAs($user)->postJson('/beneficiarios', $header + ['report_id' => $reportId, 'beneficiary' => [
+            'has_informed_consent' => true,
             'full_name' => '', 'age' => 34, 'sex' => 'Hombre', 'national_id' => null, 'phone' => '04140000000',
             'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'N/A', 'is_recurrent' => true,
         ]])->assertOk()->assertJsonPath('summary.total', 2);
@@ -637,6 +639,7 @@ class ReportWorkflowTest extends TestCase
         $changedHeader = $header;
         $changedHeader['place_name'] = 'Comunidad El Manantial';
         $this->actingAs($user)->postJson('/beneficiarios', $changedHeader + ['beneficiary' => [
+            'has_informed_consent' => true,
             'full_name' => 'Rosa Díaz', 'age' => 40, 'sex' => 'Mujer', 'national_id' => null, 'phone' => null,
             'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'N/A', 'is_recurrent' => false,
         ]])->assertCreated()->assertJsonPath('summary.total', 1);

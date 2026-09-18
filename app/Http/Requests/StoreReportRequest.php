@@ -13,6 +13,7 @@ use App\Models\PlaceName;
 use App\Models\State;
 use App\Models\ServicioActividad;
 use App\Services\ReverseGeocoder;
+use App\Services\ReportRegistrant;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -34,7 +35,7 @@ class StoreReportRequest extends FormRequest
         return [
             'report_date' => ['required', 'date', 'before_or_equal:today'],
             'reporter_first_name' => ['required', 'string', 'max:100'],
-            'reporter_last_name' => ['required', 'string', 'max:100'],
+            'reporter_last_name' => ['present', 'nullable', 'string', 'max:100'],
             'reporter_email' => ['required', 'email', 'max:255'],
             'organization' => ['required', Rule::in(config('reports.organizations'))],
             'other_organization' => ['nullable', 'required_if:organization,Otro Socio Implementador', 'string', 'max:150'],
@@ -80,6 +81,8 @@ class StoreReportRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $this->merge(ReportRegistrant::fields($this->user(), $this->route('report')));
+
         if (! $this->boolean('is_community_location')) {
             return;
         }
