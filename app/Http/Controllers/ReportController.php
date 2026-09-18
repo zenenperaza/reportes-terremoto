@@ -14,6 +14,7 @@ use App\Models\Report;
 use App\Models\Sector;
 use App\Models\State;
 use App\Models\Proyecto;
+use App\Services\ReportDataTable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
@@ -26,27 +27,37 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|JsonResponse|StreamedResponse
     {
         $isCoordinator = $request->user()->isCoordinator();
         $reports = collect();
-        $beneficiaries = collect();
 
         if ($isCoordinator) {
-            $beneficiaries = $this->filteredBeneficiaries($request)
-                ->with([
-                    'report.user',
-                    'report.state',
-                    'report.municipality',
-                    'report.parish',
-                    'report.sector', 'report.activity', 'report.proyecto', 'report.indicadorProyecto.indicador',
-                ])
-                ->latest('created_at')
-                ->latest('id')
-                ->get();
+            if ($request->has('draw')) {
+                $request->validate([
+                    'draw' => 'required|integer|min:0', 'start' => 'nullable|integer|min:0',
+                    'length' => 'nullable|integer', 'search.value' => 'nullable|string|max:200',
+                    'order' => 'nullable|array|max:16', 'order.*.column' => 'required|integer|min:0',
+                    'order.*.dir' => 'required|in:asc,desc',
+                    'state_id' => 'nullable|integer', 'from' => 'nullable|date_format:Y-m-d',
+                    'to' => 'nullable|date_format:Y-m-d', 'reported' => 'nullable|in:0,1',
+                    'export_type' => 'nullable|in:copy,csv,excel,pdf,print',
+                ]);
+
+                if ($request->filled('export_type')) {
+                    $permission = match ($request->input('export_type')) {
+                        'excel' => 'exportar registros excel',
+                        'pdf' => 'exportar registros pdf',
+                        default => 'solo ver registros',
+                    };
+                    abort_unless($request->user()->can($permission), 403);
+                }
+
+                return app(ReportDataTable::class)->response($request, $this->filteredBeneficiaries($request));
+            }
         } else {
             $reports = $this->filteredReports($request)
-                ->with(['user', 'state', 'municipality', 'parish', 'sector', 'activity', 'proyecto', 'indicadorProyecto.indicador'])
+                ->with(['user', 'state', 'municipality', 'parish', 'sector', 'activity', 'proyecto', 'indicadorProyecto.indicador', 'actividadIndicador.actividad', 'serviciosActividad.servicio'])
                 ->withCount('beneficiaries')
                 ->withCount(['beneficiaries as unreported_beneficiaries_count' => fn (Builder $query) => $query->whereNull('reported_at')])
                 ->latest('created_at')
@@ -56,9 +67,9 @@ class ReportController extends Controller
 
         return view('reports.index', [
             'reports' => $reports,
-            'beneficiaries' => $beneficiaries,
             'states' => State::orderBy('name')->get(['id', 'name']),
             'isCoordinator' => $isCoordinator,
+            'serverColumns' => $isCoordinator ? ReportDataTable::columns($request->user()) : [],
             'canViewPersonalData' => $request->user()->isAdministrator(),
             'filters' => $request->only(['state_id', 'reported', 'from', 'to']),
         ]);
@@ -363,7 +374,7 @@ class ReportController extends Controller
     {
         abort_unless($request->user()->isAdministrator(), 403);
         $beneficiaries = $this->filteredBeneficiaries($request)
-            ->with(['report.state', 'report.municipality', 'report.parish', 'report.sector', 'report.activity'])
+            ->with(['report.state', 'report.municipality', 'report.parish', 'report.sector', 'report.activity', 'report.proyecto', 'report.indicadorProyecto.indicador', 'report.indicadorProyecto.asignacionSector.sector', 'report.actividadIndicador.actividad', 'report.serviciosActividad.servicio'])
             ->latest('created_at')
             ->latest('id')
             ->get();
@@ -371,10 +382,11 @@ class ReportController extends Controller
         return response()->streamDownload(function () use ($beneficiaries): void {
             $out = fopen('php://output', 'w');
             fputcsv($out, [
-                'ID registro', 'Fecha', 'Organización', 'Estado', 'Municipio', 'Parroquia', 'Sector', 'Actividad',
+                'ID registro', 'Fecha', 'Organización', 'Estado', 'Municipio', 'Parroquia', 'Sector', 'Indicadores',
                 'Nombres', 'Cédula', 'Teléfono',
                 'Edad', 'Sexo', 'Discapacidad', 'Indígena',
                 'Embarazada o lactante', 'Recurrente', 'Reportado', 'Fecha de reporte', 'Estado de revisión',
+                'Código del proyecto', 'Código del indicador', 'Actividad', 'Servicios', 'N.º de servicios del registro',
             ]);
 
             foreach ($beneficiaries as $beneficiary) {
@@ -383,13 +395,19 @@ class ReportController extends Controller
                 fputcsv($out, [
                     $report->id, $report->report_date->format('Y-m-d'), $report->organization,
                     $report->state->name, $report->municipality->name, $report->parish->name,
-                    $report->sector->name, $report->activity->title,
+                    $report->sector?->name ?? $report->indicadorProyecto?->asignacionSector?->sector?->name,
+                    $report->indicadorProyecto?->indicador?->descripcion ?? $report->activity?->title,
                     $beneficiary->full_name, $beneficiary->national_id, $beneficiary->phone,
                     $beneficiary->age, $beneficiary->sex,
                     $beneficiary->disability, $beneficiary->ethnicity, $beneficiary->pregnant_lactating,
                     $beneficiary->is_recurrent ? 'Sí' : 'No',
                     $beneficiary->reported_at ? 'Sí' : 'No',
                     $beneficiary->reported_at?->format('Y-m-d'), $report->status,
+                    $report->proyecto?->codigo,
+                    $report->indicadorProyecto?->indicador?->codigo ?? $report->activity?->code,
+                    $report->actividadIndicador?->actividad?->descripcion,
+                    $report->serviciosActividad->pluck('servicio.nombre')->filter()->join(' | '),
+                    $report->serviciosActividad->count(),
                 ]);
             }
             fclose($out);

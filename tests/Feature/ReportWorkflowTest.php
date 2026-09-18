@@ -508,16 +508,19 @@ class ReportWorkflowTest extends TestCase
         ]);
         $this->actingAs($administrator)->get('/reportes')
             ->assertOk()
-            ->assertSee($owner->name)
-            ->assertSee($otherUser->name)
             ->assertDontSee('ANA NIÑO')
             ->assertDontSee('LUIS MAYOR')
             ->assertDontSee('LUIS SEGUNDO')
-            ->assertSee('4 a&ntilde;os', false)
-            ->assertSee('Mujer')
+            ->assertSee('serverSide: true', false)
             ->assertSee('activity-records-table', false)
             ->assertSee('/vendor/datatables/jquery-3.7.1.min.js', false)
             ->assertSee('activityRowsLabel = "beneficiarios"', false);
+        $rows = $this->getJson(route('reports.index', ['draw' => 1]))->assertOk()->json('data');
+        $renderedRows = json_encode($rows, JSON_UNESCAPED_UNICODE);
+        $this->assertStringContainsString($owner->name, $renderedRows);
+        $this->assertStringContainsString($otherUser->name, $renderedRows);
+        $this->assertStringContainsString('4 a&ntilde;os', $renderedRows);
+        $this->assertStringContainsString('Mujer', $renderedRows);
 
         $this->actingAs($owner)->get('/informe-beneficiarios')
             ->assertOk()

@@ -65,6 +65,9 @@ class RecordAuditLog
     private function actionDescription(Request $request): string
     {
         $routeName = (string) $request->route()?->getName();
+        if ($routeName === 'reports.index' && $request->filled('export_type')) {
+            return 'Solicitó exportar el consolidado de registros';
+        }
         $specialActions = [
             'login.store' => 'Inició sesión',
             'logout' => 'Cerró sesión',
@@ -135,6 +138,12 @@ class RecordAuditLog
         // No duplicar datos personales ni búsquedas de casos en la bitácora general.
         if ($request->routeIs('cases.*', 'families.*')) {
             return null;
+        }
+
+        // La búsqueda del consolidado puede contener nombres, cédulas o teléfonos.
+        // Registrar la consulta sin duplicar esos valores en la bitácora.
+        if ($request->routeIs('reports.index') && $request->has('draw')) {
+            return $request->only(['draw', 'start', 'length', 'state_id', 'from', 'to', 'reported', 'export_type']);
         }
 
         $data = $request->isMethod('GET') ? $request->query() : $request->all();

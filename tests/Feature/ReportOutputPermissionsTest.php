@@ -64,14 +64,22 @@ class ReportOutputPermissionsTest extends TestCase
             ->assertDontSee('NOMBRE CONFIDENCIAL')
             ->assertDontSee('V123456')
             ->assertDontSee('04140000000')
-            ->assertDontSee('<th>Nombres</th>', false)
-            ->assertSee('9 a&ntilde;os', false);
+            ->assertDontSee('<th>Nombres</th>', false)->assertSee('serverSide: true', false);
+        $coordinatorData = $this->getJson(route('reports.index', ['draw' => 1]))->assertOk()->json('data.0');
+        $this->assertArrayNotHasKey('full_name', $coordinatorData);
+        $this->assertArrayNotHasKey('national_id', $coordinatorData);
+        $this->assertArrayNotHasKey('phone', $coordinatorData);
+        $this->assertStringContainsString('9 a&ntilde;os', $coordinatorData['age']);
 
         $administrator = User::factory()->create(['role' => 'admin']);
         $this->actingAs($administrator)->get(route('reports.index'))
             ->assertOk()->assertSee('<th>Nombres</th>', false)->assertSee('<th>Cédula</th>', false)->assertSee('<th>Teléfono</th>', false)
-            ->assertSee('NOMBRE CONFIDENCIAL')->assertSee('V123456')->assertSee('04140000000')
-            ->assertSee('9 a&ntilde;os', false)->assertSee('Mujer');
+            ->assertDontSee('NOMBRE CONFIDENCIAL');
+        $adminData = $this->getJson(route('reports.index', ['draw' => 1]))->assertOk()
+            ->assertJsonPath('data.0.full_name', 'NOMBRE CONFIDENCIAL')->assertJsonPath('data.0.national_id', 'V123456')
+            ->assertJsonPath('data.0.phone', '04140000000')->json('data.0');
+        $this->assertStringContainsString('9 a&ntilde;os', $adminData['age']);
+        $this->assertStringContainsString('Mujer', $adminData['age']);
 
         $csv = $this->actingAs($administrator)->get(route('reports.export'));
         $csv->assertOk();

@@ -5,7 +5,9 @@
 @push('styles')
     <link rel="stylesheet" href="/vendor/datatables/dataTables.dataTables.min.css">
     <link rel="stylesheet" href="/vendor/datatables/buttons.dataTables.min.css">
+    <link rel="stylesheet" href="/vendor/datatables/responsive.dataTables.min.css">
     <link rel="stylesheet" href="/css/beneficiary-datatable.css">
+    <link rel="stylesheet" href="{{ asset('css/report-datatable.css') }}?v={{ filemtime(public_path('css/report-datatable.css')) }}">
 @endpush
 
 @section('content')
@@ -46,49 +48,35 @@
     </form>
 </section>
 
-<section class="content-card">
-    @if (($isCoordinator ? $beneficiaries : $reports)->isEmpty())
+<section class="content-card report-table-card">
+    @if (! $isCoordinator && $reports->isEmpty())
         <div class="empty-state"><p>No hay registros que coincidan con los filtros.</p></div>
     @else
-        <div class="table-wrap"><table id="activity-records-table" class="activity-records-table">
+        <p class="muted report-table-help" id="report-table-help">N.º de servicios cuenta los servicios seleccionados en el registro, no unidades entregadas.@if($isCoordinator) El mismo registro puede aparecer en varias filas de beneficiarios; no sume esas filas como entregas independientes.@endif En pantallas pequeñas, pulse el control junto a la fecha para ver las demás columnas.</p>
+        @if($isCoordinator)
+            <p class="muted report-table-help">Copiar, CSV, Excel, PDF e Imprimir incluyen todos los registros que coincidan con la búsqueda y los filtros activos, no solo la página actual.</p>
+            <p id="report-export-status" class="muted report-table-help" role="status" aria-live="polite" hidden></p>
+            <p id="report-table-error" class="alert alert-error" role="alert" hidden>No se pudieron cargar los registros. Revise su conexión o recargue la página para volver a intentarlo.</p>
+        @endif
+        <div class="table-wrap report-table-wrap"><table id="activity-records-table" class="activity-records-table display responsive" style="width:100%" aria-describedby="report-table-help">
             <thead>
                 @if ($isCoordinator)
-                    <tr><th>Fecha atención</th><th>Registrado por</th><th>Fecha registro</th>@if($canViewPersonalData)<th>Nombres</th><th>Cédula</th><th>Teléfono</th>@endif<th>Edad / sexo</th><th>Ubicación</th><th>Actividad</th><th>Recurrente</th><th>Reportado</th>@if($canViewReportDetail)<th>Acciones</th>@endif</tr>
+                    <tr><th data-priority="1">Fecha atención</th><th>Registrado por</th><th>Fecha registro</th>@if($canViewPersonalData)<th>Nombres</th><th>Cédula</th><th>Teléfono</th>@endif<th>Edad / sexo</th><th>Ubicación</th><th>Proyecto</th><th data-priority="3">Indicadores</th><th data-priority="4">Actividades</th><th data-priority="5">Servicios</th><th data-priority="2">N.º de servicios</th><th>Recurrente</th><th>Reportado</th>@if($canViewReportDetail)<th class="no-export" data-priority="6">Acciones</th>@endif</tr>
                 @else
-                    <tr><th>Fecha atención</th><th>Ubicación</th><th>Actividad</th><th>Beneficiarios</th><th>Reportado</th>@if($canViewReportDetail)<th>Acciones</th>@endif</tr>
+                    <tr><th data-priority="1">Fecha atención</th><th>Ubicación</th><th>Proyecto</th><th data-priority="3">Indicadores</th><th data-priority="4">Actividades</th><th data-priority="5">Servicios</th><th data-priority="2">N.º de servicios</th><th>Beneficiarios</th><th>Reportado</th>@if($canViewReportDetail)<th class="no-export" data-priority="6">Acciones</th>@endif</tr>
                 @endif
             </thead>
             <tbody>
-            @if ($isCoordinator)
-                @foreach ($beneficiaries as $beneficiary)
-                    @php($report = $beneficiary->report)
-                    <tr>
-                        <td data-order="{{ $report->report_date->format('Y-m-d') }}">{{ $report->report_date->format('d/m/Y') }}</td>
-                        <td>{{ $report->reporter_first_name }} {{ $report->reporter_last_name }}<br><small>{{ $report->organization }}</small></td>
-                        <td data-order="{{ $beneficiary->created_at->format('Y-m-d H:i:s') }}">{{ $beneficiary->created_at->format('d/m/Y') }}<br><small>{{ $beneficiary->created_at->format('h:i A') }}</small></td>
-                        @if($canViewPersonalData)
-                            <td>{{ $beneficiary->full_name }}</td>
-                            <td>{{ $beneficiary->national_id ?: 'Sin cédula' }}</td>
-                            <td>{{ $beneficiary->phone ?: 'Sin teléfono' }}</td>
-                        @endif
-                        <td data-order="{{ $beneficiary->age }}"><strong>{{ $beneficiary->age }} a&ntilde;os</strong><br><small>{{ $beneficiary->sex }}</small></td>
-                        <td>{{ $report->state->name }}<br><small>{{ $report->municipality->name }}, {{ $report->parish->name }}</small><br><small>{{ $report->place_name }}</small></td>
-                        <td>{{ $report->proyecto?->codigo ?? $report->sector?->name }}<br><small>{{ \Illuminate\Support\Str::limit($report->indicadorProyecto?->indicador?->descripcion ?? $report->activity?->title, 72) }}</small></td>
-                        <td><span class="status status-{{ $beneficiary->is_recurrent ? 'submitted' : 'reviewed' }}">{{ $beneficiary->is_recurrent ? 'Sí' : 'No' }}</span></td>
-                        <td><span class="status status-{{ $beneficiary->reported_at ? 'reviewed' : 'submitted' }}">{{ $beneficiary->reported_at ? 'Sí' : 'No' }}</span>@if($beneficiary->reported_at)<br><small>{{ $beneficiary->reported_at->format('d/m/Y') }}</small>@endif</td>
-                        @if($canViewReportDetail)<td><a href="{{ route('reports.show', $report) }}">Ver</a></td>@endif
-                    </tr>
-                @endforeach
-            @else
+            @if (! $isCoordinator)
             @foreach($reports as $report)
                 <tr>
                     <td data-order="{{ $report->report_date->format('Y-m-d') }}">{{ $report->report_date->format('d/m/Y') }}</td>
                     <td>{{ $report->state->name }}<br><small>{{ $report->municipality->name }}, {{ $report->parish->name }}</small></td>
-                    <td>{{ $report->proyecto?->codigo ?? $report->sector?->name }}<br><small>{{ \Illuminate\Support\Str::limit($report->indicadorProyecto?->indicador?->descripcion ?? $report->activity?->title, 72) }}</small></td>
+                    @include('reports._classification-columns', ['report' => $report])
                     <td data-order="{{ $report->total_beneficiaries }}">{{ number_format($report->total_beneficiaries) }}</td>
                     @php($isReported = $report->beneficiaries_count > 0 && $report->unreported_beneficiaries_count === 0)
                     <td><span class="status status-{{ $isReported ? 'reviewed' : 'submitted' }}">{{ $isReported ? 'Sí' : 'No' }}</span>@if(! $isReported && $report->beneficiaries_count > $report->unreported_beneficiaries_count)<br><small>{{ $report->beneficiaries_count - $report->unreported_beneficiaries_count }} de {{ $report->beneficiaries_count }} beneficiarios reportados</small>@endif</td>
-                    @if($canViewReportDetail)<td><a href="{{ route('reports.show', $report) }}">Ver</a></td>@endif
+                    @if($canViewReportDetail)<td class="report-actions"><a href="{{ route('reports.show', $report) }}">Ver</a></td>@endif
                 </tr>
             @endforeach
             @endif
@@ -99,27 +87,59 @@
 
 <script src="/vendor/datatables/jquery-3.7.1.min.js"></script>
 <script src="/vendor/datatables/dataTables.min.js"></script>
+<script src="/vendor/datatables/dataTables.responsive.min.js"></script>
 <script src="/vendor/datatables/dataTables.buttons.min.js"></script>
 <script src="/vendor/datatables/jszip.min.js"></script>
 <script src="/vendor/datatables/pdfmake.min.js"></script>
 <script src="/vendor/datatables/vfs_fonts.js"></script>
 <script src="/vendor/datatables/buttons.html5.min.js"></script>
 <script src="/vendor/datatables/buttons.print.min.js"></script>
+@if($isCoordinator)<script src="{{ asset('js/report-export.js') }}?v={{ filemtime(public_path('js/report-export.js')) }}"></script>@endif
 <script>
     const activityRecordsTable = document.getElementById('activity-records-table');
     const activityRowsLabel = @json($isCoordinator ? 'beneficiarios' : 'registros');
     const activityExportTitle = @json($isCoordinator ? 'Beneficiarios individuales - Consolidado de respuesta' : 'Registros de actividades');
+    const fullReportExport = format => (@if($isCoordinator){async: 0, action: window.reportExportAction(format, @json($filters))}@else{}@endif);
+    // Incluye columnas replegadas por Responsive y excluye enlaces de acciones.
+    const activityExportOptions = {
+        columns: ':not(.no-export)',
+        format: {
+            body: function(data, row, column, node) {
+                const content = node.cloneNode(true);
+                content.querySelectorAll('br').forEach(br => br.replaceWith(document.createTextNode(' | ')));
+                return content.textContent.replace(/\s+/g, ' ').trim();
+            },
+        },
+    };
 
     if (activityRecordsTable && typeof DataTable !== 'undefined') {
+        @if($isCoordinator)
+        $(activityRecordsTable).on('xhr.dt', function(event, settings, json) {
+            document.getElementById('report-table-error').hidden = !!json;
+            if (!json) return true;
+        });
+        @endif
         new DataTable(activityRecordsTable, {
+            responsive: true,
+            autoWidth: true,
+            @if($isCoordinator)
+            processing: true,
+            serverSide: true,
+            searchDelay: 400,
+            ajax: {
+                url: @json(route('reports.index')),
+                data: function(data) { Object.assign(data, @json($filters)); },
+            },
+            columns: @json($serverColumns),
+            @endif
             layout: {
                 topStart: ['pageLength', {
                     buttons: [
-                        {extend: 'copyHtml5', text: 'Copiar'},
-                        {extend: 'csvHtml5', text: 'CSV', title: activityExportTitle},
-                        @if($canExportExcel){extend: 'excelHtml5', text: 'Excel', title: activityExportTitle},@endif
-                        @if($canExportPdf){extend: 'pdfHtml5', text: 'PDF', title: activityExportTitle, orientation: 'landscape', pageSize: 'A4'},@endif
-                        {extend: 'print', text: 'Imprimir', title: activityExportTitle},
+                        {extend: 'copyHtml5', text: 'Copiar', exportOptions: activityExportOptions, ...fullReportExport('copy')},
+                        {extend: 'csvHtml5', text: 'CSV', title: activityExportTitle, exportOptions: activityExportOptions, ...fullReportExport('csv')},
+                        @if($canExportExcel){extend: 'excelHtml5', text: 'Excel', title: activityExportTitle, exportOptions: activityExportOptions, ...fullReportExport('excel')},@endif
+                        @if($canExportPdf){extend: 'pdfHtml5', text: 'PDF', title: activityExportTitle, orientation: 'landscape', pageSize: 'A3', exportOptions: activityExportOptions, ...fullReportExport('pdf')},@endif
+                        {extend: 'print', text: 'Imprimir', title: activityExportTitle, exportOptions: activityExportOptions, ...fullReportExport('print')},
                     ],
                 }],
                 topEnd: 'search',
@@ -127,10 +147,16 @@
                 bottomEnd: 'paging',
             },
             pageLength: 15,
+            @if($isCoordinator)
+            lengthMenu: [[15, 25, 50, 100], [15, 25, 50, 100]],
+            @else
             lengthMenu: [[15, 25, 50, -1], [15, 25, 50, 'Todos']],
+            @endif
             order: [],
             columnDefs: [@if($canViewReportDetail){targets: -1, orderable: false, searchable: false}@endif],
             language: {
+                processing: 'Cargando registros…',
+                loadingRecords: 'Cargando registros…',
                 emptyTable: 'No hay ' + activityRowsLabel + ' que coincidan con los filtros.',
                 info: 'Mostrando _START_ a _END_ de _TOTAL_ ' + activityRowsLabel,
                 infoEmpty: 'Mostrando 0 a 0 de 0 ' + activityRowsLabel,
