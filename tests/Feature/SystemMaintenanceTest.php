@@ -20,6 +20,7 @@ class SystemMaintenanceTest extends TestCase
             ->assertOk()
             ->assertSee('Mantenimiento del sistema')
             ->assertSee('Sistema disponible')
+            ->assertDontSee('id="system-maintenance-banner"', false)
             ->assertSee('sweetalert2@11', false)
             ->assertDontSee('onsubmit="return confirm', false);
 
@@ -27,11 +28,21 @@ class SystemMaintenanceTest extends TestCase
             ->assertRedirect(route('system-maintenance.index'));
         $this->assertTrue(SystemSetting::maintenanceEnabled());
 
-        $this->actingAs($administrator)->get(route('dashboard'))->assertOk();
+        foreach (['dashboard', 'reports.index', 'system-maintenance.index'] as $route) {
+            $this->actingAs($administrator)->get(route($route))->assertOk()
+                ->assertSee('id="system-maintenance-banner"', false)
+                ->assertSee('SISTEMA BLOQUEADO')
+                ->assertSee('Administrar bloqueo')
+                ->assertSee('css/maintenance-banner.css?v=', false)
+                ->assertSee('js/maintenance-banner.js?v=', false);
+        }
 
         $this->actingAs($administrator)->put(route('system-maintenance.update'), ['enabled' => false])
             ->assertRedirect(route('system-maintenance.index'));
         $this->assertFalse(SystemSetting::maintenanceEnabled());
+        $this->get(route('dashboard'))->assertOk()
+            ->assertDontSee('id="system-maintenance-banner"', false)
+            ->assertDontSee('has-maintenance-banner', false);
     }
 
     public function test_maintenance_blocks_reporters_and_coordinators_but_allows_logout(): void
@@ -42,7 +53,8 @@ class SystemMaintenanceTest extends TestCase
             $user = User::factory()->create(['role' => $role, 'is_active' => true]);
             $this->actingAs($user)->get(route('dashboard'))
                 ->assertServiceUnavailable()
-                ->assertSee(BlockDuringSystemMaintenance::MESSAGE);
+                ->assertSee(BlockDuringSystemMaintenance::MESSAGE)
+                ->assertDontSee('id="system-maintenance-banner"', false);
         }
 
         $reporter = User::factory()->create(['role' => 'reporter', 'is_active' => true]);

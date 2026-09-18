@@ -5,6 +5,7 @@
     @php($asonacopDarkIconUrl = asset('icons/asonacop-app-dark.png').'?v='.(@filemtime(public_path('icons/asonacop-app-dark.png')) ?: 1))
     @php($faviconUrl = asset('favicon.ico').'?v='.(@filemtime(public_path('favicon.ico')) ?: 1))
     @php($versionedAsset = static fn (string $path): string => asset($path).'?v='.(@filemtime(public_path($path)) ?: 1))
+    @php($showMaintenanceBanner = auth()->user()?->isAdministrator() && \App\Models\SystemSetting::maintenanceEnabled())
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -51,8 +52,19 @@
     @auth<link rel="stylesheet" href="{{ asset('css/admin-shell.css') }}?v={{ @filemtime(public_path('css/admin-shell.css')) ?: 1 }}">@endauth
     @stack('styles')
     @auth<link rel="stylesheet" href="{{ $versionedAsset('css/dark-theme.css') }}">@endauth
+    @if($showMaintenanceBanner)<link rel="stylesheet" href="{{ $versionedAsset('css/maintenance-banner.css') }}">@endif
 </head>
-<body class="{{ auth()->check() ? 'admin-layout' : 'guest-layout' }}">
+<body class="{{ auth()->check() ? 'admin-layout' : 'guest-layout' }}{{ $showMaintenanceBanner ? ' has-maintenance-banner' : '' }}">
+@if($showMaintenanceBanner)
+    <aside id="system-maintenance-banner" class="system-maintenance-banner" role="alert" aria-label="Sistema bloqueado">
+        <i class="ri-lock-fill" aria-hidden="true"></i>
+        <div class="system-maintenance-banner__message">
+            <strong>SISTEMA BLOQUEADO</strong>
+            <span>El acceso de registradores y coordinadores est&aacute; suspendido. Recuerde desbloquear el sistema al finalizar.</span>
+        </div>
+        <a href="{{ route('system-maintenance.index') }}">Administrar bloqueo</a>
+    </aside>
+@endif
 @auth
 <div id="layout-wrapper">
     <header id="page-topbar">
@@ -183,6 +195,7 @@
 <script src="{{ asset('assets/js/app.js') }}"></script>
 <script src="{{ $versionedAsset('js/horizontal-menu.js') }}"></script>
 <script src="{{ $versionedAsset('js/theme-switcher.js') }}"></script>
+@if($showMaintenanceBanner)<script src="{{ $versionedAsset('js/maintenance-banner.js') }}"></script>@endif
 @else
 <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
 @endauth
