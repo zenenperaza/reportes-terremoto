@@ -233,7 +233,15 @@ class BeneficiaryReportController extends Controller
         $query = Report::query();
         $request->user()->constrainVisibleReports($query);
 
-        return $query;
+        return $this->excludeFlaggedIndicators($query);
+    }
+
+    private function excludeFlaggedIndicators(Builder $query): Builder
+    {
+        // Keep legacy reports without a project indicator; exclude only explicitly flagged indicators.
+        return $query->whereDoesntHave('indicadorProyecto.indicador',
+            fn (Builder $indicator) => $indicator->where('excluir_reporte_beneficiarios', true)
+        );
     }
 
     /** @return array<string, mixed> */
@@ -269,6 +277,7 @@ class BeneficiaryReportController extends Controller
         $beneficiaries = Beneficiary::query()
             ->whereHas('report', function (Builder $query) use ($request, $filters): void {
                 $request->user()->constrainVisibleReports($query);
+                $this->excludeFlaggedIndicators($query);
                 $this->applyReportFilters($query, $filters);
             });
 

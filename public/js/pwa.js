@@ -39,7 +39,7 @@
 
     if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
-            navigator.serviceWorker.register("/service-worker.js?v=44", { scope: "/" }).catch(error => {
+            navigator.serviceWorker.register("/service-worker.js?v=45", { scope: "/" }).catch(error => {
                 console.error("No se pudo activar el modo PWA.", error);
             });
         });

@@ -22,11 +22,12 @@ class Indicador extends Model
 
     protected $fillable = [
         'indicator_group_id', 'codigo', 'nombre_corto', 'descripcion', 'unidad_conteo', 'espacio_coordinacion', 'edad_desde', 'edad_hasta',
+        'excluir_reporte_beneficiarios',
     ];
 
     protected function casts(): array
     {
-        return ['edad_desde' => 'integer', 'edad_hasta' => 'integer'];
+        return ['edad_desde' => 'integer', 'edad_hasta' => 'integer', 'excluir_reporte_beneficiarios' => 'boolean'];
     }
 
     public function proyectos(): BelongsToMany

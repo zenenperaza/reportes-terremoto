@@ -26,6 +26,9 @@
     function applyTheme(theme) {
         document.documentElement.setAttribute('data-layout-mode', theme);
         window.sessionStorage.setItem(storageKey, theme);
+        document.querySelectorAll('img[data-logo-light][data-logo-dark]').forEach(function (logo) {
+            logo.setAttribute('src', logo.getAttribute(theme === 'dark' ? 'data-logo-dark' : 'data-logo-light'));
+        });
         synchronizeAccessibleState();
     }
 

@@ -134,6 +134,10 @@ class TemporaryMaintenanceController extends Controller
                 '--path' => 'database/migrations/2026_09_16_170000_extend_case_forms_and_create_families.php',
                 '--force' => true,
             ]],
+            ['name' => 'migrate', 'parameters' => [
+                '--path' => 'database/migrations/2026_09_18_120000_add_excluir_reporte_beneficiarios_to_indicadores_table.php',
+                '--force' => true,
+            ]],
             ['name' => 'db:seed', 'parameters' => [
                 '--class' => 'Database\\Seeders\\IndicatorGroupSeeder',
                 '--force' => true,

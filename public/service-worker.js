@@ -1,10 +1,11 @@
-const CACHE_VERSION = "asonacop-pwa-v44";
+const CACHE_VERSION = "asonacop-pwa-v45";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const OFFLINE_URL = "/offline.html";
 
 const APP_SHELL = [
     OFFLINE_URL,
     "/icons/asonacop-app.png",
+    "/icons/asonacop-app-dark.png",
     "/favicon.ico",
     "/css/app.css",
     "/css/navigation-fixes.css",

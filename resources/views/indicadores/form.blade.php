@@ -18,4 +18,12 @@
 <label>Espacio de coordinaci&oacute;n *<select name="espacio_coordinacion" required><option value="">Seleccione</option>@foreach($espacios as $espacio)<option value="{{ $espacio }}" @selected(old('espacio_coordinacion',$indicador?->espacio_coordinacion)===$espacio)>{{ $espacio }}</option>@endforeach</select></label>
 <label>Edad desde *<input type="number" name="edad_desde" value="{{ old('edad_desde',$indicador?->edad_desde) }}" min="0" max="120" required></label>
 <label>Edad hasta *<input type="number" name="edad_hasta" value="{{ old('edad_hasta',$indicador?->edad_hasta) }}" min="0" max="120" required></label>
+<div class="span-two">
+    <input type="hidden" name="excluir_reporte_beneficiarios" value="0">
+    <label class="checkbox-label">
+        <input type="checkbox" name="excluir_reporte_beneficiarios" value="1" @checked(old('excluir_reporte_beneficiarios', $indicador?->excluir_reporte_beneficiarios ?? false))>
+        Excluir para reportes de beneficiarios
+    </label>
+    <small>Los registros de este indicador no se incluir&aacute;n en el Informe de beneficiarios, sus totales, exportaciones ni al marcar como reportado. Seguir&aacute;n disponibles en Registros de actividades.</small>
+</div>
 </div><div class="form-actions"><a class="button button-secondary" href="{{ route('indicadores.index') }}">Cancelar</a><button class="button button-primary" type="submit">{{ $submitLabel }}</button></div>

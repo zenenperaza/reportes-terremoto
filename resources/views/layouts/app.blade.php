@@ -2,6 +2,7 @@
 <html lang="es" data-layout="horizontal" data-layout-style="" data-layout-position="fixed" data-topbar="light">
 <head>
     @php($asonacopIconUrl = asset('icons/asonacop-app.png').'?v='.(@filemtime(public_path('icons/asonacop-app.png')) ?: 1))
+    @php($asonacopDarkIconUrl = asset('icons/asonacop-app-dark.png').'?v='.(@filemtime(public_path('icons/asonacop-app-dark.png')) ?: 1))
     @php($faviconUrl = asset('favicon.ico').'?v='.(@filemtime(public_path('favicon.ico')) ?: 1))
     @php($versionedAsset = static fn (string $path): string => asset($path).'?v='.(@filemtime(public_path($path)) ?: 1))
     <meta charset="utf-8">
@@ -58,9 +59,9 @@
         <div class="layout-width"><div class="navbar-header">
             <div class="d-flex align-items-center">
                 <div class="navbar-brand-box horizontal-logo">
-                    <a href="{{ route('dashboard') }}" class="logo logo-dark horizontal-brand">
-                        <span class="logo-sm"><img src="{{ $asonacopIconUrl }}" alt="ASONACOP" height="34"></span>
-                        <span class="logo-lg"><img src="{{ $asonacopIconUrl }}" alt="" height="38"><span><strong>ASONACOP</strong><small>SIA</small></span></span>
+                    <a href="{{ route('dashboard') }}" class="logo horizontal-brand">
+                        <span class="logo-sm"><img src="{{ $asonacopIconUrl }}" data-logo-light="{{ $asonacopIconUrl }}" data-logo-dark="{{ $asonacopDarkIconUrl }}" alt="ASONACOP" height="34"></span>
+                        <span class="logo-lg"><img src="{{ $asonacopIconUrl }}" data-logo-light="{{ $asonacopIconUrl }}" data-logo-dark="{{ $asonacopDarkIconUrl }}" alt="" height="38"><span><strong>ASONACOP</strong><small>SIA</small></span></span>
                     </a>
                 </div>
                 <button type="button" class="btn btn-sm px-3 fs-16 header-item vertical-menu-btn topnav-hamburger" id="topnav-hamburger-icon" aria-label="Abrir o cerrar men&uacute;" aria-expanded="false"><span class="hamburger-icon" aria-hidden="true"><span></span><span></span><span></span></span></button>
@@ -87,7 +88,7 @@
 
     <div class="app-menu navbar-menu">
         <div class="navbar-brand-box">
-            <a href="{{ route('dashboard') }}" class="logo logo-light sidebar-brand"><span class="logo-sm"><img src="{{ $asonacopIconUrl }}" alt="ASONACOP" height="38"></span><span class="logo-lg"><img src="{{ $asonacopIconUrl }}" alt="ASONACOP" height="42"><span><strong>ASONACOP</strong><small>SIA</small></span></span></a>
+            <a href="{{ route('dashboard') }}" class="logo sidebar-brand"><span class="logo-sm"><img src="{{ $asonacopIconUrl }}" data-logo-light="{{ $asonacopIconUrl }}" data-logo-dark="{{ $asonacopDarkIconUrl }}" alt="ASONACOP" height="38"></span><span class="logo-lg"><img src="{{ $asonacopIconUrl }}" data-logo-light="{{ $asonacopIconUrl }}" data-logo-dark="{{ $asonacopDarkIconUrl }}" alt="ASONACOP" height="42"><span><strong>ASONACOP</strong><small>SIA</small></span></span></a>
             <button type="button" class="btn btn-sm p-0 fs-20 header-item float-end btn-vertical-sm-hover" id="vertical-hover" aria-label="Contraer men&uacute;"><i class="ri-record-circle-line"></i></button>
         </div>
         <div id="scrollbar"><div class="container-fluid"><ul class="navbar-nav" id="navbar-nav">

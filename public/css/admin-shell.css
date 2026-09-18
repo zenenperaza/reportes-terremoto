@@ -1,4 +1,6 @@
 /* Puente visual entre las vistas existentes y la estructura administrativa de assets. */
+/* A single logo link stays visible; theme-switcher.js changes only its image. */
+.admin-layout .horizontal-brand,.admin-layout .sidebar-brand{display:inline-block}
 .admin-layout{background:#f3f6f9}.admin-layout .page-content{min-height:calc(100vh - 130px)}
 [data-layout=vertical] .admin-layout .page-content>.container-fluid{max-width:none}.admin-layout .page-shell{max-width:none;margin:0;padding:0}
 .admin-layout .app-context{padding-left:12px;border-left:1px solid #e9ebec;line-height:1.15}.admin-layout .app-context-title{display:block;font-weight:600;color:#495057}.admin-layout .app-context small{color:#878a99}
