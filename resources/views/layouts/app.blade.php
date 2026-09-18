@@ -8,11 +8,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="theme-color" content="#004b87">
-    <meta name="application-name" content="Respuesta ASONACOP Venezuela">
+    <meta name="application-name" content="SIA — Sistema de Información ASONACOP">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="ASONACOP">
-    <title>@yield('title', 'Respuesta ASONACOP Venezuela')</title>
+    <meta name="apple-mobile-web-app-title" content="SIA">
+    <title>@yield('title', 'SIA — Sistema de Información ASONACOP')</title>
     <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">
     <link rel="apple-touch-icon" href="{{ $asonacopIconUrl }}">
     <link rel="icon" type="image/x-icon" href="{{ $faviconUrl }}">
@@ -60,14 +60,13 @@
                 <div class="navbar-brand-box horizontal-logo">
                     <a href="{{ route('dashboard') }}" class="logo logo-dark horizontal-brand">
                         <span class="logo-sm"><img src="{{ $asonacopIconUrl }}" alt="ASONACOP" height="34"></span>
-                        <span class="logo-lg"><img src="{{ $asonacopIconUrl }}" alt="" height="38"><span><strong>ASONACOP</strong><small>Respuesta Venezuela</small></span></span>
+                        <span class="logo-lg"><img src="{{ $asonacopIconUrl }}" alt="" height="38"><span><strong>ASONACOP</strong><small>SIA</small></span></span>
                     </a>
                 </div>
                 <button type="button" class="btn btn-sm px-3 fs-16 header-item vertical-menu-btn topnav-hamburger" id="topnav-hamburger-icon" aria-label="Abrir o cerrar men&uacute;" aria-expanded="false"><span class="hamburger-icon" aria-hidden="true"><span></span><span></span><span></span></span></button>
-                <div class="app-context d-none d-md-block"><span class="app-context-title">Respuesta al terremoto</span><small>Venezuela</small></div>
+                <div class="app-context d-none d-md-block"><span class="app-context-title">SIA</span><small>Sistema de Información ASONACOP</small></div>
             </div>
             <div class="d-flex align-items-center gap-1">
-                @can('registrar actividad')<a class="btn btn-primary d-none d-sm-inline-flex align-items-center" href="{{ route('reports.create') }}"><i class="ri-add-line me-1"></i> Nuevo registro</a>@endcan
                 <div class="ms-1 header-item d-flex">
                     <button type="button" class="btn btn-icon btn-topbar btn-ghost-secondary rounded-circle asonacop-theme-toggle" aria-label="Activar tema oscuro" aria-pressed="false" title="Activar tema oscuro">
                         <i class="bx bx-moon fs-22" aria-hidden="true"></i>
@@ -88,14 +87,13 @@
 
     <div class="app-menu navbar-menu">
         <div class="navbar-brand-box">
-            <a href="{{ route('dashboard') }}" class="logo logo-light sidebar-brand"><span class="logo-sm"><img src="{{ $asonacopIconUrl }}" alt="ASONACOP" height="38"></span><span class="logo-lg"><img src="{{ $asonacopIconUrl }}" alt="ASONACOP" height="42"><span><strong>ASONACOP</strong><small>Respuesta Venezuela</small></span></span></a>
+            <a href="{{ route('dashboard') }}" class="logo logo-light sidebar-brand"><span class="logo-sm"><img src="{{ $asonacopIconUrl }}" alt="ASONACOP" height="38"></span><span class="logo-lg"><img src="{{ $asonacopIconUrl }}" alt="ASONACOP" height="42"><span><strong>ASONACOP</strong><small>SIA</small></span></span></a>
             <button type="button" class="btn btn-sm p-0 fs-20 header-item float-end btn-vertical-sm-hover" id="vertical-hover" aria-label="Contraer men&uacute;"><i class="ri-record-circle-line"></i></button>
         </div>
         <div id="scrollbar"><div class="container-fluid"><ul class="navbar-nav" id="navbar-nav">
             <li class="menu-title"><span>Principal</span></li>
             <li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}"><i class="ri-dashboard-2-line"></i><span>Panel</span></a></li>
-            @can('registrar actividad')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('reports.create') ? 'active' : '' }}" href="{{ route('reports.create') }}"><i class="ri-add-circle-line"></i><span>Nuevo registro</span></a></li>@endcan
-            @can('solo ver registros')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('reports.index', 'reports.show', 'reports.edit') ? 'active' : '' }}" href="{{ route('reports.index') }}"><i class="ri-file-list-3-line"></i><span>Registros</span></a></li>@endcan
+            @can('solo ver registros')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('reports.index', 'reports.show', 'reports.edit', 'reports.create') ? 'active' : '' }}" href="{{ route('reports.index') }}"><i class="ri-file-list-3-line"></i><span>Registros</span></a></li>@endcan
             @php($reportsMenuOpen = request()->routeIs('beneficiaries.summary', 'general-reports.*'))
             @if(Route::has('cases.index'))
                 @can('ver casos')
@@ -161,12 +159,12 @@
             @if($errors->any())<div class="alert alert-danger" role="alert"><strong>Revise los datos del formulario.</strong><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
             @yield('content')
         </div></div>
-        <footer class="footer"><div class="container-fluid"><div class="row"><div class="col-sm-6">{{ now()->year }} &copy; ASONACOP.</div><div class="col-sm-6"><div class="text-sm-end d-none d-sm-block">Sistema de respuesta al terremoto &middot; Venezuela</div></div></div></div></footer>
+        <footer class="footer"><div class="container-fluid"><div class="row"><div class="col-sm-6">{{ now()->year }} &copy; ASONACOP.</div><div class="col-sm-6"><div class="text-sm-end d-none d-sm-block">SIA &middot; Sistema de Información ASONACOP</div></div></div></div></footer>
     </div>
 </div>
 <button onclick="topFunction()" class="btn btn-danger btn-icon" id="back-to-top" aria-label="Volver arriba"><i class="ri-arrow-up-line"></i></button>
 @else
-<header class="site-header"><div class="header-inner"><a class="brand" href="{{ route('login') }}"><span class="brand-mark">ASONACOP</span><span>Respuesta al terremoto<br><strong>Venezuela</strong></span></a></div></header>
+<header class="site-header"><div class="header-inner"><a class="brand" href="{{ route('login') }}"><span class="brand-mark">SIA</span><span>Sistema de Información ASONACOP<br><strong>Venezuela</strong></span></a></div></header>
 <main class="page-shell">
     @if(session('success'))<div class="alert alert-success" role="status">{{ session('success') }}</div>@endif
     @if(session('error'))<div class="alert alert-error" role="alert">{{ session('error') }}</div>@endif

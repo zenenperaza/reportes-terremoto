@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title','Familias')
+@section('title','Familias | SIA')
 @include('cases._assets')
 @section('content')
 <div class="case-module">

@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title','Actividades del indicador | Respuesta ASONACOP')
+@section('title','Actividades del indicador | SIA')
 @section('content')
 <section class="page-heading project-indicator-heading">
     <div>

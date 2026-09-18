@@ -5,7 +5,7 @@
     $initialBeneficiaries = $editing ? $report->beneficiaries : collect();
 @endphp
 
-@section('title', ($editing ? 'Editar registro #'.$report->id : 'Nuevo registro').' | Respuesta ASONACOP')
+@section('title', ($editing ? 'Editar registro #'.$report->id : 'Nuevo registro').' | SIA')
 
 @section('content')
     @php($nameParts = preg_split('/\s+/', trim($user->name), 2))

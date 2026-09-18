@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Editar rol | Respuesta ASONACOP')
+@section('title', 'Editar rol | SIA')
 @section('content')
 <section class="page-heading compact-heading">
     <div><p class="eyebrow">Seguridad</p><h1>Editar rol</h1><p class="muted">Actualice el rol {{ \App\Models\User::ROLE_LABELS[$role->name] ?? str($role->name)->headline() }}.</p></div>

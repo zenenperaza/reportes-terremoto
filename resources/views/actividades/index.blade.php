@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title','Actividades | Respuesta ASONACOP')
+@section('title','Actividades | SIA')
 @section('content')
 <section class="page-heading"><div><p class="eyebrow">Configuración</p><h1>Actividades</h1><p class="muted">Administre el catálogo maestro de actividades.</p></div><a class="button button-primary" href="{{ route('actividades.create') }}">+ Nueva actividad</a></section>
 <section class="content-card">@if($actividades->isEmpty())<div class="empty-state"><p>No hay actividades registradas.</p></div>@else

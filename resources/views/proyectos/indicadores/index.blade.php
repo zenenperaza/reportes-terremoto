@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title',isset($sectorProyecto) ? 'Indicadores del sector | Respuesta ASONACOP' : 'Indicadores del proyecto | Respuesta ASONACOP')
+@section('title',isset($sectorProyecto) ? 'Indicadores del sector | SIA' : 'Indicadores del proyecto | SIA')
 @section('content')
 <section class="page-heading project-indicator-heading">
     <div>

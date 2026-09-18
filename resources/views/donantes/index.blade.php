@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Donantes | Respuesta ASONACOP')
+@section('title', 'Donantes | SIA')
 @section('content')
 <section class="page-heading"><div><p class="eyebrow">Configuraci&oacute;n</p><h1>Donantes</h1><p class="muted">Administre las organizaciones que financian los proyectos.</p></div><a class="button button-primary" href="{{ route('donantes.create') }}">+ Nuevo donante</a></section>
 <section class="content-card">

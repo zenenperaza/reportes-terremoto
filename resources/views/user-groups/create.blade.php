@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Nuevo grupo de usuarios | Respuesta ASONACOP')
+@section('title', 'Nuevo grupo de usuarios | SIA')
 @section('content')
 <section class="page-heading compact-heading">
     <div><p class="eyebrow">Administraci&oacute;n</p><h1>Registrar grupo de usuarios</h1><p class="muted">Cree un equipo para compartir la consulta de registros entre sus miembros.</p></div>

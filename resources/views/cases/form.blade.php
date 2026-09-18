@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', $caseRecord->exists ? 'Expediente '.$caseRecord->reference : 'Nuevo caso')
+@section('title', ($caseRecord->exists ? 'Expediente '.$caseRecord->reference : 'Nuevo caso').' | SIA')
 @include('cases._assets')
 @section('content')
 @php

@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Nuevo caso — Buscar coincidencias')
+@section('title', 'Nuevo caso — Buscar coincidencias | SIA')
 @include('cases._assets')
 @section('content')
 <div class="case-module">

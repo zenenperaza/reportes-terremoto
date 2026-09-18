@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title','Proyectos | Respuesta ASONACOP')
+@section('title','Proyectos | SIA')
 @section('content')
 <section class="page-heading"><div><p class="eyebrow">Configuraci&oacute;n</p><h1>Proyectos</h1><p class="muted">Administre los proyectos y sus periodos de ejecuci&oacute;n.</p></div><a class="button button-primary" href="{{ route('proyectos.create') }}">+ Nuevo proyecto</a></section>
 <section class="content-card">@if($proyectos->isEmpty())<div class="empty-state"><p>No hay proyectos registrados.</p></div>@else

@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Roles | Respuesta ASONACOP')
+@section('title', 'Roles | SIA')
 @section('content')
 <section class="page-heading">
     <div><p class="eyebrow">Seguridad</p><h1>Roles</h1><p class="muted">Defina las funciones del sistema y los permisos disponibles para cada una.</p></div>

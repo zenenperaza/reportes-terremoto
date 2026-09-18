@@ -16,7 +16,7 @@ class ResetPasswordNotification extends ResetPassword
         $minutes = (int) config('auth.passwords.'.config('auth.defaults.passwords').'.expire', 60);
 
         return (new MailMessage)
-            ->subject('Recuperación de contraseña | ASONACOP')
+            ->subject('Recuperación de contraseña | SIA')
             ->greeting('Hola, '.$notifiable->name)
             ->line('Recibimos una solicitud para restablecer la contraseña de su cuenta.')
             ->action('Restablecer contraseña', $url)

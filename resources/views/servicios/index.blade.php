@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title','Servicios | Respuesta ASONACOP')
+@section('title','Servicios | SIA')
 @section('content')
 <section class="page-heading"><div><p class="eyebrow">Configuración</p><h1>Servicios</h1><p class="muted">Administre el catálogo maestro de servicios.</p></div><a class="button button-primary" href="{{ route('servicios.create') }}">+ Nuevo servicio</a></section>
 <section class="content-card">@if($servicios->isEmpty())<div class="empty-state"><p>No hay servicios registrados.</p></div>@else

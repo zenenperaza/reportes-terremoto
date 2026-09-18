@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Informes generales | Respuesta ASONACOP')
+@section('title', 'Informes generales | SIA')
 
 @push('styles')
     <link rel="stylesheet" href="{{ asset('css/general-reports.css') }}">

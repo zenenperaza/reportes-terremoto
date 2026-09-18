@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Bitácora | Respuesta ASONACOP')
+@section('title', 'Bitácora | SIA')
 
 @push('styles')
     <link rel="stylesheet" href="{{ asset('vendor/datatables/dataTables.dataTables.min.css') }}">

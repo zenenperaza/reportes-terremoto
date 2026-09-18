@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Mi perfil | Respuesta ASONACOP')
+@section('title', 'Mi perfil | SIA')
 
 @section('content')
 <section class="page-heading compact-heading">

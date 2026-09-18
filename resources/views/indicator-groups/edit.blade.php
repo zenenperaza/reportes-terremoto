@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Editar grupo de indicadores | Respuesta ASONACOP')
+@section('title', 'Editar grupo de indicadores | SIA')
 @section('content')
 <section class="page-heading compact-heading">
     <div><p class="eyebrow">Configuraci&oacute;n</p><h1>Editar grupo de indicadores</h1><p class="muted">Actualice {{ $indicatorGroup->name }}.</p></div>

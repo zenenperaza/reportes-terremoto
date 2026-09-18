@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', $proyecto->codigo.' | Respuesta ASONACOP')
+@section('title', $proyecto->codigo.' | SIA')
 @section('content')
 <section class="page-heading project-detail-heading">
     <div><p class="eyebrow">Detalle del proyecto</p><h1>{{ $proyecto->codigo }}</h1>@if($proyecto->nombre_alias)<h2 class="project-alias">{{ $proyecto->nombre_alias }}</h2>@endif<p class="muted">{{ $proyecto->descripcion }}</p></div>

@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title','Indicadores | Respuesta ASONACOP')
+@section('title','Indicadores | SIA')
 @section('content')
 <section class="page-heading"><div><p class="eyebrow">Configuraci&oacute;n</p><h1>Indicadores</h1><p class="muted">Administre el cat&aacute;logo de indicadores de seguimiento.</p></div><a class="button button-primary" href="{{ route('indicadores.create') }}">+ Nuevo indicador</a></section>
 <section class="content-card">@if($indicadores->isEmpty())<div class="empty-state"><p>No hay indicadores registrados.</p></div>@else

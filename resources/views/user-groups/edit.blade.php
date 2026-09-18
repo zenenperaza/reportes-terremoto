@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Editar grupo de usuarios | Respuesta ASONACOP')
+@section('title', 'Editar grupo de usuarios | SIA')
 @section('content')
 <section class="page-heading compact-heading">
     <div><p class="eyebrow">Administraci&oacute;n</p><h1>Editar grupo de usuarios</h1><p class="muted">Actualice {{ $userGroup->name }}.</p></div>

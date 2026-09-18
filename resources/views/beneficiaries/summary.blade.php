@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Informe de beneficiarios | Respuesta ASONACOP')
+@section('title', 'Informe de beneficiarios | SIA')
 
 @push('styles')
     <link rel="stylesheet" href="/vendor/datatables/dataTables.dataTables.min.css">

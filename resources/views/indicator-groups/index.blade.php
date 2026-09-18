@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Grupos de indicadores | Respuesta ASONACOP')
+@section('title', 'Grupos de indicadores | SIA')
 @section('content')
 <section class="page-heading">
     <div>

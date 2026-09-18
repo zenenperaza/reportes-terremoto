@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Registros | Respuesta ASONACOP')
+@section('title', 'Registros | SIA')
 
 @push('styles')
     <link rel="stylesheet" href="/vendor/datatables/dataTables.dataTables.min.css">

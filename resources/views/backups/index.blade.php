@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Respaldos | Respuesta ASONACOP')
+@section('title', 'Respaldos | SIA')
 
 @push('styles')
     <link rel="stylesheet" href="{{ asset('css/backups.css') }}">

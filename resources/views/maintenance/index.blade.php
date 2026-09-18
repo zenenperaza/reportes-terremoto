@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Mantenimiento del sistema | Respuesta ASONACOP')
+@section('title', 'Mantenimiento del sistema | SIA')
 @push('styles')
 <link rel="stylesheet" href="{{ asset('css/system-maintenance.css') }}">
 @endpush

@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Historial del expediente')
+@section('title', 'Historial del expediente | SIA')
 @include('cases._assets')
 @section('content')
 <div class="case-module">

@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Crear cuenta | Respuesta ASONACOP')
+@section('title', 'Crear cuenta | SIA')
 
 @section('content')
 <section class="auth-shell">

@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Nuevo permiso | Respuesta ASONACOP')
+@section('title', 'Nuevo permiso | SIA')
 @section('content')
 <section class="page-heading compact-heading">
     <div><p class="eyebrow">Seguridad</p><h1>Registrar permiso</h1><p class="muted">Cree una capacidad para asignarla posteriormente a uno o varios roles.</p></div>

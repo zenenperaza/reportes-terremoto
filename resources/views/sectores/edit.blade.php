@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title','Editar sector | Respuesta ASONACOP')
+@section('title','Editar sector | SIA')
 @section('content')
 <section class="page-heading">
     <div>

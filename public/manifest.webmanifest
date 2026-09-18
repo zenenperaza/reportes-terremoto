@@ -1,8 +1,8 @@
 {
     "id": "/",
-    "name": "Respuesta ASONACOP Venezuela",
-    "short_name": "ASONACOP",
-    "description": "Registro de beneficiarios y respuesta al terremoto en Venezuela.",
+    "name": "SIA — Sistema de Información ASONACOP",
+    "short_name": "SIA",
+    "description": "Sistema de Información ASONACOP para el registro de beneficiarios, actividades y gestión de casos.",
     "lang": "es",
     "dir": "ltr",
     "start_url": "/panel?source=pwa",

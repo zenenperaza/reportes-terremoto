@@ -22,9 +22,9 @@ class EmailTwoFactorCodeNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Código de acceso - Respuesta ASONACOP')
+            ->subject('Código de acceso - SIA')
             ->greeting('Hola, '.$notifiable->name)
-            ->line('Se solicitó el ingreso a su cuenta en el sistema Respuesta ASONACOP.')
+            ->line('Se solicitó el ingreso a su cuenta en SIA (Sistema de Información ASONACOP).')
             ->line('Su código de verificación es:')
             ->line('**'.$this->code.'**')
             ->line('El código vence en 10 minutos y solo puede utilizarse una vez.')

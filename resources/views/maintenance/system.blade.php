@@ -4,13 +4,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#004b87">
-    <title>Sistema en mantenimiento | ASONACOP</title>
+    <title>Sistema en mantenimiento | SIA</title>
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
     <link rel="stylesheet" href="{{ asset('css/system-maintenance.css') }}">
 </head>
 <body class="maintenance-page">
     <main class="maintenance-message" role="alert">
-        <div class="maintenance-brand">ASONACOP</div>
+        <div class="maintenance-brand">SIA</div>
+        <p>Sistema de Información ASONACOP</p>
         <div class="maintenance-icon" aria-hidden="true">⚙</div>
         <p class="eyebrow">Mantenimiento programado</p>
         <h1>Sistema temporalmente no disponible</h1>

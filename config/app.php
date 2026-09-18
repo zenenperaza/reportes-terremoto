@@ -13,7 +13,8 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),
+    // Display name is independent of legacy APP_NAME cache/session namespaces.
+    'name' => 'SIA',
 
     /*
     |--------------------------------------------------------------------------

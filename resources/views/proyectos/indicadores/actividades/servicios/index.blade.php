@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title','Servicios de la actividad | Respuesta ASONACOP')
+@section('title','Servicios de la actividad | SIA')
 @section('content')
 <section class="page-heading project-indicator-heading"><div><p class="eyebrow">{{ $actividadIndicador->indicadorProyecto->proyecto->codigo }} · {{ $actividadIndicador->indicadorProyecto->indicador->codigo }}</p><h1>Servicios de la actividad</h1><p class="muted"><strong>{{ $actividadIndicador->actividad->codigo }}</strong> · {{ $actividadIndicador->actividad->descripcion }}</p></div><div class="heading-actions"><a class="button button-secondary" href="{{ route('indicador-proyecto.actividades.index',$actividadIndicador->indicadorProyecto) }}">← Volver a actividades</a><button class="button button-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalAgregarServicio" @disabled($serviciosDisponibles->isEmpty())>+ Agregar servicio</button></div></section>
 <section class="content-card">@if($asignaciones->isEmpty())<div class="empty-state"><p>Esta actividad todavía no tiene servicios asignados.</p></div>@else
