@@ -82,7 +82,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const render = (selector, options) => { const element = document.querySelector(selector); if (element && typeof ApexCharts !== 'undefined') new ApexCharts(element, options).render(); };
     const shared = {chart: {fontFamily: 'inherit', toolbar: {show: false}}, dataLabels: {enabled: false}, legend: {position: 'bottom'}, noData: {text: 'Sin datos para mostrar'}};
 
-    render('#general-age-chart', {...shared, series: [{name: 'Hombres', data: chartData.ages.men}, {name: 'Mujeres', data: chartData.ages.women}], chart: {...shared.chart, type: 'bar', height: 355, stacked: false}, colors: [palette.blue, palette.cyan], plotOptions: {bar: {horizontal: false, columnWidth: '52%', borderRadius: 4}}, xaxis: {categories: chartData.ages.labels, labels: {rotate: -30}}, yaxis: {min: 0, forceNiceScale: true}, tooltip: {shared: true, intersect: false}});
+    render('#general-age-chart', {
+        ...shared,
+        series: [{name: 'Hombres', data: chartData.ages.men}, {name: 'Mujeres', data: chartData.ages.women}],
+        chart: {...shared.chart, type: 'bar', height: 355, stacked: false},
+        colors: [palette.blue, palette.cyan],
+        plotOptions: {bar: {horizontal: false, columnWidth: '52%', borderRadius: 4, dataLabels: {position: 'top'}}},
+        dataLabels: {
+            enabled: true,
+            formatter: value => Number(value).toLocaleString('es-VE'),
+            offsetY: -20,
+            style: {fontSize: '11px', fontWeight: 600, colors: [palette.blue]},
+            background: {enabled: true, foreColor: '#fff', borderRadius: 3, padding: 3, opacity: 1, borderWidth: 0},
+        },
+        xaxis: {categories: chartData.ages.labels, labels: {rotate: -30}},
+        yaxis: {min: 0, max: value => Math.max(1, Math.ceil(value * 1.15)), forceNiceScale: true},
+        grid: {padding: {top: 15}},
+        tooltip: {shared: true, intersect: false},
+    });
     render('#general-sex-chart', {...shared, series: chartData.sex.values, labels: chartData.sex.labels, chart: {...shared.chart, type: 'donut', height: 355}, colors: [palette.blue, palette.cyan], dataLabels: {enabled: true}, plotOptions: {pie: {donut: {size: '67%', labels: {show: true, total: {show: true, label: 'Total', formatter: () => '{{ number_format($summary['beneficiaries']) }}'}}}}}});
     render('#general-attention-chart', {...shared, series: chartData.attention_types.values, labels: chartData.attention_types.labels, chart: {...shared.chart, type: 'pie', height: 355}, colors: [palette.blue, palette.teal, palette.orange, palette.cyan, palette.red, palette.purple], dataLabels: {enabled: true}, responsive: [{breakpoint: 600, options: {chart: {height: 410}, legend: {position: 'bottom'}}}]});
     render('#general-state-chart', {...shared, series: [{name: 'Beneficiarios', data: chartData.states.values}], chart: {...shared.chart, type: 'bar', height: 355}, colors: [palette.teal], dataLabels: {enabled: true, formatter: value => Number(value).toLocaleString('es-VE'), offsetX: 8, style: {fontSize: '12px', colors: ['#334155']}}, plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '58%', dataLabels: {position: 'top'}}}, xaxis: {categories: chartData.states.labels, min: 0}});

@@ -52,13 +52,11 @@
     @if (! $isCoordinator && $reports->isEmpty())
         <div class="empty-state"><p>No hay registros que coincidan con los filtros.</p></div>
     @else
-        <p class="muted report-table-help" id="report-table-help">N.º de servicios cuenta los servicios seleccionados en el registro, no unidades entregadas.@if($isCoordinator) El mismo registro puede aparecer en varias filas de beneficiarios; no sume esas filas como entregas independientes.@endif En pantallas pequeñas, pulse el control junto a la fecha para ver las demás columnas.</p>
         @if($isCoordinator)
-            <p class="muted report-table-help">Copiar, CSV, Excel, PDF e Imprimir incluyen todos los registros que coincidan con la búsqueda y los filtros activos, no solo la página actual.</p>
             <p id="report-export-status" class="muted report-table-help" role="status" aria-live="polite" hidden></p>
             <p id="report-table-error" class="alert alert-error" role="alert" hidden>No se pudieron cargar los registros. Revise su conexión o recargue la página para volver a intentarlo.</p>
         @endif
-        <div class="table-wrap report-table-wrap"><table id="activity-records-table" class="activity-records-table display responsive" style="width:100%" aria-describedby="report-table-help">
+        <div class="table-wrap report-table-wrap"><table id="activity-records-table" class="activity-records-table display responsive" style="width:100%">
             <thead>
                 @if ($isCoordinator)
                     <tr><th data-priority="1">Fecha atención</th><th>Registrado por</th><th>Fecha registro</th>@if($canViewPersonalData)<th>Nombres</th><th>Cédula</th><th>Teléfono</th>@endif<th>Edad / sexo</th><th>Ubicación</th><th>Proyecto</th><th data-priority="3">Indicadores</th><th data-priority="4">Actividades</th><th data-priority="5">Servicios</th><th data-priority="2">N.º de servicios</th><th>Recurrente</th><th>Reportado</th>@if($canViewReportDetail)<th class="no-export" data-priority="6">Acciones</th>@endif</tr>

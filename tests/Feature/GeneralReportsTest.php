@@ -64,6 +64,9 @@ class GeneralReportsTest extends TestCase
             ->assertSee('Informes Generales')
             ->assertSee('Personas atendidas')
             ->assertSee('general-age-chart', false)
+            ->assertSee("dataLabels: {position: 'top'}", false)
+            ->assertSee('offsetY: -20', false)
+            ->assertSee("formatter: value => Number(value).toLocaleString('es-VE')", false)
             ->assertSee('general-sex-chart', false)
             ->assertSee('PN/01 - Personas atendidas')
             ->assertDontSee('Otra actividad del sector');
