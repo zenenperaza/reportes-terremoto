@@ -13,6 +13,12 @@
 .admin-layout .main-content .button{display:inline-flex;align-items:center;justify-content:center}.admin-layout .topbar-user .dropdown-item{width:100%;border:0;background:transparent;text-align:left}
 .admin-layout #topnav-hamburger-icon{width:48px;height:48px;padding:0!important;display:inline-flex;align-items:center;justify-content:center;flex:0 0 48px}
 .admin-layout #topnav-hamburger-icon:focus-visible{outline:2px solid #405189;outline-offset:2px}
+[data-layout=horizontal] .admin-layout #topnav-hamburger-icon{visibility:visible}
+/* Desktop navigation can be hidden without leaving the menu's 45px gap. */
+@media(min-width:1024.1px){
+    [data-layout=horizontal] .admin-layout.horizontal-menu-hidden .app-menu.navbar-menu{display:none}
+    [data-layout=horizontal] .admin-layout.horizontal-menu-hidden .page-content{padding-top:1.5rem}
+}
 [data-layout=horizontal] .admin-layout .horizontal-brand .logo-lg{display:flex;align-items:center;gap:9px;color:#405189}
 [data-layout=horizontal] .admin-layout .horizontal-brand .logo-lg>span{display:flex;flex-direction:column;line-height:1.05}
 [data-layout=horizontal] .admin-layout .horizontal-brand strong{font-size:16px;letter-spacing:.025em}

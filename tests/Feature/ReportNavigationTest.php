@@ -28,4 +28,13 @@ class ReportNavigationTest extends TestCase
         $this->assertSame(1, $xpath->query('//a[@href="'.$create.'"]')->length);
         $response->assertSee('+ Nuevo registro')->assertSee('Registros de actividades');
     }
+
+    public function test_horizontal_menu_loads_its_controller_and_accessible_target(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'admin']))
+            ->get(route('reports.index'))->assertOk()
+            ->assertSee('id="main-navigation"', false)
+            ->assertSee('aria-controls="main-navigation"', false)
+            ->assertSee('js/horizontal-menu.js?v=', false);
+    }
 }

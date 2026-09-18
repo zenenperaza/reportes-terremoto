@@ -61,10 +61,10 @@
                 <div class="navbar-brand-box horizontal-logo">
                     <a href="{{ route('dashboard') }}" class="logo horizontal-brand">
                         <span class="logo-sm"><img src="{{ $asonacopIconUrl }}" data-logo-light="{{ $asonacopIconUrl }}" data-logo-dark="{{ $asonacopDarkIconUrl }}" alt="ASONACOP" height="34"></span>
-                        <span class="logo-lg"><img src="{{ $asonacopIconUrl }}" data-logo-light="{{ $asonacopIconUrl }}" data-logo-dark="{{ $asonacopDarkIconUrl }}" alt="" height="38"><span><strong>ASONACOP</strong><small>SIA</small></span></span>
+                        <span class="logo-lg"><img src="{{ $asonacopIconUrl }}" data-logo-light="{{ $asonacopIconUrl }}" data-logo-dark="{{ $asonacopDarkIconUrl }}" alt="" height="38"></span>
                     </a>
                 </div>
-                <button type="button" class="btn btn-sm px-3 fs-16 header-item vertical-menu-btn topnav-hamburger" id="topnav-hamburger-icon" aria-label="Abrir o cerrar men&uacute;" aria-expanded="false"><span class="hamburger-icon" aria-hidden="true"><span></span><span></span><span></span></span></button>
+                <button type="button" class="btn btn-sm px-3 fs-16 header-item vertical-menu-btn topnav-hamburger" id="topnav-hamburger-icon" aria-label="Abrir o cerrar men&uacute;" aria-controls="main-navigation" aria-expanded="false"><span class="hamburger-icon" aria-hidden="true"><span></span><span></span><span></span></span></button>
                 <div class="app-context d-none d-md-block"><span class="app-context-title">SIA</span><small>Sistema de Información ASONACOP</small></div>
             </div>
             <div class="d-flex align-items-center gap-1">
@@ -86,7 +86,7 @@
         </div></div>
     </header>
 
-    <div class="app-menu navbar-menu">
+    <div class="app-menu navbar-menu" id="main-navigation">
         <div class="navbar-brand-box">
             <a href="{{ route('dashboard') }}" class="logo sidebar-brand"><span class="logo-sm"><img src="{{ $asonacopIconUrl }}" data-logo-light="{{ $asonacopIconUrl }}" data-logo-dark="{{ $asonacopDarkIconUrl }}" alt="ASONACOP" height="38"></span><span class="logo-lg"><img src="{{ $asonacopIconUrl }}" data-logo-light="{{ $asonacopIconUrl }}" data-logo-dark="{{ $asonacopDarkIconUrl }}" alt="ASONACOP" height="42"><span><strong>ASONACOP</strong><small>SIA</small></span></span></a>
             <button type="button" class="btn btn-sm p-0 fs-20 header-item float-end btn-vertical-sm-hover" id="vertical-hover" aria-label="Contraer men&uacute;"><i class="ri-record-circle-line"></i></button>
@@ -181,6 +181,7 @@
 <script src="{{ asset('assets/libs/node-waves/waves.min.js') }}"></script>
 <script src="{{ asset('assets/js/plugins.js') }}"></script>
 <script src="{{ asset('assets/js/app.js') }}"></script>
+<script src="{{ $versionedAsset('js/horizontal-menu.js') }}"></script>
 <script src="{{ $versionedAsset('js/theme-switcher.js') }}"></script>
 @else
 <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
