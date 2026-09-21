@@ -4,13 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Activity;
 use App\Models\Beneficiary;
-use App\Models\Municipality;
 use App\Models\Report;
 use App\Models\Sector;
-use App\Models\State;
+use App\Services\ReportLocationOptions;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -60,8 +60,7 @@ class BeneficiaryReportController extends Controller
         $showReportedAt = $reported === true;
         $groupedBeneficiaries = $this->groupedBeneficiaries($beneficiaryQuery, $showReportedAt);
 
-        $selectedState = State::find($filters['state_id'] ?? null);
-        $selectedMunicipality = Municipality::find($filters['municipality_id'] ?? null);
+        $locations = $this->locationOptions($request, $filters);
         $selectedSector = Sector::find($filters['sector_id'] ?? null);
 
         return view('beneficiaries.summary', [
@@ -72,9 +71,9 @@ class BeneficiaryReportController extends Controller
             'pendingBeneficiaryCount' => $pendingBeneficiaryCount,
             'groupedBeneficiaries' => $groupedBeneficiaries,
             'showReportedAt' => $showReportedAt,
-            'states' => State::orderBy('name')->get(['id', 'name']),
-            'municipalities' => $selectedState ? $selectedState->municipalities()->orderBy('name')->get(['id', 'name']) : collect(),
-            'parishes' => $selectedMunicipality ? $selectedMunicipality->parishes()->orderBy('name')->get(['id', 'name']) : collect(),
+            'states' => $locations['states'],
+            'municipalities' => $locations['municipalities'],
+            'parishes' => $locations['parishes'],
             'sectors' => Sector::orderBy('sort_order')->get(['id', 'name']),
             'activities' => $selectedSector
                 ? $selectedSector->activities()->where('active', true)->orderBy('sort_order')->get(['id', 'title'])
@@ -226,6 +225,24 @@ class BeneficiaryReportController extends Controller
             ->when($filters['sector_id'] ?? null, fn (Builder $query, int $sectorId) => $query->where('sector_id', $sectorId))
             ->when($filters['activity_id'] ?? null, fn (Builder $query, int $activityId) => $query->where('activity_id', $activityId))
             ->when($filters['indicador_proyecto_id'] ?? null, fn (Builder $query, int $assignmentId) => $query->where('indicador_proyecto_id', $assignmentId));
+    }
+
+    public function locations(Request $request): JsonResponse
+    {
+        $locations = $this->locationOptions($request, $this->validatedFilters($request));
+
+        return response()->json(collect($locations)->map(
+            fn ($items) => $items->map(fn ($item) => ['id' => $item->id, 'name' => $item->name])
+        ));
+    }
+
+    private function locationOptions(Request $request, array $filters): array
+    {
+        return (new ReportLocationOptions)->get(
+            $this->visibleReports($request),
+            filled($filters['state_id'] ?? null) ? [(int) $filters['state_id']] : [],
+            filled($filters['municipality_id'] ?? null) ? (int) $filters['municipality_id'] : null,
+        );
     }
 
     private function visibleReports(Request $request): Builder

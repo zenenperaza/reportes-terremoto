@@ -18,7 +18,7 @@
 </section>
 
 <section class="content-card filter-card">
-    <form method="get" class="beneficiary-report-filters" id="beneficiary-report-filters">
+    <form method="get" class="beneficiary-report-filters" id="beneficiary-report-filters" data-locations-url="{{ route('beneficiaries.locations') }}">
         <label>Fecha de atención desde
             <input type="date" name="from" value="{{ $filters['from'] ?? '' }}">
         </label>
@@ -58,6 +58,9 @@
         <label>Reportado
             <select name="reported"><option value="">Todos</option><option value="1" @selected(($filters['reported'] ?? '') === '1')>Sí</option><option value="0" @selected(($filters['reported'] ?? '') === '0')>No</option></select>
         </label>
+        <div id="summary-locations-error" role="alert" hidden>
+            No se pudieron cargar las ubicaciones. <button type="button" id="summary-locations-retry">Reintentar</button>
+        </div>
         <div class="filter-actions">
             <button class="button button-primary" type="submit">Generar informe</button>
             @can('exportar registros excel')
@@ -182,7 +185,7 @@
 const summarySelect = (id) => document.getElementById(id);
 const setSummaryOptions = (element, items, placeholder) => { element.innerHTML = `<option value="">${placeholder}</option>` + items.map(item => `<option value="${item.id}">${item.name || item.title}</option>`).join(''); };
 const loadSummaryOptions = async (element, url, placeholder) => { const response = await fetch(url, {headers: {'Accept': 'application/json'}}); setSummaryOptions(element, await response.json(), placeholder); };
-const summaryState = summarySelect('summary_state_id'), summaryMunicipality = summarySelect('summary_municipality_id'), summaryParish = summarySelect('summary_parish_id'), summarySector = summarySelect('summary_sector_id'), summaryActivity = summarySelect('summary_activity_id');
+const summarySector = summarySelect('summary_sector_id'), summaryActivity = summarySelect('summary_activity_id');
 const beneficiaryFilterForm = document.getElementById('beneficiary-report-filters');
 const beneficiaryExportButton = document.getElementById('beneficiary-export-button');
 const syncBeneficiaryExportUrl = () => {
@@ -203,11 +206,10 @@ const activateReportTab = (tab) => {
     });
 };
 document.querySelectorAll('[data-report-tab]').forEach(tab => tab.addEventListener('click', () => activateReportTab(tab)));
-summaryState.addEventListener('change', async () => { setSummaryOptions(summaryMunicipality, [], 'Cargando municipios'); setSummaryOptions(summaryParish, [], 'Todas'); if (summaryState.value) await loadSummaryOptions(summaryMunicipality, `/ubicaciones/estados/${summaryState.value}/municipios`, 'Todos'); });
-summaryMunicipality.addEventListener('change', async () => { setSummaryOptions(summaryParish, [], 'Cargando parroquias'); if (summaryMunicipality.value) await loadSummaryOptions(summaryParish, `/ubicaciones/municipios/${summaryMunicipality.value}/parroquias`, 'Todas'); });
 summarySector.addEventListener('change', async () => { setSummaryOptions(summaryActivity, [], 'Cargando actividades'); await loadSummaryOptions(summaryActivity, summarySector.value ? `/sectores/${summarySector.value}/actividades` : `{{ route('activities.all') }}`, 'Todas'); });
 </script>
 
+<script src="{{ asset('js/general-report-locations.js') }}?v={{ filemtime(public_path('js/general-report-locations.js')) }}"></script>
 <script src="/vendor/datatables/jquery-3.7.1.min.js"></script>
 <script src="/vendor/datatables/dataTables.min.js"></script>
 <script src="/vendor/datatables/dataTables.buttons.min.js"></script>

@@ -7,7 +7,7 @@ use App\Models\IndicadorProyecto;
 use App\Models\Municipality;
 use App\Models\Parish;
 use App\Models\Sector;
-use App\Models\State;
+use App\Services\ReportLocationOptions;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -28,7 +28,8 @@ class GeneralReportController extends Controller
 
     public function __invoke(Request $request): View
     {
-        $filters = $this->validatedFilters($request);
+        $dateBounds = $this->dateBounds($request);
+        $filters = $this->validatedFilters($request, $dateBounds);
         $beneficiaries = $this->filteredBeneficiaries($request, $filters)
             ->with([
                 'report:id,report_date,created_at,state_id,municipality_id,parish_id,installation_type,place_name,sector_id,activity_id',
@@ -36,7 +37,7 @@ class GeneralReportController extends Controller
             ])
             ->get(['id', 'report_id', 'age', 'sex', 'is_recurrent', 'reported_at', 'created_at']);
 
-        $locations = $this->locationOptions($filters);
+        $locations = $this->locationOptions($request, $filters);
         $indicatorAssignments = IndicadorProyecto::query()
             ->with(['indicador:id,codigo,descripcion', 'asignacionSector:id,sector_id'])
             ->whereIn('id', $this->visibleReports($request)
@@ -63,8 +64,9 @@ class GeneralReportController extends Controller
 
         return view('general-reports.index', [
             'filters' => $filters,
+            'dateBounds' => $dateBounds,
             'ageGroups' => self::AGE_GROUPS,
-            'states' => State::orderBy('name')->get(['id', 'name']),
+            'states' => $locations['states'],
             'municipalities' => $locations['municipalities'],
             'parishes' => $locations['parishes'],
             'sectors' => Sector::where('estatus', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
@@ -86,23 +88,20 @@ class GeneralReportController extends Controller
 
     public function locations(Request $request): JsonResponse
     {
-        return response()->json($this->locationOptions($this->validatedFilters($request)));
+        return response()->json($this->locationOptions($request, $this->validatedFilters($request)));
     }
 
-    private function locationOptions(array $filters): array
+    private function locationOptions(Request $request, array $filters): array
     {
-        $states = $filters['state_id'];
-        $municipalities = Municipality::query()->with('state:id,name')
-            ->when($states, fn (Builder $query) => $query->whereIn('state_id', $states))
-            ->orderBy('name')->orderBy('id')->get(['id', 'name', 'state_id']);
-        $parishes = Parish::query()->with('municipality:id,name,state_id', 'municipality.state:id,name')
-            ->whereIn('municipality_id', $municipalities->pluck('id'))
-            ->when($filters['municipality_id'] ?? null, fn (Builder $query, int $id) => $query->where('municipality_id', $id))
-            ->orderBy('name')->orderBy('id')->get(['id', 'name', 'municipality_id']);
+        $locations = (new ReportLocationOptions)->get(
+            $this->visibleReports($request), $filters['state_id'],
+            filled($filters['municipality_id'] ?? null) ? (int) $filters['municipality_id'] : null,
+        );
 
         return [
-            'municipalities' => $municipalities->map(fn ($item) => ['id' => $item->id, 'name' => $item->name.' — '.$item->state?->name]),
-            'parishes' => $parishes->map(fn ($item) => ['id' => $item->id, 'name' => $item->name.' — '.$item->municipality?->name.' — '.$item->municipality?->state?->name]),
+            'states' => $locations['states'],
+            'municipalities' => $locations['municipalities']->map(fn ($item) => ['id' => $item->id, 'name' => $item->name.' — '.$item->state?->name]),
+            'parishes' => $locations['parishes']->map(fn ($item) => ['id' => $item->id, 'name' => $item->name.' — '.$item->municipality?->name.' — '.$item->municipality?->state?->name]),
         ];
     }
 
@@ -140,8 +139,29 @@ class GeneralReportController extends Controller
             ->when(($filters['reported'] ?? '') === '0', fn (Builder $q) => $q->whereNull('reported_at'));
     }
 
+    private function dateBounds(Request $request): array
+    {
+        // Use the same records and date columns as the report, without narrowing
+        // the bounds to the current filters (users must be able to widen them).
+        $bounds = Beneficiary::query()
+            ->whereIn('beneficiaries.report_id', $this->visibleReports($request)->select('reports.id'))
+            ->join('reports', 'beneficiaries.report_id', '=', 'reports.id')
+            ->toBase()->selectRaw('MIN(reports.report_date) as attention_min, MAX(reports.report_date) as attention_max, MIN(beneficiaries.created_at) as registered_min, MAX(beneficiaries.created_at) as registered_max')
+            ->first();
+
+        $result = [];
+        foreach (['attention', 'registered'] as $group) {
+            foreach (['min', 'max'] as $limit) {
+                $value = $bounds->{$group.'_'.$limit};
+                $result[$group][$limit] = $value === null ? null : substr((string) $value, 0, 10);
+            }
+        }
+
+        return $result;
+    }
+
     /** @return array<string, mixed> */
-    private function validatedFilters(Request $request): array
+    private function validatedFilters(Request $request, ?array $dateBounds = null): array
     {
         $input = $request->all();
         // Continue accepting bookmarked URLs with a single state_id.
@@ -158,10 +178,10 @@ class GeneralReportController extends Controller
         }
 
         $filters = validator($input, [
-            'attention_from' => ['nullable', 'date'],
-            'attention_to' => ['nullable', 'date', 'after_or_equal:attention_from'],
-            'registered_from' => ['nullable', 'date'],
-            'registered_to' => ['nullable', 'date', 'after_or_equal:registered_from'],
+            'attention_from' => ['nullable', 'date_format:Y-m-d'],
+            'attention_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:attention_from'],
+            'registered_from' => ['nullable', 'date_format:Y-m-d'],
+            'registered_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:registered_from'],
             'age_from' => ['nullable', 'integer', 'min:0', 'max:120'],
             'age_to' => ['nullable', 'integer', 'min:0', 'max:120', 'gte:age_from'],
             'age_group' => ['nullable', Rule::in(array_keys(self::AGE_GROUPS))],
@@ -177,6 +197,29 @@ class GeneralReportController extends Controller
             'is_recurrent' => ['nullable', Rule::in(['0', '1', 0, 1])],
             'reported' => ['nullable', Rule::in(['0', '1', 0, 1])],
         ])->validate();
+
+        if ($dateBounds !== null) {
+            $errors = [];
+            foreach (['attention', 'registered'] as $group) {
+                foreach (['from', 'to'] as $suffix) {
+                    $field = $group.'_'.$suffix;
+                    $value = $filters[$field] ?? null;
+                    if (! filled($value)) {
+                        continue;
+                    }
+                    $min = $dateBounds[$group]['min'];
+                    $max = $dateBounds[$group]['max'];
+                    if ($min === null || $max === null) {
+                        $errors[$field] = 'No hay fechas registradas disponibles para este filtro.';
+                    } elseif ($value < $min || $value > $max) {
+                        $errors[$field] = "Seleccione una fecha entre {$min} y {$max}, el período con registros disponibles.";
+                    }
+                }
+            }
+            if ($errors) {
+                throw ValidationException::withMessages($errors);
+            }
+        }
 
         $filters['state_id'] = array_map('intval', $filters['state_id']);
         if (! empty($filters['municipality_id']) && $filters['state_id'] && ! Municipality::query()

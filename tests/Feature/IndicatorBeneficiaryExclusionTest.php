@@ -95,6 +95,25 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
         }
     }
 
+    public function test_locations_with_only_excluded_indicators_are_hidden_only_in_beneficiary_reports(): void
+    {
+        [$admin, $included, $excluded] = $this->reports();
+        $state = State::create(['code' => 'EX', 'name' => 'Estado excluido']);
+        $municipality = Municipality::create(['state_id' => $state->id, 'code' => 'EX01', 'name' => 'Municipio excluido']);
+        $parish = Parish::create(['municipality_id' => $municipality->id, 'code' => 'EX0101', 'name' => 'Parroquia excluida']);
+        $excluded->update(['state_id' => $state->id, 'municipality_id' => $municipality->id, 'parish_id' => $parish->id]);
+        $this->actingAs($admin);
+        $this->get(route('beneficiaries.summary'))->assertOk()
+            ->assertViewHas('states', fn ($items) => ! $items->contains('id', $state->id))
+            ->assertViewHas('municipalities', fn ($items) => ! $items->contains('id', $municipality->id))
+            ->assertViewHas('parishes', fn ($items) => ! $items->contains('id', $parish->id));
+        $this->getJson(route('beneficiaries.locations', ['state_id' => $state->id]))->assertOk()
+            ->assertJsonCount(0, 'municipalities')->assertJsonCount(0, 'parishes');
+        $this->getJson(route('general-reports.locations', ['state_id' => [$state->id]]))->assertOk()
+            ->assertJsonPath('municipalities.0.id', $municipality->id)
+            ->assertJsonPath('parishes.0.id', $parish->id);
+    }
+
     public function test_mark_reported_cannot_update_excluded_beneficiaries(): void
     {
         [$admin, $included, $excluded, $legacy] = $this->reports();

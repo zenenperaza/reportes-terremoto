@@ -1,13 +1,16 @@
 document.addEventListener('DOMContentLoaded', function () {
     'use strict';
 
-    const form = document.getElementById('general-report-filters');
+    const generalForm = document.getElementById('general-report-filters');
+    const form = generalForm || document.getElementById('beneficiary-report-filters');
     if (!form) return;
-    const state = document.getElementById('general_state_id');
-    const municipality = document.getElementById('general_municipality_id');
-    const parish = document.getElementById('general_parish_id');
-    const error = document.getElementById('general-locations-error');
-    const retry = document.getElementById('general-locations-retry');
+    const prefix = generalForm ? 'general' : 'summary';
+    const state = document.getElementById(prefix + '_state_id');
+    const municipality = document.getElementById(prefix + '_municipality_id');
+    const parish = document.getElementById(prefix + '_parish_id');
+    const error = document.getElementById(prefix + '-locations-error');
+    const retry = document.getElementById(prefix + '-locations-retry');
+    const exportButton = document.getElementById('beneficiary-export-button');
     const submit = form.querySelector('[type="submit"]');
     let controller;
     let sequence = 0;
@@ -25,7 +28,11 @@ document.addEventListener('DOMContentLoaded', function () {
         const current = ++sequence;
         const selectedMunicipality = resetMunicipality ? '' : municipality.value;
         const params = new URLSearchParams();
-        Array.from(state.selectedOptions).forEach(option => params.append('state_id[]', option.value));
+        if (generalForm) {
+            Array.from(state.selectedOptions).forEach(option => params.append('state_id[]', option.value));
+        } else if (state.value) {
+            params.set('state_id', state.value);
+        }
         if (selectedMunicipality) params.set('municipality_id', selectedMunicipality);
         fill(municipality, [], 'Cargando...');
         fill(parish, [], 'Cargando...');
@@ -52,7 +59,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    if (window.jQuery?.fn?.select2) {
+    if (generalForm && window.jQuery?.fn?.select2) {
         window.jQuery(state).select2({
             width: '100%', placeholder: 'Todos los estados', allowClear: true, closeOnSelect: false,
             language: {noResults: () => 'No se encontraron estados', searching: () => 'Buscando...'},
@@ -63,4 +70,10 @@ document.addEventListener('DOMContentLoaded', function () {
     municipality.addEventListener('change', () => refresh(false));
     retry.addEventListener('click', () => refresh(true));
     form.addEventListener('submit', event => { if (blocked) event.preventDefault(); });
+    exportButton?.addEventListener('click', event => {
+        if (blocked) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        }
+    }, true);
 });

@@ -113,5 +113,70 @@ class GeneralReportLocationsTest extends TestCase
     {
         auth()->logout();
         $this->getJson(route('general-reports.locations'))->assertUnauthorized();
+        $this->getJson(route('beneficiaries.locations'))->assertUnauthorized();
+    }
+
+    public function test_both_reports_omit_unused_locations_on_initial_load_and_in_cascades(): void
+    {
+        $unusedState = State::create(['code' => 'D', 'name' => 'Estado sin registros']);
+        $unusedMunicipality = Municipality::create(['state_id' => $unusedState->id, 'code' => 'D01', 'name' => 'Municipio sin registros']);
+        Parish::create(['municipality_id' => $unusedMunicipality->id, 'code' => 'D0101', 'name' => 'Parroquia sin registros']);
+        // Empty children inside a used parent must also disappear.
+        Municipality::create(['state_id' => $this->locations['A']['state']->id, 'code' => 'A02', 'name' => 'Municipio vacío']);
+        Parish::create(['municipality_id' => $this->locations['A']['municipality']->id, 'code' => 'A0102', 'name' => 'Parroquia vacía']);
+
+        foreach (['general-reports.index', 'beneficiaries.summary'] as $route) {
+            $this->get(route($route))->assertOk()
+                ->assertViewHas('states', fn ($items) => $items->count() === 3 && ! $items->contains('id', $unusedState->id))
+                ->assertViewHas('municipalities', fn ($items) => $items->count() === 3)
+                ->assertViewHas('parishes', fn ($items) => $items->count() === 3);
+            $this->get(route($route, ['state_id' => $this->locations['A']['state']->id]))->assertOk()
+                ->assertViewHas('municipalities', fn ($items) => $items->count() === 1)
+                ->assertViewHas('parishes', fn ($items) => $items->count() === 1);
+        }
+        foreach (['general-reports.locations', 'beneficiaries.locations'] as $route) {
+            $this->getJson(route($route))->assertOk()->assertJsonCount(3, 'states')
+                ->assertJsonCount(3, 'municipalities')->assertJsonCount(3, 'parishes');
+            $this->getJson(route($route, ['state_id' => $this->locations['A']['state']->id]))->assertOk()
+                ->assertJsonCount(1, 'municipalities')->assertJsonCount(1, 'parishes');
+            $this->getJson(route($route, ['state_id' => $unusedState->id]))->assertOk()
+                ->assertJsonCount(0, 'municipalities')->assertJsonCount(0, 'parishes');
+            $this->getJson(route($route, ['municipality_id' => $this->locations['B']['municipality']->id]))->assertOk()
+                ->assertJsonCount(3, 'municipalities')->assertJsonCount(1, 'parishes')
+                ->assertJsonPath('parishes.0.id', $this->locations['B']['parish']->id);
+        }
+    }
+
+    public function test_location_options_only_use_reports_visible_to_the_current_user(): void
+    {
+        $reporter = User::factory()->create(['role' => 'reporter']);
+        Report::where('state_id', $this->locations['A']['state']->id)->update(['user_id' => $reporter->id]);
+        $this->actingAs($reporter);
+        foreach (['general-reports.index', 'beneficiaries.summary'] as $route) {
+            $this->get(route($route))->assertOk()
+                ->assertViewHas('states', fn ($items) => $items->pluck('id')->all() === [$this->locations['A']['state']->id])
+                ->assertViewHas('municipalities', fn ($items) => $items->count() === 1)
+                ->assertViewHas('parishes', fn ($items) => $items->count() === 1);
+        }
+        foreach (['general-reports.locations', 'beneficiaries.locations'] as $route) {
+            $this->getJson(route($route))->assertOk()->assertJsonCount(1, 'states')
+                ->assertJsonCount(1, 'municipalities')->assertJsonCount(1, 'parishes');
+            $this->getJson(route($route, ['state_id' => $this->locations['B']['state']->id]))->assertOk()
+                ->assertJsonCount(0, 'municipalities')->assertJsonCount(0, 'parishes');
+        }
+    }
+
+    public function test_users_without_visible_records_have_empty_location_options(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'reporter']));
+        foreach (['general-reports.index', 'beneficiaries.summary'] as $route) {
+            $this->get(route($route))->assertOk()
+                ->assertViewHas('states', fn ($items) => $items->isEmpty())
+                ->assertViewHas('municipalities', fn ($items) => $items->isEmpty())
+                ->assertViewHas('parishes', fn ($items) => $items->isEmpty());
+        }
+        foreach (['general-reports.locations', 'beneficiaries.locations'] as $route) {
+            $this->getJson(route($route))->assertOk()->assertExactJson(['states' => [], 'municipalities' => [], 'parishes' => []]);
+        }
     }
 }

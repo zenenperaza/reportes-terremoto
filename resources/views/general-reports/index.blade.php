@@ -19,10 +19,23 @@
     <div class="card-header"><div><h2 class="card-title mb-1">Filtros del informe</h2><p class="text-muted mb-0">Combine uno o varios criterios para actualizar todos los resultados.</p></div></div>
     <div class="card-body">
         <form method="get" id="general-report-filters" class="row g-3" data-locations-url="{{ route('general-reports.locations') }}">
-            <div class="col-xl-3 col-md-6"><label class="form-label">Fecha de atenci&oacute;n desde</label><input class="form-control" type="date" name="attention_from" value="{{ $filters['attention_from'] ?? '' }}"></div>
-            <div class="col-xl-3 col-md-6"><label class="form-label">Fecha de atenci&oacute;n hasta</label><input class="form-control" type="date" name="attention_to" value="{{ $filters['attention_to'] ?? '' }}"></div>
-            <div class="col-xl-3 col-md-6"><label class="form-label">Fecha de registro desde</label><input class="form-control" type="date" name="registered_from" value="{{ $filters['registered_from'] ?? '' }}"></div>
-            <div class="col-xl-3 col-md-6"><label class="form-label">Fecha de registro hasta</label><input class="form-control" type="date" name="registered_to" value="{{ $filters['registered_to'] ?? '' }}"></div>
+            @foreach(['attention_from' => ['attention', 'Fecha de atención desde'], 'attention_to' => ['attention', 'Fecha de atención hasta'], 'registered_from' => ['registered', 'Fecha de registro desde'], 'registered_to' => ['registered', 'Fecha de registro hasta']] as $field => [$dateGroup, $label])
+                @php($bounds = $dateBounds[$dateGroup])
+                <div class="col-xl-3 col-md-6">
+                    <label class="form-label" for="general_{{ $field }}">{{ $label }}</label>
+                    <input class="form-control" id="general_{{ $field }}" type="date" name="{{ $field }}"
+                        value="{{ $filters[$field] ?? '' }}"
+                        @if($bounds['min'] && $bounds['max']) min="{{ $bounds['min'] }}" max="{{ $bounds['max'] }}" @else disabled @endif
+                        aria-describedby="general_{{ $field }}_help">
+                    <small class="form-text text-muted" id="general_{{ $field }}_help">
+                        @if($bounds['min'] && $bounds['max'])
+                            Disponible: {{ \Illuminate\Support\Carbon::parse($bounds['min'])->format('d/m/Y') }} al {{ \Illuminate\Support\Carbon::parse($bounds['max'])->format('d/m/Y') }}.
+                        @else
+                            Sin fechas registradas disponibles.
+                        @endif
+                    </small>
+                </div>
+            @endforeach
 
             <div class="col-xl-2 col-md-4"><label class="form-label">Edad desde</label><input class="form-control" id="general_age_from" type="number" name="age_from" min="0" max="120" value="{{ $filters['age_from'] ?? '' }}" placeholder="0"></div>
             <div class="col-xl-2 col-md-4"><label class="form-label">Edad hasta</label><input class="form-control" id="general_age_to" type="number" name="age_to" min="0" max="120" value="{{ $filters['age_to'] ?? '' }}" placeholder="120"></div>

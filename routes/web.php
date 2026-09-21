@@ -172,6 +172,7 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
     Route::delete('/beneficiarios/{beneficiary}', [ReportController::class, 'destroyBeneficiary'])->middleware('permission:eliminar registros')->name('beneficiaries.destroy');
     Route::get('/informe-beneficiarios/exportar', [BeneficiaryReportController::class, 'export'])->middleware('permission:exportar registros excel')->name('beneficiaries.export');
     Route::get('/informe-beneficiarios', [BeneficiaryReportController::class, 'index'])->name('beneficiaries.summary');
+    Route::get('/informe-beneficiarios/ubicaciones', [BeneficiaryReportController::class, 'locations'])->name('beneficiaries.locations');
     Route::post('/informe-beneficiarios/marcar-reportados', [BeneficiaryReportController::class, 'markAsReported'])->name('beneficiaries.mark-reported');
     Route::get('/informes-generales', GeneralReportController::class)->name('general-reports.index');
     Route::get('/informes-generales/ubicaciones', [GeneralReportController::class, 'locations'])->name('general-reports.locations');
