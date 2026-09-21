@@ -18,7 +18,7 @@
 <section class="card general-filter-card">
     <div class="card-header"><div><h2 class="card-title mb-1">Filtros del informe</h2><p class="text-muted mb-0">Combine uno o varios criterios para actualizar todos los resultados.</p></div></div>
     <div class="card-body">
-        <form method="get" id="general-report-filters" class="row g-3">
+        <form method="get" id="general-report-filters" class="row g-3" data-locations-url="{{ route('general-reports.locations') }}">
             <div class="col-xl-3 col-md-6"><label class="form-label">Fecha de atenci&oacute;n desde</label><input class="form-control" type="date" name="attention_from" value="{{ $filters['attention_from'] ?? '' }}"></div>
             <div class="col-xl-3 col-md-6"><label class="form-label">Fecha de atenci&oacute;n hasta</label><input class="form-control" type="date" name="attention_to" value="{{ $filters['attention_to'] ?? '' }}"></div>
             <div class="col-xl-3 col-md-6"><label class="form-label">Fecha de registro desde</label><input class="form-control" type="date" name="registered_from" value="{{ $filters['registered_from'] ?? '' }}"></div>
@@ -29,9 +29,10 @@
             <div class="col-xl-4 col-md-4"><label class="form-label">Grupo etario</label><select class="form-select" id="general_age_group" name="age_group"><option value="">Todos</option>@foreach($ageGroups as $value => $group)<option value="{{ $value }}" @selected(($filters['age_group'] ?? '') === $value)>{{ $group['label'] }}</option>@endforeach</select><small class="form-text text-muted">Use el rango de edad o el grupo etario, no ambos.</small></div>
             <div class="col-xl-4 col-md-6"><label class="form-label">Sexo</label><select class="form-select" name="sex"><option value="">Todos</option>@foreach(config('reports.beneficiary_options.sexes') as $sex)<option value="{{ $sex }}" @selected(($filters['sex'] ?? '') === $sex)>{{ $sex }}</option>@endforeach</select></div>
 
-            <div class="col-xl-4 col-md-6"><label class="form-label">Estado</label><select class="form-select" name="state_id" id="general_state_id"><option value="">Todos</option>@foreach($states as $state)<option value="{{ $state->id }}" @selected(($filters['state_id'] ?? '') == $state->id)>{{ $state->name }}</option>@endforeach</select></div>
-            <div class="col-xl-4 col-md-6"><label class="form-label">Municipio</label><select class="form-select" name="municipality_id" id="general_municipality_id"><option value="">Todos</option>@foreach($municipalities as $municipality)<option value="{{ $municipality->id }}" @selected(($filters['municipality_id'] ?? '') == $municipality->id)>{{ $municipality->name }}</option>@endforeach</select></div>
-            <div class="col-xl-4 col-md-6"><label class="form-label">Parroquia</label><select class="form-select" name="parish_id" id="general_parish_id"><option value="">Todas</option>@foreach($parishes as $parish)<option value="{{ $parish->id }}" @selected(($filters['parish_id'] ?? '') == $parish->id)>{{ $parish->name }}</option>@endforeach</select></div>
+            <div class="col-xl-4 col-md-6"><label class="form-label" for="general_state_id">Estado</label><select class="form-select" name="state_id[]" id="general_state_id" multiple aria-describedby="general_states_help">@foreach($states as $state)<option value="{{ $state->id }}" @selected(in_array($state->id, $filters['state_id'], true))>{{ $state->name }}</option>@endforeach</select><small id="general_states_help" class="form-text text-muted">Seleccione uno o varios. Sin selecci&oacute;n se incluyen todos los estados.</small></div>
+            <div class="col-xl-4 col-md-6"><label class="form-label" for="general_municipality_id">Municipio</label><select class="form-select" name="municipality_id" id="general_municipality_id"><option value="">Todos</option>@foreach($municipalities as $municipality)<option value="{{ $municipality['id'] }}" @selected(($filters['municipality_id'] ?? '') == $municipality['id'])>{{ $municipality['name'] }}</option>@endforeach</select></div>
+            <div class="col-xl-4 col-md-6"><label class="form-label" for="general_parish_id">Parroquia</label><select class="form-select" name="parish_id" id="general_parish_id"><option value="">Todas</option>@foreach($parishes as $parish)<option value="{{ $parish['id'] }}" @selected(($filters['parish_id'] ?? '') == $parish['id'])>{{ $parish['name'] }}</option>@endforeach</select></div>
+            <div id="general-locations-error" class="col-12 text-danger" role="alert" hidden>No se pudieron cargar municipios y parroquias. <button type="button" class="btn btn-outline-danger btn-sm" id="general-locations-retry">Reintentar</button></div>
 
             <div class="col-xl-4 col-md-6"><label class="form-label">Tipo de atenci&oacute;n</label><select class="form-select" name="installation_type"><option value="">Todos</option>@foreach($installationTypes as $type)<option value="{{ $type }}" @selected(($filters['installation_type'] ?? '') === $type)>{{ $type }}</option>@endforeach</select></div>
             <div class="col-xl-4 col-md-6"><label class="form-label">Nombre del lugar</label><select class="form-select" name="place_name"><option value="">Todos</option>@foreach($places as $place)<option value="{{ $place }}" @selected(($filters['place_name'] ?? '') === $place)>{{ $place }}</option>@endforeach</select></div>
@@ -75,6 +76,7 @@
 
 @push('scripts')
 <script src="{{ asset('assets/libs/apexcharts/apexcharts.min.js') }}"></script>
+<script src="{{ asset('js/general-report-locations.js') }}?v={{ filemtime(public_path('js/general-report-locations.js')) }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const chartData = {{ Illuminate\Support\Js::from($charts) }};
@@ -106,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
     render('#general-trend-chart', {...shared, series: [{name: 'Hombres', data: chartData.trend.men}, {name: 'Mujeres', data: chartData.trend.women}], chart: {...shared.chart, type: 'area', height: 365, zoom: {enabled: false}}, colors: [palette.blue, palette.cyan], stroke: {curve: 'smooth', width: 3}, fill: {type: 'gradient', gradient: {opacityFrom: .28, opacityTo: .04}}, dataLabels: {enabled: true, formatter: value => Number(value).toLocaleString('es-VE'), offsetY: -7, style: {fontSize: '10px'}, background: {enabled: true, borderRadius: 3, padding: 3, opacity: .85}}, xaxis: {categories: chartData.trend.labels, type: 'datetime'}, markers: {size: 4}, tooltip: {shared: true, intersect: false, x: {format: 'dd/MM/yyyy'}}});
 
     const select = id => document.getElementById(id);
-    const state = select('general_state_id'), municipality = select('general_municipality_id'), parish = select('general_parish_id'), sector = select('general_sector_id'), indicator = select('general_indicator_id');
+    const sector = select('general_sector_id'), indicator = select('general_indicator_id');
     const availableIndicators = {{ Illuminate\Support\Js::from($indicators) }};
     const ageFrom = select('general_age_from'), ageTo = select('general_age_to'), ageGroup = select('general_age_group');
     const synchronizeAgeFilters = source => {
@@ -120,10 +122,6 @@ document.addEventListener('DOMContentLoaded', () => {
     ageFrom?.addEventListener('input', () => synchronizeAgeFilters(ageFrom));
     ageTo?.addEventListener('input', () => synchronizeAgeFilters(ageTo));
     ageGroup?.addEventListener('change', () => synchronizeAgeFilters(ageGroup));
-    const fillOptions = (element, items, placeholder) => { element.innerHTML = `<option value="">${placeholder}</option>` + items.map(item => `<option value="${item.id}">${item.name || item.title}</option>`).join(''); };
-    const load = async (element, url, placeholder) => { const response = await fetch(url, {headers: {'Accept': 'application/json'}}); if (!response.ok) throw new Error('No se pudieron cargar las opciones'); fillOptions(element, await response.json(), placeholder); };
-    state?.addEventListener('change', async () => { fillOptions(municipality, [], state.value ? 'Cargando...' : 'Todos'); fillOptions(parish, [], 'Todas'); if (state.value) await load(municipality, `/ubicaciones/estados/${state.value}/municipios`, 'Todos'); });
-    municipality?.addEventListener('change', async () => { fillOptions(parish, [], municipality.value ? 'Cargando...' : 'Todas'); if (municipality.value) await load(parish, `/ubicaciones/municipios/${municipality.value}/parroquias`, 'Todas'); });
     const fillIndicators = () => {
         if (!indicator) return;
         const selectedValue = indicator.value;

@@ -5,10 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\Beneficiary;
 use App\Models\IndicadorProyecto;
 use App\Models\Municipality;
+use App\Models\Parish;
 use App\Models\Sector;
 use App\Models\State;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -33,8 +36,7 @@ class GeneralReportController extends Controller
             ])
             ->get(['id', 'report_id', 'age', 'sex', 'is_recurrent', 'reported_at', 'created_at']);
 
-        $selectedState = State::find($filters['state_id'] ?? null);
-        $selectedMunicipality = Municipality::find($filters['municipality_id'] ?? null);
+        $locations = $this->locationOptions($filters);
         $indicatorAssignments = IndicadorProyecto::query()
             ->with(['indicador:id,codigo,descripcion', 'asignacionSector:id,sector_id'])
             ->whereIn('id', $this->visibleReports($request)
@@ -63,8 +65,8 @@ class GeneralReportController extends Controller
             'filters' => $filters,
             'ageGroups' => self::AGE_GROUPS,
             'states' => State::orderBy('name')->get(['id', 'name']),
-            'municipalities' => $selectedState ? $selectedState->municipalities()->orderBy('name')->get(['id', 'name']) : collect(),
-            'parishes' => $selectedMunicipality ? $selectedMunicipality->parishes()->orderBy('name')->get(['id', 'name']) : collect(),
+            'municipalities' => $locations['municipalities'],
+            'parishes' => $locations['parishes'],
             'sectors' => Sector::where('estatus', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
             'indicators' => $indicators,
             'installationTypes' => config('reports.installation_types'),
@@ -82,6 +84,28 @@ class GeneralReportController extends Controller
         return $query;
     }
 
+    public function locations(Request $request): JsonResponse
+    {
+        return response()->json($this->locationOptions($this->validatedFilters($request)));
+    }
+
+    private function locationOptions(array $filters): array
+    {
+        $states = $filters['state_id'];
+        $municipalities = Municipality::query()->with('state:id,name')
+            ->when($states, fn (Builder $query) => $query->whereIn('state_id', $states))
+            ->orderBy('name')->orderBy('id')->get(['id', 'name', 'state_id']);
+        $parishes = Parish::query()->with('municipality:id,name,state_id', 'municipality.state:id,name')
+            ->whereIn('municipality_id', $municipalities->pluck('id'))
+            ->when($filters['municipality_id'] ?? null, fn (Builder $query, int $id) => $query->where('municipality_id', $id))
+            ->orderBy('name')->orderBy('id')->get(['id', 'name', 'municipality_id']);
+
+        return [
+            'municipalities' => $municipalities->map(fn ($item) => ['id' => $item->id, 'name' => $item->name.' — '.$item->state?->name]),
+            'parishes' => $parishes->map(fn ($item) => ['id' => $item->id, 'name' => $item->name.' — '.$item->municipality?->name.' — '.$item->municipality?->state?->name]),
+        ];
+    }
+
     /** @param array<string, mixed> $filters */
     private function filteredBeneficiaries(Request $request, array $filters): Builder
     {
@@ -91,7 +115,7 @@ class GeneralReportController extends Controller
                 $query
                     ->when($filters['attention_from'] ?? null, fn (Builder $q, string $date) => $q->whereDate('report_date', '>=', $date))
                     ->when($filters['attention_to'] ?? null, fn (Builder $q, string $date) => $q->whereDate('report_date', '<=', $date))
-                    ->when($filters['state_id'] ?? null, fn (Builder $q, int $id) => $q->where('state_id', $id))
+                    ->when($filters['state_id'], fn (Builder $q, array $ids) => $q->whereIn('state_id', $ids))
                     ->when($filters['municipality_id'] ?? null, fn (Builder $q, int $id) => $q->where('municipality_id', $id))
                     ->when($filters['parish_id'] ?? null, fn (Builder $q, int $id) => $q->where('parish_id', $id))
                     ->when($filters['installation_type'] ?? null, fn (Builder $q, string $type) => $q->where('installation_type', $type))
@@ -120,6 +144,10 @@ class GeneralReportController extends Controller
     private function validatedFilters(Request $request): array
     {
         $input = $request->all();
+        // Continue accepting bookmarked URLs with a single state_id.
+        if (! is_array($input['state_id'] ?? null)) {
+            $input['state_id'] = filled($input['state_id'] ?? null) ? [$input['state_id']] : [];
+        }
 
         // El grupo etario y el rango manual representan el mismo criterio. Si una
         // URL antigua contiene ambos, el grupo etario tiene prioridad para evitar
@@ -129,7 +157,7 @@ class GeneralReportController extends Controller
             $input['age_to'] = null;
         }
 
-        return validator($input, [
+        $filters = validator($input, [
             'attention_from' => ['nullable', 'date'],
             'attention_to' => ['nullable', 'date', 'after_or_equal:attention_from'],
             'registered_from' => ['nullable', 'date'],
@@ -138,7 +166,8 @@ class GeneralReportController extends Controller
             'age_to' => ['nullable', 'integer', 'min:0', 'max:120', 'gte:age_from'],
             'age_group' => ['nullable', Rule::in(array_keys(self::AGE_GROUPS))],
             'sex' => ['nullable', Rule::in(config('reports.beneficiary_options.sexes'))],
-            'state_id' => ['nullable', 'integer', 'exists:states,id'],
+            'state_id' => ['array', 'max:100'],
+            'state_id.*' => ['required', 'integer', 'distinct', 'exists:states,id'],
             'municipality_id' => ['nullable', 'integer', 'exists:municipalities,id'],
             'parish_id' => ['nullable', 'integer', 'exists:parishes,id'],
             'installation_type' => ['nullable', Rule::in(config('reports.installation_types'))],
@@ -148,6 +177,20 @@ class GeneralReportController extends Controller
             'is_recurrent' => ['nullable', Rule::in(['0', '1', 0, 1])],
             'reported' => ['nullable', Rule::in(['0', '1', 0, 1])],
         ])->validate();
+
+        $filters['state_id'] = array_map('intval', $filters['state_id']);
+        if (! empty($filters['municipality_id']) && $filters['state_id'] && ! Municipality::query()
+            ->whereKey($filters['municipality_id'])->whereIn('state_id', $filters['state_id'])->exists()) {
+            throw ValidationException::withMessages(['municipality_id' => 'El municipio no pertenece a los estados seleccionados.']);
+        }
+        if (! empty($filters['parish_id']) && ! Parish::query()->whereKey($filters['parish_id'])
+            ->when($filters['municipality_id'] ?? null, fn (Builder $q, int $id) => $q->where('municipality_id', $id))
+            ->when($filters['state_id'], fn (Builder $q, array $ids) => $q->whereHas('municipality', fn (Builder $m) => $m->whereIn('state_id', $ids)))
+            ->exists()) {
+            throw ValidationException::withMessages(['parish_id' => 'La parroquia no pertenece a los estados o al municipio seleccionados.']);
+        }
+
+        return $filters;
     }
 
     private function summary($beneficiaries): array
