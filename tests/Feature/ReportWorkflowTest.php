@@ -929,6 +929,36 @@ class ReportWorkflowTest extends TestCase
         // Regular reporters (non-coordinators) never gain this cross-group editing ability.
         $peerReporter = User::factory()->create(['role' => 'reporter', 'user_group_id' => $group->id]);
         $this->assertFalse($peerReporter->canManageGroupReport($teammateReport));
+
+        // End-to-end: the coordinator can actually submit the update form (not just pass the model check).
+        $this->actingAs($coordinator)
+            ->putJson(route('reports.update', $teammateReport), [
+                'report_date' => today()->toDateString(),
+                'organization' => 'ASONACOP',
+                'state_id' => $state->id,
+                'municipality_id' => $municipality->id,
+                'parish_id' => $parish->id,
+                'installation_type' => 'Comunidad / Espacio Comunitario',
+                'place_name' => 'Lugar del equipo',
+                'sector_id' => $sector->id,
+                'activity_id' => $activity->id,
+                'activity_details' => 'Actualizado por el coordinador',
+            ])->assertOk();
+        $this->assertSame('Actualizado por el coordinador', $teammateReport->fresh()->activity_details);
+
+        // The locked group still blocks the coordinator, both at the request and controller level.
+        $this->actingAs($lockedCoordinator)
+            ->putJson(route('reports.update', $lockedReport), [
+                'report_date' => today()->toDateString(),
+                'organization' => 'ASONACOP',
+                'state_id' => $state->id,
+                'municipality_id' => $municipality->id,
+                'parish_id' => $parish->id,
+                'installation_type' => 'Comunidad / Espacio Comunitario',
+                'place_name' => 'Lugar bloqueado',
+                'sector_id' => $sector->id,
+                'activity_id' => $activity->id,
+            ])->assertForbidden();
     }
 
     public function test_beneficiary_summary_includes_reports_using_project_indicators(): void

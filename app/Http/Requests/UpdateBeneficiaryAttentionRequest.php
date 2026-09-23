@@ -18,7 +18,7 @@ class UpdateBeneficiaryAttentionRequest extends StoreBeneficiaryEntryRequest
         return $this->user() !== null
             && $beneficiary instanceof Beneficiary
             && $this->user()->can('editar beneficiarios')
-            && ($beneficiary->report->user_id === $this->user()->id || $this->user()->isAdministrator());
+            && $this->user()->canManageGroupReport($beneficiary->report);
     }
 
     protected function prepareForValidation(): void

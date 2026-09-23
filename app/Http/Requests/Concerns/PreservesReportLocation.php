@@ -16,7 +16,7 @@ trait PreservesReportLocation
         }
         if (! $report instanceof Report || $this->boolean('is_community_location')
             || ! $this->user()?->can($beneficiary instanceof Beneficiary ? 'editar beneficiarios' : 'editar registros')
-            || ($report->user_id !== $this->user()->id && ! $this->user()->isAdministrator())) {
+            || ! $this->user()->canManageGroupReport($report)) {
             return false;
         }
 
