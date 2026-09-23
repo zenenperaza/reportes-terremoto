@@ -61,7 +61,7 @@
                     <option value="{{ $option['value'] }}" @selected(in_array($option['value'], $selectedIndicators, true))>{{ $option['label'] }}</option>
                 @endforeach
             </select>
-            <small class="muted" id="summary-indicator-help">Seleccione uno o varios indicadores. Sin selección se incluyen todos.</small>
+            <small class="muted" id="summary-indicator-help">Use “Seleccionar todos los indicadores” y quite los que no necesite. Sin selección se incluyen todos.</small>
         </label>
         <label>Recurrente
             <select name="is_recurrent"><option value="">Todos</option><option value="1" @selected(($filters['is_recurrent'] ?? '') === '1')>Sí</option><option value="0" @selected(($filters['is_recurrent'] ?? '') === '0')>No</option></select>
@@ -199,6 +199,25 @@
 <script>
 const summarySelect = (id) => document.getElementById(id);
 const summarySector = summarySelect('summary_sector_id'), summaryIndicator = summarySelect('summary_indicator_id');
+const summarySelectAllValue = '__select_all_indicators__';
+const addSummarySelectAllOption = () => {
+    const option = new Option('Seleccionar todos los indicadores', summarySelectAllValue);
+    option.disabled = !Array.from(summaryIndicator.options).some(item => item.value && !item.disabled);
+    summaryIndicator.prepend(option);
+};
+const selectAllSummaryIndicators = () => {
+    Array.from(summaryIndicator.options).forEach(option => {
+        option.selected = Boolean(option.value && option.value !== summarySelectAllValue && !option.disabled);
+    });
+    summaryIndicator.dispatchEvent(new Event('change', {bubbles: true}));
+};
+// The bulk action is UI-only; never send it as an indicator filter.
+addSummarySelectAllOption();
+summaryIndicator.addEventListener('change', () => {
+    if (Array.from(summaryIndicator.selectedOptions).some(option => option.value === summarySelectAllValue)) {
+        selectAllSummaryIndicators();
+    }
+});
 const summaryIndicatorOptions = {{ Illuminate\Support\Js::from($indicatorOptions) }};
 const beneficiaryFilterForm = document.getElementById('beneficiary-report-filters');
 const beneficiaryExportButton = document.getElementById('beneficiary-export-button');
@@ -230,6 +249,7 @@ summarySector.addEventListener('change', () => {
         seen.add(item.value);
         summaryIndicator.add(new Option(item.label, item.value, false, previousValues.has(item.value)));
     });
+    addSummarySelectAllOption();
     if (window.jQuery?.fn?.select2) window.jQuery(summaryIndicator).trigger('change.select2');
     syncBeneficiaryExportUrl();
 });
@@ -239,6 +259,11 @@ document.addEventListener('DOMContentLoaded', () => {
             width: '100%', placeholder: 'Todos los indicadores', allowClear: true, closeOnSelect: false,
             dropdownCssClass: 'beneficiary-indicator-dropdown',
             language: {noResults: () => 'No se encontraron indicadores', searching: () => 'Buscando...'},
+        }).on('select2:selecting', event => {
+            if (event.params.args.data.id !== summarySelectAllValue) return;
+            event.preventDefault();
+            selectAllSummaryIndicators();
+            window.jQuery(summaryIndicator).select2('close');
         }).on('change', syncBeneficiaryExportUrl);
     }
 });

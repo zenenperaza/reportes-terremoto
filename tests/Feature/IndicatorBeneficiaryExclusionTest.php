@@ -260,7 +260,8 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
             ->assertViewHas('reportCount', 2)
             ->assertViewHas('summary', fn ($summary) => $summary['total'] === 2)
             ->assertViewHas('groupedBeneficiaries', fn ($groups) => $groups->sum('beneficiary_count') === 2 && $groups->every(fn ($group) => $group->indicador_proyecto_id !== null))
-            ->assertSee('id="summary_indicator_id" multiple', false);
+            ->assertSee('id="summary_indicator_id" multiple', false)
+            ->assertSee('Seleccionar todos los indicadores');
         foreach ($selected as $value) {
             $response->assertSee('value="'.$value.'" selected', false)
                 ->assertSee('name="indicator_filter[]" value="'.$value.'"', false);

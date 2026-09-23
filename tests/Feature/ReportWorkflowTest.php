@@ -905,6 +905,32 @@ class ReportWorkflowTest extends TestCase
         $this->assertFalse($groupReporter->canViewReport($locations[2]['report']));
     }
 
+    public function test_coordinator_can_edit_teammate_report_only_when_group_allows_it(): void
+    {
+        $group = UserGroup::create(['name' => 'Equipo con edicion', 'is_active' => true, 'allow_member_editing' => true]);
+        $lockedGroup = UserGroup::create(['name' => 'Equipo sin edicion', 'is_active' => true, 'allow_member_editing' => false]);
+        $owner = User::factory()->create(['role' => 'reporter', 'user_group_id' => $group->id]);
+        $lockedOwner = User::factory()->create(['role' => 'reporter', 'user_group_id' => $lockedGroup->id]);
+        $coordinator = User::factory()->create(['role' => 'coordinator', 'user_group_id' => $group->id]);
+        $lockedCoordinator = User::factory()->create(['role' => 'coordinator', 'user_group_id' => $lockedGroup->id]);
+        $state = State::create(['code' => 'VE20', 'name' => 'Estado edicion']);
+        $municipality = Municipality::create(['state_id' => $state->id, 'code' => 'VE2001', 'name' => 'Municipio edicion']);
+        $parish = Parish::create(['municipality_id' => $municipality->id, 'code' => 'VE200101', 'name' => 'Parroquia edicion']);
+        $sector = Sector::create(['name' => 'Proteccion', 'slug' => 'proteccion-edicion', 'sort_order' => 1]);
+        $activity = Activity::create(['sector_id' => $sector->id, 'code' => 'EDIT-01', 'title' => 'Actividad de edicion', 'sort_order' => 1]);
+
+        $teammateReport = $this->makeReport($owner, $state, $municipality, $parish, $sector, $activity, 'Lugar del equipo');
+        $lockedReport = $this->makeReport($lockedOwner, $state, $municipality, $parish, $sector, $activity, 'Lugar bloqueado');
+
+        // The group allows cross-editing: a coordinator can manage a teammate's report.
+        $this->assertTrue($coordinator->canManageGroupReport($teammateReport));
+        // A coordinator from a group without the toggle enabled cannot edit teammate reports.
+        $this->assertFalse($lockedCoordinator->canManageGroupReport($lockedReport));
+        // Regular reporters (non-coordinators) never gain this cross-group editing ability.
+        $peerReporter = User::factory()->create(['role' => 'reporter', 'user_group_id' => $group->id]);
+        $this->assertFalse($peerReporter->canManageGroupReport($teammateReport));
+    }
+
     public function test_beneficiary_summary_includes_reports_using_project_indicators(): void
     {
         $user = User::factory()->create(['role' => 'reporter']);

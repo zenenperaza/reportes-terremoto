@@ -192,6 +192,23 @@ class User extends Authenticatable
         );
     }
 
+    public function canManageGroupReport(Report $report): bool
+    {
+        if ($this->isAdministrator()) {
+            return true;
+        }
+
+        if ($report->user_id === $this->id) {
+            return true;
+        }
+
+        if ($this->role !== 'coordinator') {
+            return false;
+        }
+
+        return $this->editableGroupUserIds()->contains($report->user_id);
+    }
+
     public function canAccessLocation(int $stateId, int $municipalityId): bool
     {
         if ($this->isAdministrator() || $this->countrywide_access) {
@@ -246,6 +263,39 @@ class User extends Authenticatable
             ->whereHas('userGroups', fn (Builder $groups) => $groups
                 ->whereIn('user_groups.id', $activeGroupIds)
                 ->where('user_groups.is_active', true))
+            ->pluck('id')
+            ->push($this->id)
+            ->unique();
+    }
+
+    private function editableGroupUserIds()
+    {
+        if (! Schema::hasTable('user_group_user')) {
+            if (! $this->user_group_id || ! $this->userGroup?->is_active || ! $this->userGroup?->allow_member_editing) {
+                return collect([$this->id]);
+            }
+
+            return User::query()
+                ->where('user_group_id', $this->user_group_id)
+                ->pluck('id')
+                ->push($this->id)
+                ->unique();
+        }
+
+        $editableGroupIds = $this->userGroups()
+            ->where('user_groups.is_active', true)
+            ->where('user_groups.allow_member_editing', true)
+            ->pluck('user_groups.id');
+
+        if ($editableGroupIds->isEmpty()) {
+            return collect([$this->id]);
+        }
+
+        return User::query()
+            ->whereHas('userGroups', fn (Builder $groups) => $groups
+                ->whereIn('user_groups.id', $editableGroupIds)
+                ->where('user_groups.is_active', true)
+                ->where('user_groups.allow_member_editing', true))
             ->pluck('id')
             ->push($this->id)
             ->unique();

@@ -8,6 +8,13 @@
             <option value="0" @selected((string) old('is_active', $userGroup?->is_active ?? true) === '0')>Inactivo</option>
         </select>
     </label>
+    <label>Edici&oacute;n cruzada entre miembros *
+        <select name="allow_member_editing" required>
+            <option value="0" @selected((string) old('allow_member_editing', $userGroup?->allow_member_editing ?? false) === '0')>No permitir</option>
+            <option value="1" @selected((string) old('allow_member_editing', $userGroup?->allow_member_editing ?? false) === '1')>Permitir</option>
+        </select>
+        <small class="muted">Si est&aacute; activo, los coordinadores de este grupo podr&aacute;n editar los registros creados por otros miembros del mismo grupo.</small>
+    </label>
     <label class="span-two">Descripci&oacute;n
         <textarea name="description" maxlength="255" rows="4" placeholder="Describa el equipo o alcance del grupo">{{ old('description', $userGroup?->description) }}</textarea>
     </label>

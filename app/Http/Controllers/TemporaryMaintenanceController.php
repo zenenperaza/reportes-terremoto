@@ -16,11 +16,14 @@ class TemporaryMaintenanceController extends Controller
         abort_if($token === '', 503, 'Falta configurar SERVER_MAINTENANCE_TOKEN en el archivo .env.');
         abort_unless(hash_equals($token, (string) request('token')), 403);
 
-        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios'], true),
+        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos'], true),
             422, 'Modo de mantenimiento no reconocido.');
         $permissionsOnly = request('only') === 'permisos-beneficiarios';
+        $groupEditingOnly = request('only') === 'edicion-cruzada-grupos';
         abort_if($permissionsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
             422, 'El modo permisos-beneficiarios no se puede combinar con opciones de caché o importación.');
+        abort_if($groupEditingOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
+            422, 'El modo edicion-cruzada-grupos no se puede combinar con opciones de caché o importación.');
 
         $permissionMigration = ['name' => 'migrate', 'parameters' => [
             '--path' => 'database/migrations/2026_09_23_180000_add_beneficiary_management_permissions.php',
@@ -28,6 +31,13 @@ class TemporaryMaintenanceController extends Controller
         ]];
         abort_if($permissionsOnly && ! is_file(base_path($permissionMigration['parameters']['--path'])),
             422, 'Suba la migración 2026_09_23_180000_add_beneficiary_management_permissions.php antes de continuar.');
+
+        $groupEditingMigration = ['name' => 'migrate', 'parameters' => [
+            '--path' => 'database/migrations/2026_09_23_160539_add_allow_member_editing_to_user_groups_table.php',
+            '--force' => true,
+        ]];
+        abort_if($groupEditingOnly && ! is_file(base_path($groupEditingMigration['parameters']['--path'])),
+            422, 'Suba la migración 2026_09_23_160539_add_allow_member_editing_to_user_groups_table.php antes de continuar.');
 
         $cacheCommands = [
             ['name' => 'optimize:clear', 'parameters' => []],
@@ -185,7 +195,7 @@ class TemporaryMaintenanceController extends Controller
 
         $commands = array_merge(
             $cacheCommands,
-            $permissionsOnly ? [$permissionMigration] : ($cacheOnly || $excelOnly ? [] : array_merge($migrationCommands, [$permissionMigration])),
+            $permissionsOnly ? [$permissionMigration] : ($groupEditingOnly ? [$groupEditingMigration] : ($cacheOnly || $excelOnly ? [] : array_merge($migrationCommands, [$permissionMigration]))),
             $includeExcel ? $excelImportCommands : [],
             $warmupCommands,
         );
@@ -193,7 +203,10 @@ class TemporaryMaintenanceController extends Controller
         $results = $permissionsOnly ? [
             'PERMISOS DE BENEFICIARIOS: se ejecutará únicamente la nueva migración de permisos y se reconstruirán las cachés. No se importarán ni modificarán registros o beneficiarios.',
             'Se conservan editar registros y eliminar registros. Se crean editar beneficiarios y eliminar beneficiarios heredando inicialmente las asignaciones correspondientes.',
-        ] : [];
+        ] : ($groupEditingOnly ? [
+            'EDICIÓN CRUZADA DE GRUPOS: se ejecutará únicamente la migración que agrega la columna allow_member_editing a user_groups y se reconstruirán las cachés. No se importarán ni modificarán registros o beneficiarios.',
+            'Luego de aplicar esta migración, active "Edición cruzada entre miembros" en el grupo de usuarios correspondiente para permitir que los coordinadores editen registros de sus compañeros de grupo.',
+        ] : []);
         $exitCode = 1;
 
         try {

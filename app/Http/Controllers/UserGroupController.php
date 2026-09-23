@@ -56,12 +56,16 @@ class UserGroupController extends Controller
 
     private function validated(Request $request, ?UserGroup $userGroup = null): array
     {
-        $request->merge(['is_active' => $request->boolean('is_active')]);
+        $request->merge([
+            'is_active' => $request->boolean('is_active'),
+            'allow_member_editing' => $request->boolean('allow_member_editing'),
+        ]);
 
         return $request->validate([
             'name' => ['required', 'string', 'max:120', Rule::unique('user_groups', 'name')->ignore($userGroup)],
             'description' => ['nullable', 'string', 'max:255'],
             'is_active' => ['required', 'boolean'],
+            'allow_member_editing' => ['required', 'boolean'],
         ]);
     }
 }

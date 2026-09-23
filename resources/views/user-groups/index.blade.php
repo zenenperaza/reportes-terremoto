@@ -16,7 +16,7 @@
     @else
         <div class="table-wrap">
             <table>
-                <thead><tr><th>Grupo</th><th>Descripci&oacute;n</th><th>Miembros</th><th>Estado</th><th>Acciones</th></tr></thead>
+                <thead><tr><th>Grupo</th><th>Descripci&oacute;n</th><th>Miembros</th><th>Estado</th><th>Edici&oacute;n cruzada</th><th>Acciones</th></tr></thead>
                 <tbody>
                 @foreach ($groups as $group)
                     <tr>
@@ -24,6 +24,7 @@
                         <td>{{ $group->description ?: 'Sin descripci&oacute;n' }}</td>
                         <td>{{ $group->users_count }}</td>
                         <td><span class="catalog-tag">{{ $group->is_active ? 'Activo' : 'Inactivo' }}</span></td>
+                        <td><span class="catalog-tag">{{ $group->allow_member_editing ? 'Permitida' : 'No permitida' }}</span></td>
                         <td class="row-actions">
                             <a href="{{ route('user-groups.edit', $group) }}">Editar</a>
                             @if ($group->users_count === 0)

@@ -423,15 +423,14 @@ class ReportController extends Controller
         return view('reports.show', [
             'report' => $report,
             'isCoordinator' => $request->user()->isCoordinator(),
-            'canEditReport' => $request->user()->can('editar registros') && (
-                $report->user_id === $request->user()->id
-                || $request->user()->isAdministrator()
-            ) && $report->status !== 'reviewed',
+            'canEditReport' => $request->user()->can('editar registros')
+                && $request->user()->canManageGroupReport($report)
+                && $report->status !== 'reviewed',
             'canEditBeneficiaries' => $request->user()->can('editar beneficiarios')
-                && ($report->user_id === $request->user()->id || $request->user()->isAdministrator())
+                && $request->user()->canManageGroupReport($report)
                 && $report->status !== 'reviewed',
             'canDeleteBeneficiaries' => $request->user()->can('eliminar beneficiarios')
-                && ($report->user_id === $request->user()->id || $request->user()->isAdministrator())
+                && $request->user()->canManageGroupReport($report)
                 && $report->status !== 'reviewed'
                 && ($report->beneficiaries->count() > 1
                     || ($request->user()->isAdministrator() && $request->user()->can('eliminar registros'))),
@@ -726,8 +725,7 @@ class ReportController extends Controller
     private function ensureEditable(Request $request, Report $report, string $permission = 'editar registros'): void
     {
         abort_unless(
-            $request->user()->can($permission)
-                && ($report->user_id === $request->user()->id || $request->user()->isAdministrator()),
+            $request->user()->can($permission) && $request->user()->canManageGroupReport($report),
             403
         );
         abort_if($report->status === 'reviewed', 409, 'No se puede modificar un registro revisado.');
