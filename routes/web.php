@@ -170,6 +170,7 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
     Route::get('/beneficiarios/verificar-recurrencia', [BeneficiaryLookupController::class, 'recurrence'])->name('beneficiaries.recurrence');
     Route::post('/beneficiarios', [ReportController::class, 'storeBeneficiary'])->middleware('permission:registrar actividad')->name('beneficiaries.store');
     Route::put('/beneficiarios/{beneficiary}', [ReportController::class, 'updateBeneficiary'])->middleware('permission:editar registros')->name('beneficiaries.update');
+    Route::put('/beneficiarios/{beneficiary}/atencion', [ReportController::class, 'updateBeneficiaryAttention'])->middleware('permission:editar registros')->name('beneficiaries.update-attention');
     Route::delete('/beneficiarios/{beneficiary}', [ReportController::class, 'destroyBeneficiary'])->middleware('permission:eliminar registros')->name('beneficiaries.destroy');
     Route::get('/informe-beneficiarios/exportar', [BeneficiaryReportController::class, 'export'])->middleware('permission:exportar registros excel')->name('beneficiaries.export');
     Route::get('/informe-beneficiarios', [BeneficiaryReportController::class, 'index'])->name('beneficiaries.summary');

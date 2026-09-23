@@ -28,6 +28,26 @@ class UpdateReportRequest extends StoreReportRequest
             }
         }
 
+        $rules['beneficiary'] = ['prohibited'];
+        $rules['beneficiaries'] = ['prohibited'];
+
         return $rules;
+    }
+
+    public function withValidator($validator): void
+    {
+        parent::withValidator($validator);
+        $validator->after(function ($validator): void {
+            $report = $this->route('report');
+            if ($this->integer('indicador_proyecto_id') === (int) $report->indicador_proyecto_id) {
+                return;
+            }
+            $indicator = \App\Models\IndicadorProyecto::find($this->integer('indicador_proyecto_id'))?->indicador;
+            if ($indicator?->unidad_conteo === 'Personas' && $report->beneficiaries()->where(function ($query) use ($indicator): void {
+                $query->where('age', '<', $indicator->edad_desde)->orWhere('age', '>', $indicator->edad_hasta);
+            })->exists()) {
+                $validator->errors()->add('indicador_proyecto_id', 'El indicador no admite la edad de todos los beneficiarios del grupo. Edite individualmente a quienes corresponda.');
+            }
+        });
     }
 }

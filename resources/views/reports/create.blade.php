@@ -2,7 +2,8 @@
 
 @php
     $editing = isset($report);
-    $initialBeneficiaries = $editing ? $report->beneficiaries : collect();
+    $editingBeneficiary = $editingBeneficiary ?? null;
+    $initialBeneficiaries = $editingBeneficiary ? collect([$editingBeneficiary]) : ($editing ? $report->beneficiaries : collect());
 @endphp
 
 @section('title', ($editing ? 'Editar registro #'.$report->id : 'Nuevo registro').' | SIA')
@@ -12,21 +13,24 @@
     <section class="page-heading compact-heading">
         <div>
             <p class="eyebrow">Formulario de respuesta</p>
-            <h1>{{ $editing ? 'Editar actividad' : 'Registrar actividad' }}</h1>
-            <p class="muted">{{ $editing ? 'Modifique la información necesaria y guarde los cambios del registro.' : 'Cada clic en “Guardar beneficiario” registra inmediatamente la persona en la base de datos.' }}</p>
+            <h1>{{ $editingBeneficiary ? 'Editar beneficiario #'.$editingBeneficiary->id : ($editing ? 'Editar registro completo' : 'Registrar actividad') }}</h1>
+            <p class="muted">{{ $editingBeneficiary ? 'Los cambios afectan solo a esta persona. Si cambia los datos compartidos, se separará del grupo sin modificar a los demás.' : ($editing ? 'Los cambios de proyecto, indicador y ubicación se aplican a todos los beneficiarios de este registro.' : 'Cada clic en “Guardar beneficiario” registra inmediatamente la persona en la base de datos.') }}</p>
         </div>
     </section>
 
     <form enctype="multipart/form-data" class="report-form" id="report-form"
         data-beneficiary-url="{{ route('beneficiaries.store') }}" data-location-reverse-url="{{ route('locations.reverse') }}"
-        @if($editing) data-report-id="{{ $report->id }}" data-report-update-url="{{ route('reports.update', $report) }}" @endif
+        @if($editing) data-report-id="{{ $report->id }}" @endif
+        @if($editingBeneficiary) data-beneficiary-update-url="{{ route('beneficiaries.update-attention', $editingBeneficiary) }}"
+        @elseif($editing) data-report-update-url="{{ route('reports.update', $report) }}" @endif
         novalidate>
         @csrf
+        @if($editingBeneficiary)<input type="hidden" name="source_report_id" value="{{ $report->id }}">@endif
         <section class="form-section">
             <div class="section-heading"><span>1</span>
                 <div>
                     <h2>Actividad</h2>
-                    <p>{{ $editing ? 'Puede modificar estos datos sin crear un registro nuevo.' : 'Si cambia cualquiera de estos encabezados, el próximo beneficiario iniciará un nuevo registro.' }}</p>
+                    <p>{{ $editingBeneficiary ? 'Proyecto, indicador, actividad y servicios de este beneficiario.' : ($editing ? 'Información compartida por todos los beneficiarios del grupo.' : 'Si cambia cualquiera de estos encabezados, el próximo beneficiario iniciará un nuevo registro.') }}</p>
                 </div>
             </div>
             <div class="form-grid ">
@@ -123,7 +127,17 @@
                 <label>Nombre específico del lugar *
                     <select name="place_name" id="place_name" required>
                         <option value="">Seleccione el nombre del lugar</option>
-                        @foreach ($placeNames as $placeName)
+                        @if($editing)
+                            <option value="{{ $report->place_name }}" data-original-location="1"
+                                data-state-id="{{ $report->state_id }}" data-state-name="{{ $report->state?->name }}"
+                                data-municipality-id="{{ $report->municipality_id }}" data-municipality-name="{{ $report->municipality?->name }}"
+                                data-parish-id="{{ $report->parish_id }}" data-parish-name="{{ $report->parish?->name }}"
+                                data-installation-type="{{ $report->installation_type }}"
+                                data-latitude="{{ $report->latitude }}" data-longitude="{{ $report->longitude }}"
+                                data-altitude="{{ $report->altitude }}" data-gps-accuracy="{{ $report->gps_accuracy }}"
+                                @selected(old('place_name', $report->place_name) === $report->place_name)>{{ $report->place_name }} (ubicación guardada)</option>
+                        @endif
+                        @foreach ($placeNames->reject(fn ($place) => $editing && $place->name === $report->place_name) as $placeName)
                             <option value="{{ $placeName->name }}" data-state-id="{{ $placeName->state_id }}"
                                 data-state-name="{{ $placeName->state?->name }}"
                                 data-municipality-id="{{ $placeName->municipality_id }}"
@@ -197,15 +211,14 @@
             <input type="hidden" name="gps_accuracy" id="gps_accuracy" value="{{ old('gps_accuracy', $editing ? $report->gps_accuracy : null) }}">
         </section>
 
-        <section class="form-section">
+        <section class="form-section" @if($editing && !$editingBeneficiary) hidden @endif>
             <div class="section-heading"><span>4</span>
                 <div>
                     <h2>Beneficiarios</h2>
-                    <p>Complete una persona y guárdela. Los campos de esta sección se limpiarán, pero los encabezados
-                        permanecerán.</p>
+                    <p>{{ $editingBeneficiary ? 'Edite los datos de esta persona y guarde todos sus cambios.' : 'Complete una persona y guárdela. Los campos de esta sección se limpiarán, pero los encabezados permanecerán.' }}</p>
                 </div>
             </div>
-            <fieldset class="beneficiary-entry">
+            <fieldset class="beneficiary-entry" @if($editing && !$editingBeneficiary) disabled @endif>
                 <legend id="beneficiary-entry-title">Registrar beneficiario</legend>
                 <div class="beneficiary-consent-card">
                     <div class="form-check form-check-primary">
@@ -285,8 +298,7 @@
                         coincidencias.</p>
                 </div>
                 <div class="beneficiary-entry-actions">
-                    <p id="beneficiary-entry-error" class="field-error" hidden></p>
-                    <p id="beneficiary-entry-success" class="field-success" hidden></p><button
+                    <button
                         class="button button-secondary" type="button" id="save-beneficiary">Guardar
                         beneficiario</button><button class="button button-ghost" type="button"
                         id="cancel-beneficiary-edit" hidden>Cancelar edición</button>
@@ -343,8 +355,10 @@
             </div>
         </section>
 
+        <p id="beneficiary-entry-error" class="field-error" role="alert" hidden></p>
+        <p id="beneficiary-entry-success" class="field-success" role="status" hidden></p>
         <div class="form-actions"><a class="button button-ghost" href="{{ $editing ? route('reports.show', $report) : route('dashboard') }}">Cancelar</a>
-            @if($editing)<button class="button button-primary" type="button" id="save-report-changes">Guardar cambios del registro</button>@endif
+            @if($editing)<button class="button button-primary" type="button" id="save-report-changes">{{ $editingBeneficiary ? 'Guardar cambios del beneficiario' : 'Guardar cambios de todo el grupo' }}</button>@endif
             @can('ver detalle de registros')<a class="button button-secondary" id="current-report-link" href="{{ $editing ? route('reports.show', $report) : '#' }}" @if(!$editing) hidden @endif>Ver registro guardado</a>@endcan
         </div>
     </form>
@@ -610,7 +624,7 @@
             const selectedPlace = preserveSelection ? placeName.value : '';
             placeName.replaceChildren();
             allPlaceOptions.forEach(option => {
-                if (!option.value || locationBelongsToProject(option.dataset.stateId, option.dataset.municipalityId)) {
+                if (!option.value || (option.dataset.originalLocation && project.value === @json($editing ? (string) $report->proyecto_id : '')) || locationBelongsToProject(option.dataset.stateId, option.dataset.municipalityId)) {
                     const copy = option.cloneNode(true);
                     copy.selected = copy.value === selectedPlace;
                     placeName.append(copy);
@@ -686,7 +700,9 @@
             [communityLatitude, communityLongitude].forEach(element => element.required = enabled);
             if (enabled) syncCommunityLocation(coordinates);
             else {
+                const selectedPlace = placeName.value;
                 clearCommunityLocation();
+                placeName.value = selectedPlace;
                 syncPlaceLocation();
             }
         };
@@ -744,10 +760,10 @@
             beneficiaryEditId = null,
             isSaving = false;
         let currentSummary = {
-            total: {{ $editing ? $report->total_beneficiaries : 0 }},
-            people_with_disabilities: {{ $editing ? $report->people_with_disabilities : 0 }},
-            indigenous_people: {{ $editing ? $report->indigenous_people : 0 }},
-            pregnant_or_lactating_women: {{ $editing ? $report->pregnant_or_lactating_women : 0 }}
+            total: {{ $editing ? $initialSummary['total'] : 0 }},
+            people_with_disabilities: {{ $editing ? $initialSummary['people_with_disabilities'] : 0 }},
+            indigenous_people: {{ $editing ? $initialSummary['indigenous_people'] : 0 }},
+            pregnant_or_lactating_women: {{ $editing ? $initialSummary['pregnant_or_lactating_women'] : 0 }}
         };
         const inputValue = field => field === 'has_informed_consent'
             ? (beneficiaryInputs[field].checked ? '1' : '0')
@@ -1118,14 +1134,19 @@
                 setMessage(entryError, 'Guarde primero los cambios del registro antes de guardar o editar beneficiarios.');
                 return;
             }
-            if (beneficiaryEditId && createsNewReport) {
+            if (beneficiaryEditId && createsNewReport && !form.dataset.beneficiaryUpdateUrl) {
                 setMessage(entryError,
                 'Para editar, restaure los encabezados con los que se guardó este beneficiario.');
                 return;
             }
             let data;
             let url = form.dataset.beneficiaryUrl;
-            if (beneficiaryEditId) {
+            if (form.dataset.beneficiaryUpdateUrl) {
+                data = new FormData(form);
+                beneficiaryFields.forEach(field => data.set(`beneficiary[${field}]`, beneficiary[field]));
+                data.set('_method', 'PUT');
+                url = form.dataset.beneficiaryUpdateUrl;
+            } else if (beneficiaryEditId) {
                 data = new FormData();
                 beneficiaryFields.forEach(field => data.set(field, beneficiary[field]));
                 url = `{{ url('/beneficiarios') }}/${beneficiaryEditId}`;
@@ -1145,6 +1166,10 @@
                     headers: requestHeaders,
                     body: data
                 }));
+                if (form.dataset.beneficiaryUpdateUrl) {
+                    window.location.assign(result.report.url);
+                    return;
+                }
                 if (beneficiaryEditId) beneficiaries = beneficiaries.map(item => item.id === result.beneficiary.id ?
                     result.beneficiary : item);
                 else beneficiaries = createsNewReport ? [result.beneficiary] : [...beneficiaries, result.beneficiary];
@@ -1193,7 +1218,10 @@
             }
         }
         saveButton.addEventListener('click', saveBeneficiary);
-        select('cancel-beneficiary-edit').addEventListener('click', clearBeneficiaryEntry);
+        select('cancel-beneficiary-edit').addEventListener('click', () => {
+            if (form.dataset.beneficiaryUpdateUrl) window.location.assign(@json($editing ? route('reports.show', $report) : route('reports.index')));
+            else clearBeneficiaryEntry();
+        });
         form.addEventListener('submit', event => event.preventDefault());
         ['full_name', 'national_id'].forEach(field => beneficiaryInputs[field].addEventListener('blur',
             checkPossibleRecurrence));
@@ -1224,12 +1252,15 @@
             const initialEditButton = beneficiaryList.querySelector(`[data-beneficiary-id="${initialBeneficiaryEditId}"]`);
             if (initialEditButton) {
                 initialEditButton.click();
-                select('beneficiary-entry-title').scrollIntoView({behavior: 'smooth', block: 'center'});
             }
         }
 
         const saveReportChanges = select('save-report-changes');
         if (saveReportChanges) saveReportChanges.addEventListener('click', async () => {
+            if (form.dataset.beneficiaryUpdateUrl) {
+                await saveBeneficiary();
+                return;
+            }
             if (isSaving || !ensureReportContext()) return;
             const invalidField = [...form.querySelectorAll('[name][required]')].find(field => !field.checkValidity());
             if (invalidField) {

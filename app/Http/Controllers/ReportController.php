@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreReportRequest;
 use App\Http\Requests\StoreBeneficiaryEntryRequest;
 use App\Http\Requests\UpdateBeneficiaryRequest;
+use App\Http\Requests\UpdateBeneficiaryAttentionRequest;
 use App\Http\Requests\UpdateReportRequest;
 use App\Models\Beneficiary;
 use App\Models\Evidence;
@@ -106,16 +107,19 @@ class ReportController extends Controller
     public function edit(Request $request, Report $report): View
     {
         $this->ensureEditable($request, $report);
-        $report->load(['beneficiaries', 'evidences', 'serviciosActividad', 'indicadorProyecto']);
+        $report->load(['beneficiaries', 'evidences', 'serviciosActividad', 'indicadorProyecto', 'state', 'municipality', 'parish']);
         $requestedBeneficiaryId = $request->integer('beneficiary');
-        $editBeneficiaryId = $requestedBeneficiaryId && $report->beneficiaries->contains('id', $requestedBeneficiaryId)
-            ? $requestedBeneficiaryId
-            : $report->beneficiaries->first()?->id;
+        $editingBeneficiary = $request->has('beneficiary')
+            ? $report->beneficiaries->firstWhere('id', $requestedBeneficiaryId)
+            : null;
+        abort_if($request->has('beneficiary') && ! $editingBeneficiary, 404);
+        $editBeneficiaryId = $editingBeneficiary?->id;
 
         $projects = $this->availableProjects($request, $report->proyecto_id);
         $locations = $this->availableLocations($request, $projects);
         $selectedProjectId = old('proyecto_id', $report->proyecto_id);
-        $communityLocation = ! PlaceName::where('name', $report->place_name)->exists();
+        // Always start from the stored snapshot, even if the catalog has changed.
+        $communityLocation = false;
 
         return view('reports.create', [
             'report' => $report,
@@ -136,6 +140,8 @@ class ReportController extends Controller
             'beneficiaryOptions' => config('reports.beneficiary_options'),
             'user' => $request->user(),
             'editBeneficiaryId' => $editBeneficiaryId,
+            'editingBeneficiary' => $editingBeneficiary,
+            'initialSummary' => $this->beneficiarySummary($editingBeneficiary ? [$editingBeneficiary->toArray()] : $report->beneficiaries->toArray()),
         ]);
     }
 
@@ -147,7 +153,14 @@ class ReportController extends Controller
         unset($data['servicio_actividad_ids'], $data['sector_proyecto_id']);
         unset($data['evidence_1'], $data['evidence_2'], $data['evidence_3']);
 
+        if (! empty($data['proyecto_id']) && (int) $data['indicador_proyecto_id'] !== (int) $report->indicador_proyecto_id) {
+            $data['sector_id'] = \App\Models\IndicadorProyecto::findOrFail($data['indicador_proyecto_id'])->asignacionSector->sector_id;
+            $data['activity_id'] = null;
+        }
+
         DB::transaction(function () use ($request, $report, $data, $serviceIds): void {
+            $report = Report::whereKey($report->id)->lockForUpdate()->firstOrFail();
+            $this->ensureEditable($request, $report);
             $report->update($data);
             $report->serviciosActividad()->sync($serviceIds);
             $this->storeEvidence($report, $request);
@@ -276,6 +289,95 @@ class ReportController extends Controller
             'message' => 'Beneficiario actualizado correctamente.',
             'beneficiary' => $beneficiary->fresh(),
             'summary' => $summary,
+        ]);
+    }
+
+    public function updateBeneficiaryAttention(UpdateBeneficiaryAttentionRequest $request, Beneficiary $beneficiary): JsonResponse
+    {
+        $originalReportId = $beneficiary->report_id;
+        $this->ensureEditable($request, $beneficiary->report);
+        abort_if($request->filled('source_report_id') && $request->integer('source_report_id') !== $originalReportId,
+            409, 'El beneficiario cambió de registro. Recargue la página antes de editar.');
+        $data = $request->validated();
+        $beneficiaryData = $data['beneficiary'];
+        $serviceIds = $data['servicio_actividad_ids'] ?? [];
+        unset($data['beneficiary'], $data['report_id'], $data['source_report_id'], $data['servicio_actividad_ids'], $data['sector_proyecto_id'], $data['is_community_location']);
+        unset($data['evidence_1'], $data['evidence_2'], $data['evidence_3']);
+
+        // Clear old hierarchy links when switching between project and legacy catalogs.
+        if (! empty($data['proyecto_id']) && (int) $data['indicador_proyecto_id'] !== (int) $beneficiary->report->indicador_proyecto_id) {
+            $data['sector_id'] = \App\Models\IndicadorProyecto::findOrFail($data['indicador_proyecto_id'])->asignacionSector->sector_id;
+            $data['activity_id'] = null;
+        } elseif (! empty($data['proyecto_id'])) {
+            unset($data['sector_id'], $data['activity_id']);
+        } else {
+            $data['proyecto_id'] = $data['indicador_proyecto_id'] = null;
+        }
+        $data['actividad_indicador_id'] = $data['actividad_indicador_id'] ?? null;
+        $createdDirectory = null;
+
+        try {
+            [$target, $beneficiary, $summary, $separated] = DB::transaction(function () use ($request, $beneficiary, $originalReportId, $data, $beneficiaryData, $serviceIds, &$createdDirectory): array {
+                $source = Report::whereKey($originalReportId)->lockForUpdate()->firstOrFail();
+                $this->ensureEditable($request, $source);
+                $beneficiary = Beneficiary::whereKey($beneficiary->id)->lockForUpdate()->firstOrFail();
+                abort_unless($beneficiary->report_id === $source->id, 409, 'El beneficiario cambió de registro. Recargue la página antes de editar.');
+
+                $candidate = clone $source;
+                $candidate->fill($data);
+                $currentServices = $source->serviciosActividad()->pluck('servicio_actividad.id')->map(fn ($id) => (int) $id)->sort()->values()->all();
+                $newServices = collect($serviceIds)->map(fn ($id) => (int) $id)->sort()->values()->all();
+                $changed = $candidate->isDirty() || $currentServices !== $newServices
+                    || $request->hasFile('evidence_1') || $request->hasFile('evidence_2') || $request->hasFile('evidence_3');
+                $separated = $changed && $source->beneficiaries()->count() > 1;
+                $target = $source;
+
+                if ($separated) {
+                    $target = $source->replicate()->setRelations([]);
+                    // A correction is not a new attendance: keep its original registration date and author.
+                    $target->created_at = $source->created_at;
+                    $target->fill($data)->save();
+                    $createdDirectory = 'reports/'.$target->id;
+                    foreach ($source->evidences()->get() as $evidence) {
+                        $path = $createdDirectory.'/'.Str::uuid().'.'.pathinfo($evidence->path, PATHINFO_EXTENSION);
+                        if (! Storage::disk('local')->copy($evidence->path, $path)) {
+                            throw new \RuntimeException('No se pudo conservar una evidencia. No se guardaron los cambios.');
+                        }
+                        $target->evidences()->create(array_merge($evidence->only(['slot', 'original_name', 'mime_type', 'size']), ['path' => $path]));
+                    }
+                } elseif ($changed) {
+                    $target->update($data);
+                }
+
+                if ($changed) {
+                    $target->serviciosActividad()->sync($serviceIds);
+                    $this->storeEvidence($target, $request);
+                }
+                $beneficiary->fill($beneficiaryData);
+                $beneficiary->report_id = $target->id;
+                $beneficiary->save();
+                $summary = $this->syncBeneficiarySummary($target);
+                if ($separated) {
+                    $this->syncBeneficiarySummary($source);
+                }
+
+                return [$target, $beneficiary, $summary, $separated];
+            });
+        } catch (\Throwable $exception) {
+            if ($createdDirectory !== null) {
+                Storage::disk('local')->deleteDirectory($createdDirectory);
+            }
+            throw $exception;
+        }
+
+        return response()->json([
+            'message' => $separated
+                ? 'Beneficiario actualizado y separado del grupo original. Los demás beneficiarios no cambiaron.'
+                : 'Beneficiario actualizado correctamente.',
+            'beneficiary' => $beneficiary->fresh(),
+            'report' => ['id' => $target->id, 'url' => route('reports.show', $target)],
+            'summary' => $summary,
+            'separated' => $separated,
         ]);
     }
 

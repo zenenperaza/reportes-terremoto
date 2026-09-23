@@ -19,6 +19,7 @@ use Illuminate\Validation\Rule;
 
 class StoreBeneficiaryEntryRequest extends FormRequest
 {
+    use \App\Http\Requests\Concerns\PreservesReportLocation;
     public function authorize(): bool
     {
         return $this->user() !== null;
@@ -28,7 +29,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
     {
         $beneficiaryOptions = config('reports.beneficiary_options');
         $placeNameRules = ['required', 'string', 'max:200'];
-        if (! $this->boolean('is_community_location')) {
+        if (! $this->boolean('is_community_location') && ! $this->preservesExistingLocation()) {
             $placeNameRules[] = Rule::exists('place_names', 'name');
         }
 
@@ -150,7 +151,8 @@ class StoreBeneficiaryEntryRequest extends FormRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator): void {
-            if (! $this->boolean('is_community_location')) {
+            $preserveLocation = $this->preservesExistingLocation();
+            if (! $this->boolean('is_community_location') && ! $preserveLocation) {
                 $this->validateCoordinatesAreInVenezuela($validator);
             }
 
@@ -173,10 +175,10 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             if ($project && ! $this->user()->isAdministrator() && ! $this->user()->projects()->whereKey($project->id)->exists()) {
                 $validator->errors()->add('proyecto_id', 'El proyecto no está asignado a su usuario.');
             }
-            if ($project && ! $this->user()->canAccessLocation($this->integer('state_id'), $this->integer('municipality_id'))) {
+            if ($project && ! $preserveLocation && ! $this->user()->canAccessLocation($this->integer('state_id'), $this->integer('municipality_id'))) {
                 $validator->errors()->add('place_name', 'La ubicación seleccionada no está asignada a su usuario.');
             }
-            if ($project && ! $project->coversLocation($this->integer('state_id'), $this->integer('municipality_id'))) {
+            if ($project && ! $preserveLocation && ! $project->coversLocation($this->integer('state_id'), $this->integer('municipality_id'))) {
                 $validator->errors()->add('place_name', 'La ubicación seleccionada no pertenece al proyecto.');
             }
             $assignment = IndicadorProyecto::with('indicador')->find($this->integer('indicador_proyecto_id'));
@@ -204,7 +206,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
                 $validator->errors()->add('servicio_actividad_ids', 'Uno de los servicios no corresponde a la actividad seleccionada.');
             }
 
-            $place = $this->boolean('is_community_location') ? null : PlaceName::where('name', $this->input('place_name'))->first();
+            $place = ($this->boolean('is_community_location') || $preserveLocation) ? null : PlaceName::where('name', $this->input('place_name'))->first();
             if ($place && $place->state_id && (
                 $place->state_id !== $this->integer('state_id')
                 || $place->municipality_id !== $this->integer('municipality_id')
