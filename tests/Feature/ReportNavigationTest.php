@@ -37,4 +37,13 @@ class ReportNavigationTest extends TestCase
             ->assertSee('aria-controls="main-navigation"', false)
             ->assertSee('js/horizontal-menu.js?v=', false);
     }
+
+    public function test_reports_menu_lists_indicator_report_submenu(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'admin']))
+            ->get(route('general-reports.index'))->assertOk()
+            ->assertSee(route('general-reports.index'), false)
+            ->assertSee(route('indicator-reports.index'), false)
+            ->assertSee('Informe por Indicadores');
+    }
 }

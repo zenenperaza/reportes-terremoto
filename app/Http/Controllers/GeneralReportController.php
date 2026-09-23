@@ -28,12 +28,21 @@ class GeneralReportController extends Controller
 
     public function __invoke(Request $request): View
     {
+        return view('general-reports.index', $this->buildViewData($request));
+    }
+
+    /** @return array<string, mixed> */
+    protected function buildViewData(Request $request): array
+    {
         $dateBounds = $this->dateBounds($request);
         $filters = $this->validatedFilters($request, $dateBounds);
         $beneficiaries = $this->filteredBeneficiaries($request, $filters)
             ->with([
-                'report:id,report_date,created_at,state_id,municipality_id,parish_id,installation_type,place_name,sector_id,activity_id',
+                'report:id,report_date,created_at,state_id,municipality_id,parish_id,installation_type,place_name,sector_id,activity_id,indicador_proyecto_id',
                 'report.state:id,name',
+                'report.indicadorProyecto:id,indicador_id',
+                'report.indicadorProyecto.indicador:id,indicator_group_id,codigo,nombre_corto,descripcion,unidad_conteo,edad_desde,edad_hasta,espacio_coordinacion',
+                'report.indicadorProyecto.indicador.indicatorGroup:id,name,description,sort_order',
             ])
             ->get(['id', 'report_id', 'age', 'sex', 'is_recurrent', 'reported_at', 'created_at']);
 
@@ -62,7 +71,7 @@ class GeneralReportController extends Controller
             ->sortBy('label', SORT_NATURAL | SORT_FLAG_CASE)
             ->values();
 
-        return view('general-reports.index', [
+        return [
             'filters' => $filters,
             'dateBounds' => $dateBounds,
             'ageGroups' => self::AGE_GROUPS,
@@ -71,11 +80,13 @@ class GeneralReportController extends Controller
             'parishes' => $locations['parishes'],
             'sectors' => Sector::where('estatus', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
             'indicators' => $indicators,
+            'locationsRoute' => route('general-reports.locations'),
             'installationTypes' => config('reports.installation_types'),
             'places' => $this->visibleReports($request)->whereNotNull('place_name')->where('place_name', '<>', '')->distinct()->orderBy('place_name')->pluck('place_name'),
             'summary' => $this->summary($beneficiaries),
+            'indicatorGroupsSummary' => $this->indicatorGroupsSummary($beneficiaries),
             'charts' => $this->charts($beneficiaries),
-        ]);
+        ];
     }
 
     private function visibleReports(Request $request): Builder
@@ -120,9 +131,9 @@ class GeneralReportController extends Controller
                     ->when($filters['installation_type'] ?? null, fn (Builder $q, string $type) => $q->where('installation_type', $type))
                     ->when($filters['place_name'] ?? null, fn (Builder $q, string $place) => $q->where('place_name', $place))
                     ->when($filters['sector_id'] ?? null, fn (Builder $q, int $id) => $q->where('sector_id', $id))
-                    ->when($filters['indicador_id'] ?? null, fn (Builder $q, int $id) => $q->whereHas(
+                    ->when($filters['indicador_id'] ?? [], fn (Builder $q, array $ids) => $q->whereHas(
                         'indicadorProyecto',
-                        fn (Builder $assignment) => $assignment->where('indicador_id', $id),
+                        fn (Builder $assignment) => $assignment->whereIn('indicador_id', $ids),
                     ));
             })
             ->when($filters['registered_from'] ?? null, fn (Builder $q, string $date) => $q->whereDate('beneficiaries.created_at', '>=', $date))
@@ -168,6 +179,9 @@ class GeneralReportController extends Controller
         if (! is_array($input['state_id'] ?? null)) {
             $input['state_id'] = filled($input['state_id'] ?? null) ? [$input['state_id']] : [];
         }
+        if (! is_array($input['indicador_id'] ?? null)) {
+            $input['indicador_id'] = filled($input['indicador_id'] ?? null) ? [$input['indicador_id']] : [];
+        }
 
         // El grupo etario y el rango manual representan el mismo criterio. Si una
         // URL antigua contiene ambos, el grupo etario tiene prioridad para evitar
@@ -193,7 +207,8 @@ class GeneralReportController extends Controller
             'installation_type' => ['nullable', Rule::in(config('reports.installation_types'))],
             'place_name' => ['nullable', 'string', 'max:200'],
             'sector_id' => ['nullable', 'integer', 'exists:sectors,id'],
-            'indicador_id' => ['nullable', 'integer', 'exists:indicadores,id'],
+            'indicador_id' => ['array', 'max:100'],
+            'indicador_id.*' => ['required', 'integer', 'distinct', 'exists:indicadores,id'],
             'is_recurrent' => ['nullable', Rule::in(['0', '1', 0, 1])],
             'reported' => ['nullable', Rule::in(['0', '1', 0, 1])],
         ])->validate();
@@ -222,6 +237,7 @@ class GeneralReportController extends Controller
         }
 
         $filters['state_id'] = array_map('intval', $filters['state_id']);
+        $filters['indicador_id'] = array_map('intval', $filters['indicador_id']);
         if (! empty($filters['municipality_id']) && $filters['state_id'] && ! Municipality::query()
             ->whereKey($filters['municipality_id'])->whereIn('state_id', $filters['state_id'])->exists()) {
             throw ValidationException::withMessages(['municipality_id' => 'El municipio no pertenece a los estados seleccionados.']);
@@ -238,13 +254,74 @@ class GeneralReportController extends Controller
 
     private function summary($beneficiaries): array
     {
+        $men = $beneficiaries->where('sex', 'Hombre');
+        $women = $beneficiaries->where('sex', 'Mujer');
+
         return [
             'beneficiaries' => $beneficiaries->count(),
             'attentions' => $beneficiaries->pluck('report_id')->unique()->count(),
-            'women' => $beneficiaries->where('sex', 'Mujer')->count(),
-            'men' => $beneficiaries->where('sex', 'Hombre')->count(),
+            'women' => $women->count(),
+            'men' => $men->count(),
+            'women_adults' => $women->where('age', '>=', 18)->count(),
+            'women_under_18' => $women->where('age', '<', 18)->count(),
+            'men_adults' => $men->where('age', '>=', 18)->count(),
+            'men_under_18' => $men->where('age', '<', 18)->count(),
             'average_age' => $beneficiaries->isEmpty() ? 0 : round((float) $beneficiaries->avg('age'), 1),
         ];
+    }
+
+    private function indicatorGroupsSummary($beneficiaries): array
+    {
+        return $beneficiaries
+            ->filter(fn (Beneficiary $beneficiary): bool => $beneficiary->report?->indicadorProyecto?->indicador !== null)
+            ->groupBy(fn (Beneficiary $beneficiary): int => $beneficiary->report->indicadorProyecto->indicador->id)
+            ->map(function ($items): array {
+                $indicator = $items->first()->report->indicadorProyecto->indicador;
+
+                return [
+                    'group_key' => $indicator->indicatorGroup?->id ? 'group-'.$indicator->indicatorGroup->id : 'ungrouped',
+                    'group_name' => $indicator->indicatorGroup?->name ?? 'Sin grupo',
+                    'group_description' => $indicator->indicatorGroup?->description ?? 'Indicadores pendientes de clasificacion.',
+                    'group_sort_order' => $indicator->indicatorGroup?->sort_order ?? 999999,
+                    'code' => $indicator->codigo,
+                    'title' => $indicator->nombre_corto ?: $indicator->descripcion,
+                    'unit' => $indicator->unidad_conteo,
+                    'age_from' => (int) $indicator->edad_desde,
+                    'age_to' => (int) $indicator->edad_hasta,
+                    'coordination_space' => $indicator->espacio_coordinacion,
+                    'beneficiaries' => $items->count(),
+                    'men' => $items->where('sex', 'Hombre')->count(),
+                    'women' => $items->where('sex', 'Mujer')->count(),
+                ];
+            })
+            ->sortBy(fn (array $item): string => str_pad((string) $item['group_sort_order'], 6, '0', STR_PAD_LEFT).'|'.$item['group_name'].'|'.$item['code'].'|'.$item['title'], SORT_NATURAL | SORT_FLAG_CASE)
+            ->groupBy('group_key')
+            ->map(function ($items): array {
+                $first = $items->first();
+
+                return [
+                    'name' => $first['group_name'],
+                    'description' => $first['group_description'],
+                    'sort_order' => $first['group_sort_order'],
+                    'indicator_count' => $items->count(),
+                    'beneficiaries' => $items->sum('beneficiaries'),
+                    'men' => $items->sum('men'),
+                    'women' => $items->sum('women'),
+                    'items' => $items->map(fn (array $item): array => [
+                        'code' => $item['code'],
+                        'title' => $item['title'],
+                        'unit' => $item['unit'],
+                        'age_from' => $item['age_from'],
+                        'age_to' => $item['age_to'],
+                        'coordination_space' => $item['coordination_space'],
+                        'beneficiaries' => $item['beneficiaries'],
+                        'men' => $item['men'],
+                        'women' => $item['women'],
+                    ])->values()->all(),
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     private function charts($beneficiaries): array

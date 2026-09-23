@@ -15,64 +15,7 @@
     </div>
 </section>
 
-<section class="card general-filter-card">
-    <div class="card-header"><div><h2 class="card-title mb-1">Filtros del informe</h2><p class="text-muted mb-0">Combine uno o varios criterios para actualizar todos los resultados.</p></div></div>
-    <div class="card-body">
-        <form method="get" id="general-report-filters" class="row g-3" data-locations-url="{{ route('general-reports.locations') }}">
-            @foreach(['attention_from' => ['attention', 'Fecha de atención desde'], 'attention_to' => ['attention', 'Fecha de atención hasta'], 'registered_from' => ['registered', 'Fecha de registro desde'], 'registered_to' => ['registered', 'Fecha de registro hasta']] as $field => [$dateGroup, $label])
-                @php($bounds = $dateBounds[$dateGroup])
-                <div class="col-xl-3 col-md-6">
-                    <label class="form-label" for="general_{{ $field }}">{{ $label }}</label>
-                    <input class="form-control" id="general_{{ $field }}" type="date" name="{{ $field }}"
-                        value="{{ $filters[$field] ?? '' }}"
-                        @if($bounds['min'] && $bounds['max']) min="{{ $bounds['min'] }}" max="{{ $bounds['max'] }}" @else disabled @endif
-                        aria-describedby="general_{{ $field }}_help">
-                    <small class="form-text text-muted" id="general_{{ $field }}_help">
-                        @if($bounds['min'] && $bounds['max'])
-                            Disponible: {{ \Illuminate\Support\Carbon::parse($bounds['min'])->format('d/m/Y') }} al {{ \Illuminate\Support\Carbon::parse($bounds['max'])->format('d/m/Y') }}.
-                        @else
-                            Sin fechas registradas disponibles.
-                        @endif
-                    </small>
-                </div>
-            @endforeach
-
-            <div class="col-xl-2 col-md-4"><label class="form-label">Edad desde</label><input class="form-control" id="general_age_from" type="number" name="age_from" min="0" max="120" value="{{ $filters['age_from'] ?? '' }}" placeholder="0"></div>
-            <div class="col-xl-2 col-md-4"><label class="form-label">Edad hasta</label><input class="form-control" id="general_age_to" type="number" name="age_to" min="0" max="120" value="{{ $filters['age_to'] ?? '' }}" placeholder="120"></div>
-            <div class="col-xl-4 col-md-4"><label class="form-label">Grupo etario</label><select class="form-select" id="general_age_group" name="age_group"><option value="">Todos</option>@foreach($ageGroups as $value => $group)<option value="{{ $value }}" @selected(($filters['age_group'] ?? '') === $value)>{{ $group['label'] }}</option>@endforeach</select><small class="form-text text-muted">Use el rango de edad o el grupo etario, no ambos.</small></div>
-            <div class="col-xl-4 col-md-6"><label class="form-label">Sexo</label><select class="form-select" name="sex"><option value="">Todos</option>@foreach(config('reports.beneficiary_options.sexes') as $sex)<option value="{{ $sex }}" @selected(($filters['sex'] ?? '') === $sex)>{{ $sex }}</option>@endforeach</select></div>
-
-            <div class="col-xl-4 col-md-6"><label class="form-label" for="general_state_id">Estado</label><select class="form-select" name="state_id[]" id="general_state_id" multiple aria-describedby="general_states_help">@foreach($states as $state)<option value="{{ $state->id }}" @selected(in_array($state->id, $filters['state_id'], true))>{{ $state->name }}</option>@endforeach</select><small id="general_states_help" class="form-text text-muted">Seleccione uno o varios. Sin selecci&oacute;n se incluyen todos los estados.</small></div>
-            <div class="col-xl-4 col-md-6"><label class="form-label" for="general_municipality_id">Municipio</label><select class="form-select" name="municipality_id" id="general_municipality_id"><option value="">Todos</option>@foreach($municipalities as $municipality)<option value="{{ $municipality['id'] }}" @selected(($filters['municipality_id'] ?? '') == $municipality['id'])>{{ $municipality['name'] }}</option>@endforeach</select></div>
-            <div class="col-xl-4 col-md-6"><label class="form-label" for="general_parish_id">Parroquia</label><select class="form-select" name="parish_id" id="general_parish_id"><option value="">Todas</option>@foreach($parishes as $parish)<option value="{{ $parish['id'] }}" @selected(($filters['parish_id'] ?? '') == $parish['id'])>{{ $parish['name'] }}</option>@endforeach</select></div>
-            <div id="general-locations-error" class="col-12 text-danger" role="alert" hidden>No se pudieron cargar municipios y parroquias. <button type="button" class="btn btn-outline-danger btn-sm" id="general-locations-retry">Reintentar</button></div>
-
-            <div class="col-xl-4 col-md-6"><label class="form-label">Tipo de atenci&oacute;n</label><select class="form-select" name="installation_type"><option value="">Todos</option>@foreach($installationTypes as $type)<option value="{{ $type }}" @selected(($filters['installation_type'] ?? '') === $type)>{{ $type }}</option>@endforeach</select></div>
-            <div class="col-xl-4 col-md-6"><label class="form-label">Nombre del lugar</label><select class="form-select" name="place_name"><option value="">Todos</option>@foreach($places as $place)<option value="{{ $place }}" @selected(($filters['place_name'] ?? '') === $place)>{{ $place }}</option>@endforeach</select></div>
-            <div class="col-xl-4 col-md-6"><label class="form-label">Sector program&aacute;tico</label><select class="form-select" name="sector_id" id="general_sector_id"><option value="">Todos</option>@foreach($sectors as $sector)<option value="{{ $sector->id }}" @selected(($filters['sector_id'] ?? '') == $sector->id)>{{ $sector->name }}</option>@endforeach</select></div>
-            <div class="col-xl-4 col-md-6"><label class="form-label">Indicador a reportar</label><select class="form-select" name="indicador_id" id="general_indicator_id"><option value="">Todos</option>@foreach($indicators as $indicator)<option value="{{ $indicator['id'] }}" @selected(($filters['indicador_id'] ?? '') == $indicator['id'])>{{ $indicator['label'] }}</option>@endforeach</select></div>
-            <div class="col-xl-4 col-md-6"><label class="form-label">Recurrente</label><select class="form-select" name="is_recurrent"><option value="">Todos</option><option value="1" @selected(($filters['is_recurrent'] ?? '') === '1')>S&iacute;</option><option value="0" @selected(($filters['is_recurrent'] ?? '') === '0')>No</option></select></div>
-            <div class="col-xl-4 col-md-6"><label class="form-label">Reportado</label><select class="form-select" name="reported"><option value="">Todos</option><option value="1" @selected(($filters['reported'] ?? '') === '1')>S&iacute;</option><option value="0" @selected(($filters['reported'] ?? '') === '0')>No</option></select></div>
-
-            <div class="col-12 d-flex flex-wrap justify-content-end gap-2 pt-2">
-                <a class="btn btn-light" href="{{ route('general-reports.index') }}"><i class="ri-refresh-line me-1"></i>Limpiar</a>
-                <button class="btn btn-primary" type="submit"><i class="ri-filter-3-line me-1"></i>Aplicar filtros</button>
-            </div>
-        </form>
-    </div>
-</section>
-
-<div class="row general-kpis">
-    @foreach([
-        ['Personas atendidas', $summary['beneficiaries'], 'ri-group-line', 'primary'],
-        ['Registros de atenci&oacute;n', $summary['attentions'], 'ri-file-list-3-line', 'info'],
-        ['Hombres', $summary['men'], 'ri-men-line', 'indigo'],
-        ['Mujeres', $summary['women'], 'ri-women-line', 'danger'],
-        ['Edad promedio', number_format($summary['average_age'], 1, ',', '.').' a&ntilde;os', 'ri-calendar-event-line', 'success'],
-    ] as [$label, $value, $icon, $tone])
-    <div class="col-xl col-md-4 col-sm-6"><article class="card general-kpi-card"><div class="card-body"><div><p>{!! $label !!}</p><strong>{!! $value !!}</strong></div><span class="general-kpi-icon tone-{{ $tone }}"><i class="{{ $icon }}"></i></span></div></article></div>
-    @endforeach
-</div>
+@include('general-reports.partials.filters-and-summary')
 
 @if($summary['beneficiaries'] === 0)
 <section class="card"><div class="card-body general-empty"><i class="ri-bar-chart-box-line"></i><h2>Sin resultados</h2><p>Modifique los filtros para visualizar informaci&oacute;n.</p></div></section>
@@ -119,34 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
     render('#general-attention-chart', {...shared, series: chartData.attention_types.values, labels: chartData.attention_types.labels, chart: {...shared.chart, type: 'pie', height: 355}, colors: [palette.blue, palette.teal, palette.orange, palette.cyan, palette.red, palette.purple], dataLabels: {enabled: true}, responsive: [{breakpoint: 600, options: {chart: {height: 410}, legend: {position: 'bottom'}}}]});
     render('#general-state-chart', {...shared, series: [{name: 'Beneficiarios', data: chartData.states.values}], chart: {...shared.chart, type: 'bar', height: 355}, colors: [palette.teal], dataLabels: {enabled: true, formatter: value => Number(value).toLocaleString('es-VE'), offsetX: 8, style: {fontSize: '12px', colors: ['#334155']}}, plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '58%', dataLabels: {position: 'top'}}}, xaxis: {categories: chartData.states.labels, min: 0}});
     render('#general-trend-chart', {...shared, series: [{name: 'Hombres', data: chartData.trend.men}, {name: 'Mujeres', data: chartData.trend.women}], chart: {...shared.chart, type: 'area', height: 365, zoom: {enabled: false}}, colors: [palette.blue, palette.cyan], stroke: {curve: 'smooth', width: 3}, fill: {type: 'gradient', gradient: {opacityFrom: .28, opacityTo: .04}}, dataLabels: {enabled: true, formatter: value => Number(value).toLocaleString('es-VE'), offsetY: -7, style: {fontSize: '10px'}, background: {enabled: true, borderRadius: 3, padding: 3, opacity: .85}}, xaxis: {categories: chartData.trend.labels, type: 'datetime'}, markers: {size: 4}, tooltip: {shared: true, intersect: false, x: {format: 'dd/MM/yyyy'}}});
-
-    const select = id => document.getElementById(id);
-    const sector = select('general_sector_id'), indicator = select('general_indicator_id');
-    const availableIndicators = {{ Illuminate\Support\Js::from($indicators) }};
-    const ageFrom = select('general_age_from'), ageTo = select('general_age_to'), ageGroup = select('general_age_group');
-    const synchronizeAgeFilters = source => {
-        if (source === ageGroup && ageGroup.value) {
-            ageFrom.value = '';
-            ageTo.value = '';
-        } else if ((source === ageFrom || source === ageTo) && (ageFrom.value !== '' || ageTo.value !== '')) {
-            ageGroup.value = '';
-        }
-    };
-    ageFrom?.addEventListener('input', () => synchronizeAgeFilters(ageFrom));
-    ageTo?.addEventListener('input', () => synchronizeAgeFilters(ageTo));
-    ageGroup?.addEventListener('change', () => synchronizeAgeFilters(ageGroup));
-    const fillIndicators = () => {
-        if (!indicator) return;
-        const selectedValue = indicator.value;
-        const sectorId = Number(sector?.value || 0);
-        const options = sectorId
-            ? availableIndicators.filter(item => item.sector_ids.map(Number).includes(sectorId))
-            : availableIndicators;
-        indicator.replaceChildren(new Option('Todos', ''));
-        options.forEach(item => indicator.add(new Option(item.label, String(item.id))));
-        if (options.some(item => String(item.id) === selectedValue)) indicator.value = selectedValue;
-    };
-    sector?.addEventListener('change', fillIndicators);
 });
 </script>
+@include('general-reports.partials.filter-scripts')
 @endpush

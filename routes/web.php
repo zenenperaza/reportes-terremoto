@@ -16,6 +16,7 @@ use App\Http\Controllers\GeneralReportController;
 use App\Http\Controllers\IndicadorController;
 use App\Http\Controllers\IndicadorProyectoActividadController;
 use App\Http\Controllers\IndicadorProyectoController;
+use App\Http\Controllers\IndicatorReportController;
 use App\Http\Controllers\IndicatorGroupController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\PasswordResetController;
@@ -176,6 +177,8 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
     Route::post('/informe-beneficiarios/marcar-reportados', [BeneficiaryReportController::class, 'markAsReported'])->name('beneficiaries.mark-reported');
     Route::get('/informes-generales', GeneralReportController::class)->name('general-reports.index');
     Route::get('/informes-generales/ubicaciones', [GeneralReportController::class, 'locations'])->name('general-reports.locations');
+    Route::get('/informes-por-indicadores', IndicatorReportController::class)->name('indicator-reports.index');
+    Route::get('/informes-por-indicadores/ubicaciones', [IndicatorReportController::class, 'locations'])->name('indicator-reports.locations');
 
     Route::get('/reportes/exportar', [ReportController::class, 'export'])->name('reports.export');
     Route::get('/reportes', [ReportController::class, 'index'])->middleware('permission:solo ver registros')->name('reports.index');
