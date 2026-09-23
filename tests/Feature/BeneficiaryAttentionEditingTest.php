@@ -152,7 +152,9 @@ class BeneficiaryAttentionEditingTest extends TestCase
             ->assertSee('aria-label="Editar beneficiario"', false)
             ->assertSee('aria-label="Eliminar beneficiario"', false)
             ->assertSee('class="ri-pencil-line" aria-hidden="true"', false)
-            ->assertSee('class="ri-delete-bin-line" aria-hidden="true"', false)
+            ->assertSee('class="ri-delete-bin-5-line" aria-hidden="true"', false)
+            ->assertSee('class="btn btn-primary btn-icon waves-effect waves-light"', false)
+            ->assertSee('class="btn btn-danger btn-icon waves-effect waves-light beneficiary-delete-button"', false)
             ->assertSee('href="'.e(route('reports.edit', ['report' => $report, 'beneficiary' => $first->id])).'"', false)
             ->assertSee('data-beneficiary-id="'.$first->id.'"', false);
     }

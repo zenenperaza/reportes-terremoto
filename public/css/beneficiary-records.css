@@ -5,28 +5,6 @@
     gap: 8px;
     white-space: nowrap;
 }
-.beneficiary-row-actions .beneficiary-icon-action {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 36px;
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    margin: 0;
-    border: 1px solid currentColor;
-    border-radius: 6px;
-    font-size: 18px;
-    line-height: 1;
-    text-decoration: none;
-}
-.beneficiary-row-actions .beneficiary-icon-action:hover {
-    background: #eaf5fb;
-}
-.beneficiary-row-actions .danger-action:hover {
-    background: #fff0ee;
-}
-.beneficiary-row-actions .beneficiary-icon-action:focus-visible {
-    outline: 2px solid currentColor;
-    outline-offset: 2px;
+.beneficiary-row-actions .btn-icon {
+    flex-shrink: 0;
 }

@@ -1033,7 +1033,7 @@
                 actionGroup.className = 'beneficiary-row-actions';
                 const edit = document.createElement('button');
                 edit.type = 'button';
-                edit.className = 'table-action beneficiary-icon-action';
+                edit.className = 'btn btn-primary btn-icon waves-effect waves-light';
                 edit.dataset.beneficiaryId = beneficiary.id;
                 edit.title = 'Editar beneficiario';
                 edit.setAttribute('aria-label', 'Editar beneficiario');
@@ -1054,10 +1054,10 @@
                 });
                 const remove = document.createElement('button');
                 remove.type = 'button';
-                remove.className = 'table-action beneficiary-icon-action danger-action';
+                remove.className = 'btn btn-danger btn-icon waves-effect waves-light';
                 remove.title = 'Eliminar beneficiario';
                 remove.setAttribute('aria-label', 'Eliminar beneficiario');
-                remove.innerHTML = '<i class="ri-delete-bin-line" aria-hidden="true"></i>';
+                remove.innerHTML = '<i class="ri-delete-bin-5-line" aria-hidden="true"></i>';
                 remove.addEventListener('click', () => removeBeneficiary(beneficiary));
                 @can('editar beneficiarios')
                 actionGroup.append(edit);
