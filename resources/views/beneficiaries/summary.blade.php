@@ -49,7 +49,7 @@
         <label>Sector programático
             <select name="sector_id" id="summary_sector_id"><option value="">Todos</option>@foreach ($sectors as $sector)<option value="{{ $sector->id }}" @selected(($filters['sector_id'] ?? '') == $sector->id)>{{ $sector->name }}</option>@endforeach</select>
         </label>
-        <label>Indicador a reportar
+        <label class="beneficiary-indicator-field">Indicador a reportar
             @php
                 $selectedIndicators = $filters['indicator_filter'] ?? (!empty($filters['indicador_proyecto_id'])
                     ? ['project:'.$filters['indicador_proyecto_id']]
@@ -237,6 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.jQuery?.fn?.select2) {
         window.jQuery(summaryIndicator).select2({
             width: '100%', placeholder: 'Todos los indicadores', allowClear: true, closeOnSelect: false,
+            dropdownCssClass: 'beneficiary-indicator-dropdown',
             language: {noResults: () => 'No se encontraron indicadores', searching: () => 'Buscando...'},
         }).on('change', syncBeneficiaryExportUrl);
     }
