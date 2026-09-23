@@ -227,6 +227,23 @@ class BeneficiaryReportController extends Controller
                         ->orWhere(fn (Builder $legacy) => $legacy->whereDoesntHave('indicadorProyecto.asignacionSector')->where('sector_id', $sectorId));
                 });
             })
+            ->when($filters['indicator_filter'] ?? [], function (Builder $query, array $indicators): void {
+                $projectIds = [];
+                $legacyIds = [];
+                foreach ($indicators as $indicator) {
+                    [$type, $id] = explode(':', $indicator, 2);
+                    if ($type === 'project') {
+                        $projectIds[] = (int) $id;
+                    } else {
+                        $legacyIds[] = (int) $id;
+                    }
+                }
+                // Match any selected indicator, without bypassing other filters or permissions.
+                $query->where(function (Builder $indicators) use ($projectIds, $legacyIds): void {
+                    $indicators->whereIn('indicador_proyecto_id', $projectIds)
+                        ->orWhere(fn (Builder $legacy) => $legacy->whereNull('indicador_proyecto_id')->whereIn('activity_id', $legacyIds));
+                });
+            })
             ->when($filters['activity_id'] ?? null, fn (Builder $query, int $activityId) => $query->whereNull('indicador_proyecto_id')->where('activity_id', $activityId))
             ->when($filters['indicador_proyecto_id'] ?? null, fn (Builder $query, int $assignmentId) => $query->where('indicador_proyecto_id', $assignmentId));
     }
@@ -296,16 +313,23 @@ class BeneficiaryReportController extends Controller
     {
         $input = $request->all();
         // The explicit selector overrides old query-string filters, including "Todos".
-        // Normalize to the existing keys shared by summary, Excel and mark-as-reported.
+        // Keep old single-selection links compatible with the new array selector.
         if ($request->exists('indicator_filter')) {
             unset($input['activity_id'], $input['indicador_proyecto_id']);
-            if (is_string($input['indicator_filter']) && preg_match('/\A(project|legacy):([1-9][0-9]*)\z/', $input['indicator_filter'], $matches)) {
-                $input[$matches[1] === 'project' ? 'indicador_proyecto_id' : 'activity_id'] = $matches[2];
-            }
+            $selected = is_array($input['indicator_filter']) ? $input['indicator_filter'] : [$input['indicator_filter']];
+            $input['indicator_filter'] = array_values(array_filter($selected, fn ($value) => $value !== null && $value !== ''));
         }
 
         $filters = Validator::make($input, [
-            'indicator_filter' => ['nullable', 'string', 'regex:/\A(project|legacy):([1-9][0-9]*)\z/'],
+            'indicator_filter' => ['sometimes', 'array', 'max:1000'],
+            'indicator_filter.*' => ['bail', 'required', 'string', 'regex:/\A(project|legacy):([1-9][0-9]*)\z/',
+                function (string $attribute, string $value, \Closure $fail): void {
+                    [$type, $id] = explode(':', $value, 2);
+                    if (! DB::table($type === 'project' ? 'indicador_proyecto' : 'activities')->where('id', $id)->exists()) {
+                        $fail('El indicador seleccionado no existe.');
+                    }
+                },
+            ],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],
             'included_from' => ['nullable', 'date'],
@@ -322,7 +346,9 @@ class BeneficiaryReportController extends Controller
             'reported' => ['nullable', Rule::in(['0', '1', 0, 1])],
         ])->validate();
 
-        unset($filters['indicator_filter']);
+        if (isset($filters['indicator_filter'])) {
+            $filters['indicator_filter'] = array_values(array_unique($filters['indicator_filter']));
+        }
 
         if (! $request->exists('reported')) {
             $filters['reported'] = '0';

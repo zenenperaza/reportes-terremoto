@@ -51,16 +51,17 @@
         </label>
         <label>Indicador a reportar
             @php
-                $selectedIndicator = !empty($filters['indicador_proyecto_id'])
-                    ? 'project:'.$filters['indicador_proyecto_id']
-                    : (!empty($filters['activity_id']) ? 'legacy:'.$filters['activity_id'] : '');
+                $selectedIndicators = $filters['indicator_filter'] ?? (!empty($filters['indicador_proyecto_id'])
+                    ? ['project:'.$filters['indicador_proyecto_id']]
+                    : (!empty($filters['activity_id']) ? ['legacy:'.$filters['activity_id']] : []));
             @endphp
-            <select name="indicator_filter" id="summary_indicator_id">
-                <option value="">Todos</option>
+            <input type="hidden" name="indicator_filter[]" value="">
+            <select name="indicator_filter[]" id="summary_indicator_id" multiple aria-describedby="summary-indicator-help">
                 @foreach ($indicatorOptions->filter(fn ($option) => empty($filters['sector_id']) || $option['sector_id'] == $filters['sector_id'])->unique('value') as $option)
-                    <option value="{{ $option['value'] }}" @selected($selectedIndicator === $option['value'])>{{ $option['label'] }}</option>
+                    <option value="{{ $option['value'] }}" @selected(in_array($option['value'], $selectedIndicators, true))>{{ $option['label'] }}</option>
                 @endforeach
             </select>
+            <small class="muted" id="summary-indicator-help">Seleccione uno o varios indicadores. Sin selección se incluyen todos.</small>
         </label>
         <label>Recurrente
             <select name="is_recurrent"><option value="">Todos</option><option value="1" @selected(($filters['is_recurrent'] ?? '') === '1')>Sí</option><option value="0" @selected(($filters['is_recurrent'] ?? '') === '0')>No</option></select>
@@ -99,8 +100,9 @@
             <tbody>@foreach($groupedBeneficiaries as $group)
                 @php
                     $groupFilters = array_merge($filters, [
-                        'activity_id' => null, 'indicador_proyecto_id' => null,
-                        'from' => $group->report_date, 'to' => $group->report_date,
+                        'activity_id' => null, 'indicador_proyecto_id' => null, 'indicator_filter' => null,
+                        'from' => \Illuminate\Support\Carbon::parse($group->report_date)->toDateString(),
+                        'to' => \Illuminate\Support\Carbon::parse($group->report_date)->toDateString(),
                         'state_id' => $group->state_id, 'municipality_id' => $group->municipality_id,
                         'parish_id' => $group->parish_id, 'place_name' => $group->place_name,
                         $group->indicador_proyecto_id
@@ -174,7 +176,9 @@
             <form method="post" action="{{ route('beneficiaries.mark-reported') }}" class="donor-report-form" data-beneficiary-count="{{ $pendingBeneficiaryCount }}" data-can-report="1">
                 @csrf
                 @foreach($filters as $name => $value)
-                    @if($value !== null && $value !== '')<input type="hidden" name="{{ $name }}" value="{{ $value }}">@endif
+                    @foreach(is_array($value) ? $value : [$value] as $item)
+                        @if($item !== null && $item !== '')<input type="hidden" name="{{ $name }}{{ is_array($value) ? '[]' : '' }}" value="{{ $item }}">@endif
+                    @endforeach
                 @endforeach
                 <label>Fecha de reporte *<input type="date" name="reported_at" value="{{ today()->format('Y-m-d') }}" max="{{ today()->format('Y-m-d') }}" required></label>
                 <button class="button button-primary" type="submit">Actualizar a Reportado</button>
@@ -217,17 +221,25 @@ const activateReportTab = (tab) => {
 };
 document.querySelectorAll('[data-report-tab]').forEach(tab => tab.addEventListener('click', () => activateReportTab(tab)));
 summarySector.addEventListener('change', () => {
-    const previousValue = summaryIndicator.value;
+    const previousValues = new Set(Array.from(summaryIndicator.selectedOptions, option => option.value));
     const seen = new Set();
-    summaryIndicator.replaceChildren(new Option('Todos', ''));
+    summaryIndicator.replaceChildren();
     summaryIndicatorOptions.forEach(item => {
         if (summarySector.value && String(item.sector_id) !== summarySector.value) return;
         if (seen.has(item.value)) return;
         seen.add(item.value);
-        summaryIndicator.add(new Option(item.label, item.value));
+        summaryIndicator.add(new Option(item.label, item.value, false, previousValues.has(item.value)));
     });
-    summaryIndicator.value = seen.has(previousValue) ? previousValue : '';
+    if (window.jQuery?.fn?.select2) window.jQuery(summaryIndicator).trigger('change.select2');
     syncBeneficiaryExportUrl();
+});
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.jQuery?.fn?.select2) {
+        window.jQuery(summaryIndicator).select2({
+            width: '100%', placeholder: 'Todos los indicadores', allowClear: true, closeOnSelect: false,
+            language: {noResults: () => 'No se encontraron indicadores', searching: () => 'Buscando...'},
+        }).on('change', syncBeneficiaryExportUrl);
+    }
 });
 </script>
 

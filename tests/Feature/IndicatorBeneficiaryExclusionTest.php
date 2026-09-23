@@ -208,8 +208,8 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
             ->assertSee('value="project:'.$included->indicador_proyecto_id.'" selected', false);
         $this->get(route('beneficiaries.summary', ['indicator_filter' => '', 'indicador_proyecto_id' => $included->indicador_proyecto_id]))->assertOk()
             ->assertViewHas('reportCount', 3);
-        $this->getJson(route('beneficiaries.summary', ['indicator_filter' => 'invalid']))->assertUnprocessable()->assertJsonValidationErrors('indicator_filter');
-        $this->getJson(route('beneficiaries.summary', ['indicator_filter' => 'project:999999']))->assertUnprocessable()->assertJsonValidationErrors('indicador_proyecto_id');
+        $this->getJson(route('beneficiaries.summary', ['indicator_filter' => 'invalid']))->assertUnprocessable()->assertJsonValidationErrors('indicator_filter.0');
+        $this->getJson(route('beneficiaries.summary', ['indicator_filter' => 'project:999999']))->assertUnprocessable()->assertJsonValidationErrors('indicator_filter.0');
     }
 
     public function test_sector_filter_and_options_use_indicator_sector_even_when_report_sector_is_stale(): void
@@ -248,6 +248,92 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
         $this->post(route('beneficiaries.mark-reported'), $filters + ['reported_at' => today()->toDateString()])->assertRedirect();
         $this->assertNotNull($included->beneficiaries()->first()->reported_at);
         $this->assertNull($legacy->beneficiaries()->first()->reported_at);
+        $this->assertNull($excluded->beneficiaries()->first()->reported_at);
+    }
+
+    public function test_multiple_project_indicators_are_combined_and_preserved_in_the_form(): void
+    {
+        [$admin, $included, $excluded, $legacy] = $this->reports();
+        $excluded->indicadorProyecto->indicador->update(['excluir_reporte_beneficiarios' => false]);
+        $selected = ['project:'.$included->indicador_proyecto_id, 'project:'.$excluded->indicador_proyecto_id];
+        $response = $this->actingAs($admin)->get(route('beneficiaries.summary', ['indicator_filter' => $selected]))->assertOk()
+            ->assertViewHas('reportCount', 2)
+            ->assertViewHas('summary', fn ($summary) => $summary['total'] === 2)
+            ->assertViewHas('groupedBeneficiaries', fn ($groups) => $groups->sum('beneficiary_count') === 2 && $groups->every(fn ($group) => $group->indicador_proyecto_id !== null))
+            ->assertSee('id="summary_indicator_id" multiple', false);
+        foreach ($selected as $value) {
+            $response->assertSee('value="'.$value.'" selected', false)
+                ->assertSee('name="indicator_filter[]" value="'.$value.'"', false);
+        }
+
+        // Detail links must narrow the selection back to that group's one indicator.
+        $document = new \DOMDocument;
+        @$document->loadHTML($response->getContent());
+        $links = (new \DOMXPath($document))->query('//a[@class="beneficiary-group-link"]');
+        $this->assertCount(2, $links);
+        foreach ($links as $link) {
+            $this->assertStringNotContainsString('indicator_filter', $link->getAttribute('href'));
+            $detail = $this->get($link->getAttribute('href'))->assertOk();
+            $this->assertSame(1, $detail->viewData('summary')['total'], $link->getAttribute('href'));
+        }
+    }
+
+    public function test_mixed_multiple_selection_keeps_exclusions_permissions_and_other_filters(): void
+    {
+        [$admin, $included, $excluded, $legacy] = $this->reports();
+        $selected = ['project:'.$included->indicador_proyecto_id, 'legacy:'.$legacy->activity_id, 'project:'.$excluded->indicador_proyecto_id];
+        $this->actingAs($admin)->get(route('beneficiaries.summary', ['indicator_filter' => [...$selected, $selected[0]]]))->assertOk()
+            ->assertViewHas('filters', fn ($filters) => $filters['indicator_filter'] === $selected)
+            ->assertViewHas('summary', fn ($summary) => $summary['total'] === 2);
+        $this->get(route('beneficiaries.summary', ['indicator_filter' => $selected, 'from' => today()->addDay()->toDateString()]))->assertOk()
+            ->assertViewHas('summary', fn ($summary) => $summary['total'] === 0);
+        $legacy->beneficiaries()->update(['reported_at' => today()->toDateString()]);
+        $this->get(route('beneficiaries.summary', ['indicator_filter' => $selected, 'reported' => '1']))->assertOk()
+            ->assertViewHas('summary', fn ($summary) => $summary['total'] === 1);
+
+        $reporter = User::factory()->create(['role' => 'reporter']);
+        $included->update(['user_id' => $reporter->id]);
+        $this->actingAs($reporter)->get(route('beneficiaries.summary', ['indicator_filter' => $selected, 'reported' => '']))->assertOk()
+            ->assertViewHas('summary', fn ($summary) => $summary['total'] === 1);
+    }
+
+    public function test_empty_multiple_selection_means_all_and_invalid_members_are_rejected(): void
+    {
+        [$admin, $included] = $this->reports();
+        $this->actingAs($admin);
+        foreach ([[], [''], ['', null]] as $selection) {
+            $this->call('GET', route('beneficiaries.summary'), ['indicator_filter' => $selection, 'indicador_proyecto_id' => $included->indicador_proyecto_id])
+                ->assertOk()->assertViewHas('summary', fn ($summary) => $summary['total'] === 2);
+        }
+        foreach (['invalid', 'legacy:999999', ['nested']] as $invalid) {
+            $this->getJson(route('beneficiaries.summary', ['indicator_filter' => ['project:'.$included->indicador_proyecto_id, $invalid]]))
+                ->assertUnprocessable()->assertJsonValidationErrors('indicator_filter.1');
+        }
+    }
+
+    public function test_multiple_selection_is_kept_in_excel_and_mark_reported(): void
+    {
+        [$admin, $included, $excluded, $legacy] = $this->reports();
+        $selected = ['project:'.$included->indicador_proyecto_id, 'legacy:'.$legacy->activity_id, 'project:'.$excluded->indicador_proyecto_id];
+        $response = $this->actingAs($admin)->get(route('beneficiaries.export', ['indicator_filter' => $selected]))->assertOk();
+        $path = tempnam(sys_get_temp_dir(), 'indicator-multiple-');
+        try {
+            file_put_contents($path, $response->streamedContent());
+            $workbook = IOFactory::load($path);
+            $rows = array_values(array_filter(array_slice($workbook->getActiveSheet()->toArray(), 1), fn ($row) => $row[0] !== null));
+            $this->assertCount(2, $rows);
+            $this->assertEqualsCanonicalizing(
+                [$included->beneficiaries()->first()->id, $legacy->beneficiaries()->first()->id],
+                array_column($rows, 0),
+            );
+            $workbook->disconnectWorksheets();
+        } finally {
+            unlink($path);
+        }
+        $this->post(route('beneficiaries.mark-reported'), ['indicator_filter' => $selected, 'reported_at' => today()->toDateString()])
+            ->assertRedirect(route('beneficiaries.summary', ['indicator_filter' => $selected, 'reported' => '0']));
+        $this->assertNotNull($included->beneficiaries()->first()->reported_at);
+        $this->assertNotNull($legacy->beneficiaries()->first()->reported_at);
         $this->assertNull($excluded->beneficiaries()->first()->reported_at);
     }
 
