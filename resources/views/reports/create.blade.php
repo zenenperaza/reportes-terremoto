@@ -1029,11 +1029,15 @@
                     row.appendChild(cell);
                 });
                 const actions = document.createElement('td');
+                const actionGroup = document.createElement('div');
+                actionGroup.className = 'beneficiary-row-actions';
                 const edit = document.createElement('button');
                 edit.type = 'button';
-                edit.className = 'table-action';
+                edit.className = 'table-action beneficiary-icon-action';
                 edit.dataset.beneficiaryId = beneficiary.id;
-                edit.textContent = 'Editar';
+                edit.title = 'Editar beneficiario';
+                edit.setAttribute('aria-label', 'Editar beneficiario');
+                edit.innerHTML = '<i class="ri-pencil-line" aria-hidden="true"></i>';
                 edit.addEventListener('click', () => {
                     beneficiaryFields.forEach(field => {
                         if (field === 'has_informed_consent') beneficiaryInputs[field].checked = Boolean(beneficiary[field]);
@@ -1050,10 +1054,18 @@
                 });
                 const remove = document.createElement('button');
                 remove.type = 'button';
-                remove.className = 'table-action danger-action';
-                remove.textContent = 'Eliminar';
+                remove.className = 'table-action beneficiary-icon-action danger-action';
+                remove.title = 'Eliminar beneficiario';
+                remove.setAttribute('aria-label', 'Eliminar beneficiario');
+                remove.innerHTML = '<i class="ri-delete-bin-line" aria-hidden="true"></i>';
                 remove.addEventListener('click', () => removeBeneficiary(beneficiary));
-                actions.append(edit, remove);
+                @can('editar beneficiarios')
+                actionGroup.append(edit);
+                @endcan
+                @can('eliminar beneficiarios')
+                actionGroup.append(remove);
+                @endcan
+                actions.appendChild(actionGroup);
                 row.appendChild(actions);
                 beneficiaryList.appendChild(row);
             });

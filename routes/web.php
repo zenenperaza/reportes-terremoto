@@ -169,9 +169,9 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
     Route::get('/sectores/{sector}/actividades', [LocationController::class, 'activities'])->name('sectors.activities');
     Route::get('/beneficiarios/verificar-recurrencia', [BeneficiaryLookupController::class, 'recurrence'])->name('beneficiaries.recurrence');
     Route::post('/beneficiarios', [ReportController::class, 'storeBeneficiary'])->middleware('permission:registrar actividad')->name('beneficiaries.store');
-    Route::put('/beneficiarios/{beneficiary}', [ReportController::class, 'updateBeneficiary'])->middleware('permission:editar registros')->name('beneficiaries.update');
-    Route::put('/beneficiarios/{beneficiary}/atencion', [ReportController::class, 'updateBeneficiaryAttention'])->middleware('permission:editar registros')->name('beneficiaries.update-attention');
-    Route::delete('/beneficiarios/{beneficiary}', [ReportController::class, 'destroyBeneficiary'])->middleware('permission:eliminar registros')->name('beneficiaries.destroy');
+    Route::put('/beneficiarios/{beneficiary}', [ReportController::class, 'updateBeneficiary'])->middleware('permission:editar beneficiarios')->name('beneficiaries.update');
+    Route::put('/beneficiarios/{beneficiary}/atencion', [ReportController::class, 'updateBeneficiaryAttention'])->middleware('permission:editar beneficiarios')->name('beneficiaries.update-attention');
+    Route::delete('/beneficiarios/{beneficiary}', [ReportController::class, 'destroyBeneficiary'])->middleware('permission:eliminar beneficiarios')->name('beneficiaries.destroy');
     Route::get('/informe-beneficiarios/exportar', [BeneficiaryReportController::class, 'export'])->middleware('permission:exportar registros excel')->name('beneficiaries.export');
     Route::get('/informe-beneficiarios', [BeneficiaryReportController::class, 'index'])->name('beneficiaries.summary');
     Route::get('/informe-beneficiarios/ubicaciones', [BeneficiaryReportController::class, 'locations'])->name('beneficiaries.locations');
@@ -185,7 +185,7 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
     Route::get('/reportes', [ReportController::class, 'index'])->middleware('permission:solo ver registros')->name('reports.index');
     Route::get('/reportes/nuevo', [ReportController::class, 'create'])->middleware('permission:registrar actividad')->name('reports.create');
     Route::post('/reportes', [ReportController::class, 'store'])->middleware('permission:registrar actividad')->name('reports.store');
-    Route::get('/reportes/{report}/editar', [ReportController::class, 'edit'])->middleware('permission:editar registros')->name('reports.edit');
+    Route::get('/reportes/{report}/editar', [ReportController::class, 'edit'])->middleware('permission:editar registros|editar beneficiarios')->name('reports.edit');
     Route::put('/reportes/{report}', [ReportController::class, 'update'])->middleware('permission:editar registros')->name('reports.update');
     Route::delete('/reportes/{report}', [ReportController::class, 'destroy'])->middleware('permission:eliminar registros')->name('reports.destroy');
     Route::get('/reportes/{report}', [ReportController::class, 'show'])->middleware('permission:ver detalle de registros')->name('reports.show');

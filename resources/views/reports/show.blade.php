@@ -11,7 +11,7 @@
     </div>
     <div class="heading-actions">
         <span class="status status-{{ $report->status }}">{{ $report->status === 'reviewed' ? 'Revisado' : 'Enviado' }}</span>
-        @if($canEditBeneficiaries)<a class="button button-primary" href="{{ route('reports.edit', $report) }}">Editar registro</a>@endif
+        @if($canEditReport)<a class="button button-primary" href="{{ route('reports.edit', $report) }}">Editar registro</a>@endif
         @if($canDeleteReport)
             <form method="post" action="{{ route('reports.destroy', $report) }}" class="report-delete-form">
                 @csrf
@@ -72,7 +72,6 @@
                 border-bottom: 0;
             }
             .beneficiary-table td[data-label="Acciones"]::before { flex: 0 0 120px; }
-            .beneficiary-table td[data-label="Acciones"] .table-action + .table-action { margin-left: 8px; }
         }
 
         @media (max-width: 640px) {
@@ -82,7 +81,6 @@
             .beneficiary-table td:last-child { grid-template-columns: 1fr; gap: 3px; }
             .beneficiary-table td[data-label="Acciones"] { display: grid; }
             .beneficiary-table td[data-label="Acciones"]::before { flex-basis: auto; }
-            .beneficiary-table td[data-label="Acciones"] .table-action + .table-action { margin-left: 0; }
         }
     </style>
 @endpush
@@ -149,8 +147,8 @@
     @else
         <div class="table-wrap">
             <table class="beneficiary-table">
-                <thead><tr><th>Nombre y apellido</th><th>Edad</th><th>Sexo</th><th>Cédula</th><th>Teléfono</th><th>Discapacidad</th><th>Indígena</th><th>Emb./lact.</th><th>Recurrente</th><th>Reportado</th><th>Fecha de reporte</th>@if($canEditBeneficiaries)<th>Acciones</th>@endif</tr></thead>
-                <tbody>@foreach($report->beneficiaries as $beneficiary)<tr><td data-label="Nombre y apellido">{{ $beneficiary->full_name ?: 'Sin nombre registrado' }}</td><td data-label="Edad">{{ $beneficiary->age }}</td><td data-label="Sexo">{{ $beneficiary->sex }}</td><td data-label="C&eacute;dula">{{ $beneficiary->national_id ?: '—' }}</td><td data-label="Tel&eacute;fono">{{ $beneficiary->phone ?: '—' }}</td><td data-label="Discapacidad">{{ $beneficiary->disability ?: 'Ninguna' }}</td><td data-label="Ind&iacute;gena">{{ $beneficiary->ethnicity ?: 'Ninguna' }}</td><td data-label="Emb./lact.">{{ $beneficiary->pregnant_lactating ?: 'Ninguna' }}</td><td data-label="Recurrente">{{ $beneficiary->is_recurrent ? 'Sí' : 'No' }}</td><td data-label="Reportado">{{ $beneficiary->reported_at ? 'Sí' : 'No' }}</td><td data-label="Fecha de reporte">{{ $beneficiary->reported_at?->format('d/m/Y') ?: '—' }}</td>@if($canEditBeneficiaries)<td data-label="Acciones"><a class="table-action" href="{{ route('reports.edit', ['report' => $report, 'beneficiary' => $beneficiary->id]) }}">Editar</a><button class="table-action danger-action beneficiary-delete-button" type="button" data-beneficiary-id="{{ $beneficiary->id }}">Eliminar</button></td>@endif</tr>@endforeach</tbody>
+                <thead><tr><th>Nombre y apellido</th><th>Edad</th><th>Sexo</th><th>Cédula</th><th>Teléfono</th><th>Discapacidad</th><th>Indígena</th><th>Emb./lact.</th><th>Recurrente</th><th>Reportado</th><th>Fecha de reporte</th>@if($canEditBeneficiaries || $canDeleteBeneficiaries)<th>Acciones</th>@endif</tr></thead>
+                <tbody>@foreach($report->beneficiaries as $beneficiary)<tr><td data-label="Nombre y apellido">{{ $beneficiary->full_name ?: 'Sin nombre registrado' }}</td><td data-label="Edad">{{ $beneficiary->age }}</td><td data-label="Sexo">{{ $beneficiary->sex }}</td><td data-label="C&eacute;dula">{{ $beneficiary->national_id ?: '—' }}</td><td data-label="Tel&eacute;fono">{{ $beneficiary->phone ?: '—' }}</td><td data-label="Discapacidad">{{ $beneficiary->disability ?: 'Ninguna' }}</td><td data-label="Ind&iacute;gena">{{ $beneficiary->ethnicity ?: 'Ninguna' }}</td><td data-label="Emb./lact.">{{ $beneficiary->pregnant_lactating ?: 'Ninguna' }}</td><td data-label="Recurrente">{{ $beneficiary->is_recurrent ? 'Sí' : 'No' }}</td><td data-label="Reportado">{{ $beneficiary->reported_at ? 'Sí' : 'No' }}</td><td data-label="Fecha de reporte">{{ $beneficiary->reported_at?->format('d/m/Y') ?: '—' }}</td>@if($canEditBeneficiaries || $canDeleteBeneficiaries)<td data-label="Acciones"><div class="beneficiary-row-actions">@if($canEditBeneficiaries)<a class="table-action beneficiary-icon-action" title="Editar beneficiario" aria-label="Editar beneficiario" href="{{ route('reports.edit', ['report' => $report, 'beneficiary' => $beneficiary->id]) }}"><i class="ri-pencil-line" aria-hidden="true"></i></a>@endif @if($canDeleteBeneficiaries)<button class="table-action beneficiary-icon-action danger-action beneficiary-delete-button" title="Eliminar beneficiario" aria-label="Eliminar beneficiario" type="button" data-beneficiary-id="{{ $beneficiary->id }}"><i class="ri-delete-bin-line" aria-hidden="true"></i></button>@endif</div></td>@endif</tr>@endforeach</tbody>
             </table>
         </div>
         @if($canEditBeneficiaries)
@@ -176,7 +174,7 @@
 <section class="content-card"><h2>Registro cualitativo</h2><p class="notes">{{ $report->qualitative_notes ?: 'No se registraron notas cualitativas.' }}</p><h3>Medios de verificación</h3>@if($report->evidences->isEmpty())<p class="muted">No se adjuntaron medios de verificación.</p>@else<div class="evidence-list">@foreach($report->evidences as $evidence)<a href="{{ route('evidences.download', $evidence) }}">Soporte {{ $evidence->slot }} · {{ $evidence->original_name }} <small>({{ number_format($evidence->size / 1024, 0) }} KB)</small></a>@endforeach</div>@endif</section>
 @endsection
 
-@if($canEditBeneficiaries && $report->beneficiaries->isNotEmpty())
+@if(($canEditBeneficiaries || $canDeleteBeneficiaries) && $report->beneficiaries->isNotEmpty())
     @push('styles')
         <style>.beneficiary-detail-editor{margin-top:22px}.beneficiary-detail-editor[hidden]{display:none}</style>
     @endpush
@@ -241,12 +239,12 @@
                     }
                 }));
 
-                document.getElementById('cancel-beneficiary-edit').addEventListener('click', () => {
+                document.getElementById('cancel-beneficiary-edit')?.addEventListener('click', () => {
                     form.hidden = true;
                     beneficiaryId = null;
                 });
 
-                form.addEventListener('submit', async (event) => {
+                form?.addEventListener('submit', async (event) => {
                     event.preventDefault();
                     if (!form.reportValidity() || !beneficiaryId) return;
                     const submitButton = form.querySelector('[type="submit"]');

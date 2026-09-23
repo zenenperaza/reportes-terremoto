@@ -18,6 +18,8 @@ class PermissionController extends Controller
         'manejar lugares',
         'editar registros',
         'eliminar registros',
+        'editar beneficiarios',
+        'eliminar beneficiarios',
         'solo ver registros',
         'generar respaldos',
         'descargar respaldos',

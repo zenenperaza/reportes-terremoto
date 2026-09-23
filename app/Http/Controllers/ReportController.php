@@ -106,7 +106,7 @@ class ReportController extends Controller
 
     public function edit(Request $request, Report $report): View
     {
-        $this->ensureEditable($request, $report);
+        $this->ensureEditable($request, $report, $request->has('beneficiary') ? 'editar beneficiarios' : 'editar registros');
         $report->load(['beneficiaries', 'evidences', 'serviciosActividad', 'indicadorProyecto', 'state', 'municipality', 'parish']);
         $requestedBeneficiaryId = $request->integer('beneficiary');
         $editingBeneficiary = $request->has('beneficiary')
@@ -281,7 +281,7 @@ class ReportController extends Controller
     public function updateBeneficiary(UpdateBeneficiaryRequest $request, Beneficiary $beneficiary): JsonResponse
     {
         $report = $beneficiary->report;
-        $this->ensureEditable($request, $report);
+        $this->ensureEditable($request, $report, 'editar beneficiarios');
         $beneficiary->update($request->validated());
         $summary = $this->syncBeneficiarySummary($report);
 
@@ -295,7 +295,7 @@ class ReportController extends Controller
     public function updateBeneficiaryAttention(UpdateBeneficiaryAttentionRequest $request, Beneficiary $beneficiary): JsonResponse
     {
         $originalReportId = $beneficiary->report_id;
-        $this->ensureEditable($request, $beneficiary->report);
+        $this->ensureEditable($request, $beneficiary->report, 'editar beneficiarios');
         abort_if($request->filled('source_report_id') && $request->integer('source_report_id') !== $originalReportId,
             409, 'El beneficiario cambió de registro. Recargue la página antes de editar.');
         $data = $request->validated();
@@ -319,7 +319,7 @@ class ReportController extends Controller
         try {
             [$target, $beneficiary, $summary, $separated] = DB::transaction(function () use ($request, $beneficiary, $originalReportId, $data, $beneficiaryData, $serviceIds, &$createdDirectory): array {
                 $source = Report::whereKey($originalReportId)->lockForUpdate()->firstOrFail();
-                $this->ensureEditable($request, $source);
+                $this->ensureEditable($request, $source, 'editar beneficiarios');
                 $beneficiary = Beneficiary::whereKey($beneficiary->id)->lockForUpdate()->firstOrFail();
                 abort_unless($beneficiary->report_id === $source->id, 409, 'El beneficiario cambió de registro. Recargue la página antes de editar.');
 
@@ -384,7 +384,10 @@ class ReportController extends Controller
     public function destroyBeneficiary(Request $request, Beneficiary $beneficiary): JsonResponse
     {
         $report = $beneficiary->report;
-        $this->ensureEditable($request, $report);
+        $this->ensureEditable($request, $report, 'eliminar beneficiarios');
+
+        abort_if($report->beneficiaries()->count() === 1 && ! $request->user()->can('eliminar registros'),
+            403, 'Para eliminar el último beneficiario también necesita el permiso de eliminar registros.');
 
         if ($report->beneficiaries()->count() === 1 && ! $request->user()->isAdministrator()) {
             return response()->json([
@@ -420,10 +423,18 @@ class ReportController extends Controller
         return view('reports.show', [
             'report' => $report,
             'isCoordinator' => $request->user()->isCoordinator(),
-            'canEditBeneficiaries' => $request->user()->can('editar registros') && (
+            'canEditReport' => $request->user()->can('editar registros') && (
                 $report->user_id === $request->user()->id
                 || $request->user()->isAdministrator()
             ) && $report->status !== 'reviewed',
+            'canEditBeneficiaries' => $request->user()->can('editar beneficiarios')
+                && ($report->user_id === $request->user()->id || $request->user()->isAdministrator())
+                && $report->status !== 'reviewed',
+            'canDeleteBeneficiaries' => $request->user()->can('eliminar beneficiarios')
+                && ($report->user_id === $request->user()->id || $request->user()->isAdministrator())
+                && $report->status !== 'reviewed'
+                && ($report->beneficiaries->count() > 1
+                    || ($request->user()->isAdministrator() && $request->user()->can('eliminar registros'))),
             'canDeleteReport' => $request->user()->can('eliminar registros'),
             'beneficiaryOptions' => config('reports.beneficiary_options'),
             'beneficiaryEditData' => $report->beneficiaries->keyBy('id')->map(fn (Beneficiary $beneficiary): array => [
@@ -712,10 +723,10 @@ class ReportController extends Controller
         return trim((string) ($value ?? ''));
     }
 
-    private function ensureEditable(Request $request, Report $report): void
+    private function ensureEditable(Request $request, Report $report, string $permission = 'editar registros'): void
     {
         abort_unless(
-            $request->user()->can('editar registros')
+            $request->user()->can($permission)
                 && ($report->user_id === $request->user()->id || $request->user()->isAdministrator()),
             403
         );

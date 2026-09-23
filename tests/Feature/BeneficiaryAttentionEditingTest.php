@@ -78,6 +78,59 @@ class BeneficiaryAttentionEditingTest extends TestCase
         return $beneficiary->only(['has_informed_consent', 'full_name', 'age', 'sex', 'national_id', 'phone', 'disability', 'ethnicity', 'pregnant_lactating', 'is_recurrent']);
     }
 
+    public static function independentPermissions(): array
+    {
+        return [
+            'none' => [null, false, false, false, false],
+            'edit group' => ['editar registros', true, false, false, false],
+            'delete group' => ['eliminar registros', false, true, false, false],
+            'edit person' => ['editar beneficiarios', false, false, true, false],
+            'delete person' => ['eliminar beneficiarios', false, false, false, true],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('independentPermissions')]
+    public function test_each_action_requires_its_own_permission(?string $permission, bool $editReport, bool $deleteReport, bool $editPerson, bool $deletePerson): void
+    {
+        [$report, $first, $second, $original] = $this->fixture();
+        $role = \Spatie\Permission\Models\Role::findByName('admin', 'web');
+        $role->syncPermissions(array_filter(['ver detalle de registros', $permission]));
+        $this->actingAs(auth()->user()->fresh());
+
+        $response = $this->get(route('reports.show', $report))->assertOk()
+            ->assertViewHas('canEditReport', $editReport)
+            ->assertViewHas('canDeleteReport', $deleteReport)
+            ->assertViewHas('canEditBeneficiaries', $editPerson)
+            ->assertViewHas('canDeleteBeneficiaries', $deletePerson);
+        if ($editPerson) {
+            $response->assertSee('aria-label="Editar beneficiario"', false);
+        } else {
+            $response->assertDontSee('aria-label="Editar beneficiario"', false);
+        }
+        if ($deletePerson) {
+            $response->assertSee('aria-label="Eliminar beneficiario"', false);
+        } else {
+            $response->assertDontSee('aria-label="Eliminar beneficiario"', false);
+        }
+
+        $this->get(route('reports.edit', $report))->assertStatus($editReport ? 200 : 403);
+        $this->get(route('reports.edit', ['report' => $report, 'beneficiary' => $first->id]))
+            ->assertStatus($editPerson ? 200 : 403);
+        $this->putJson(route('reports.update', $report), $original)->assertStatus($editReport ? 200 : 403);
+        $this->putJson(route('beneficiaries.update', $first), $this->person($first))->assertStatus($editPerson ? 200 : 403);
+        // A deleted catalog entry must not prevent authorized individual edits.
+        PlaceName::where('name', 'Lugar 1')->delete();
+        $this->putJson(route('beneficiaries.update-attention', $first), $original + ['beneficiary' => $this->person($first)])
+            ->assertStatus($editPerson ? 200 : 403);
+        $this->deleteJson(route('beneficiaries.destroy', $first))->assertStatus($deletePerson ? 200 : 403);
+        if ($deletePerson) {
+            $this->assertDatabaseHas('beneficiaries', ['id' => $second->id]);
+            $this->deleteJson(route('beneficiaries.destroy', $second))->assertForbidden();
+            $this->assertDatabaseHas('reports', ['id' => $report->id]);
+        }
+        $this->delete(route('reports.destroy', $report))->assertStatus($deleteReport ? 302 : 403);
+    }
+
     public function test_group_and_individual_forms_have_distinct_scopes_and_keep_saved_location(): void
     {
         [$report, $first, $second] = $this->fixture();
@@ -88,6 +141,20 @@ class BeneficiaryAttentionEditingTest extends TestCase
             ->assertSee('Guardar cambios del beneficiario')->assertSee('data-beneficiary-update-url=', false)
             ->assertDontSee('data-report-update-url=', false)->assertSee('Lugar 1 (ubicación guardada)');
         $this->get(route('reports.edit', ['report' => $report, 'beneficiary' => 99999]))->assertNotFound();
+    }
+
+    public function test_beneficiary_actions_use_accessible_icons_and_keep_their_targets(): void
+    {
+        [$report, $first] = $this->fixture();
+
+        $this->get(route('reports.show', $report))->assertOk()
+            ->assertSee('class="beneficiary-row-actions"', false)
+            ->assertSee('aria-label="Editar beneficiario"', false)
+            ->assertSee('aria-label="Eliminar beneficiario"', false)
+            ->assertSee('class="ri-pencil-line" aria-hidden="true"', false)
+            ->assertSee('class="ri-delete-bin-line" aria-hidden="true"', false)
+            ->assertSee('href="'.e(route('reports.edit', ['report' => $report, 'beneficiary' => $first->id])).'"', false)
+            ->assertSee('data-beneficiary-id="'.$first->id.'"', false);
     }
 
     public function test_individual_context_change_moves_only_one_person_and_keeps_identity_dates_status_and_evidence(): void

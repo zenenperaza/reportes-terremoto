@@ -16,6 +16,19 @@ class TemporaryMaintenanceController extends Controller
         abort_if($token === '', 503, 'Falta configurar SERVER_MAINTENANCE_TOKEN en el archivo .env.');
         abort_unless(hash_equals($token, (string) request('token')), 403);
 
+        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios'], true),
+            422, 'Modo de mantenimiento no reconocido.');
+        $permissionsOnly = request('only') === 'permisos-beneficiarios';
+        abort_if($permissionsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
+            422, 'El modo permisos-beneficiarios no se puede combinar con opciones de caché o importación.');
+
+        $permissionMigration = ['name' => 'migrate', 'parameters' => [
+            '--path' => 'database/migrations/2026_09_23_180000_add_beneficiary_management_permissions.php',
+            '--force' => true,
+        ]];
+        abort_if($permissionsOnly && ! is_file(base_path($permissionMigration['parameters']['--path'])),
+            422, 'Suba la migración 2026_09_23_180000_add_beneficiary_management_permissions.php antes de continuar.');
+
         $cacheCommands = [
             ['name' => 'optimize:clear', 'parameters' => []],
             ['name' => 'cache:clear', 'parameters' => []],
@@ -172,12 +185,15 @@ class TemporaryMaintenanceController extends Controller
 
         $commands = array_merge(
             $cacheCommands,
-            $cacheOnly || $excelOnly ? [] : $migrationCommands,
+            $permissionsOnly ? [$permissionMigration] : ($cacheOnly || $excelOnly ? [] : array_merge($migrationCommands, [$permissionMigration])),
             $includeExcel ? $excelImportCommands : [],
             $warmupCommands,
         );
 
-        $results = [];
+        $results = $permissionsOnly ? [
+            'PERMISOS DE BENEFICIARIOS: se ejecutará únicamente la nueva migración de permisos y se reconstruirán las cachés. No se importarán ni modificarán registros o beneficiarios.',
+            'Se conservan editar registros y eliminar registros. Se crean editar beneficiarios y eliminar beneficiarios heredando inicialmente las asignaciones correspondientes.',
+        ] : [];
         $exitCode = 1;
 
         try {
@@ -206,7 +222,7 @@ class TemporaryMaintenanceController extends Controller
         }
     }
 
-    private function maintenanceToken(): string
+    protected function maintenanceToken(): string
     {
         $environmentFile = base_path('.env');
         $contents = is_file($environmentFile) ? (string) file_get_contents($environmentFile) : '';
