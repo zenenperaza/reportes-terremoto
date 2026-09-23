@@ -11,6 +11,7 @@ use App\Models\Parish;
 use App\Models\Proyecto;
 use App\Models\Report;
 use App\Models\Sector;
+use App\Models\SectorProyecto;
 use App\Models\State;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -155,6 +156,99 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
         $this->get(route('beneficiaries.export'))->assertForbidden();
         $this->post(route('beneficiaries.mark-reported'), ['reported_at' => today()->toDateString()])->assertForbidden();
         $this->actingAs($admin)->get(route('general-reports.index'))->assertOk()->assertSee('Indicador EXCLUIDO');
+    }
+
+    public function test_indicator_options_match_saved_visible_indicators_and_keep_legacy_separate(): void
+    {
+        [$admin, $included, $excluded, $legacy] = $this->reports();
+        $included->indicadorProyecto->update(['estatus' => false]);
+        Activity::create(['sector_id' => $legacy->sector_id, 'code' => 'UNUSED', 'title' => 'Actividad sin registros', 'active' => true]);
+        $unused = Indicador::create($this->indicatorData('SIN-REGISTROS'));
+        IndicadorProyecto::create(['proyecto_id' => $included->proyecto_id, 'indicador_id' => $unused->id, 'estatus' => true]);
+
+        $this->actingAs($admin)->get(route('beneficiaries.summary'))->assertOk()
+            ->assertViewHas('indicatorOptions', function ($options) use ($included, $legacy): bool {
+                return $options->count() === 2
+                    && $options->contains('value', 'project:'.$included->indicador_proyecto_id)
+                    && $options->contains('value', 'legacy:'.$legacy->activity_id);
+            })
+            ->assertSee('INCLUIDO: Indicador INCLUIDO')
+            ->assertSee('Actividad anterior (registro anterior)')
+            ->assertDontSee('Actividad sin registros')->assertDontSee('SIN-REGISTROS')->assertDontSee('Indicador EXCLUIDO');
+
+        $reporter = User::factory()->create(['role' => 'reporter']);
+        $legacy->update(['user_id' => $reporter->id]);
+        $this->actingAs($reporter)->get(route('beneficiaries.summary'))->assertOk()
+            ->assertViewHas('indicatorOptions', fn ($options) => $options->count() === 1 && $options->first()['value'] === 'legacy:'.$legacy->activity_id)
+            ->assertDontSee('Indicador INCLUIDO');
+    }
+
+    public function test_selector_filters_by_project_assignment_not_shared_legacy_activity_and_preserves_links(): void
+    {
+        [$admin, $included, $excluded, $legacy] = $this->reports();
+        $excluded->indicadorProyecto->indicador->update(['excluir_reporte_beneficiarios' => false]);
+        $this->actingAs($admin);
+
+        foreach ([$included, $excluded] as $report) {
+            $this->get(route('beneficiaries.summary', [
+                'indicator_filter' => 'project:'.$report->indicador_proyecto_id,
+                'activity_id' => $legacy->activity_id,
+            ]))->assertOk()
+                ->assertViewHas('reportCount', 1)
+                ->assertViewHas('summary', fn ($summary) => $summary['total'] === 1)
+                ->assertViewHas('groupedBeneficiaries', fn ($groups) => $groups->count() === 1 && $groups->first()->indicador_proyecto_id === $report->indicador_proyecto_id)
+                ->assertSee('value="project:'.$report->indicador_proyecto_id.'" selected', false)
+                ->assertSee('indicador_proyecto_id='.$report->indicador_proyecto_id, false);
+        }
+
+        $this->get(route('beneficiaries.summary', ['indicator_filter' => 'legacy:'.$legacy->activity_id]))->assertOk()
+            ->assertViewHas('reportCount', 1)
+            ->assertViewHas('groupedBeneficiaries', fn ($groups) => $groups->count() === 1 && $groups->first()->indicador_proyecto_id === null);
+        $this->get(route('beneficiaries.summary', ['indicador_proyecto_id' => $included->indicador_proyecto_id]))->assertOk()
+            ->assertSee('value="project:'.$included->indicador_proyecto_id.'" selected', false);
+        $this->get(route('beneficiaries.summary', ['indicator_filter' => '', 'indicador_proyecto_id' => $included->indicador_proyecto_id]))->assertOk()
+            ->assertViewHas('reportCount', 3);
+        $this->getJson(route('beneficiaries.summary', ['indicator_filter' => 'invalid']))->assertUnprocessable()->assertJsonValidationErrors('indicator_filter');
+        $this->getJson(route('beneficiaries.summary', ['indicator_filter' => 'project:999999']))->assertUnprocessable()->assertJsonValidationErrors('indicador_proyecto_id');
+    }
+
+    public function test_sector_filter_and_options_use_indicator_sector_even_when_report_sector_is_stale(): void
+    {
+        [$admin, $included, $excluded, $legacy] = $this->reports();
+        $sector = Sector::create(['name' => 'Sector del proyecto', 'slug' => 'sector-proyecto', 'sort_order' => 2]);
+        $assignment = SectorProyecto::create(['proyecto_id' => $included->proyecto_id, 'sector_id' => $sector->id]);
+        $included->indicadorProyecto->update(['sector_proyecto_id' => $assignment->id]);
+
+        $this->actingAs($admin)->get(route('beneficiaries.summary', ['sector_id' => $sector->id]))->assertOk()
+            ->assertViewHas('reportCount', 1)
+            ->assertViewHas('indicatorOptions', fn ($options) => $options->firstWhere('value', 'project:'.$included->indicador_proyecto_id)['sector_id'] === $sector->id)
+            ->assertViewHas('groupedBeneficiaries', fn ($groups) => $groups->first()->project_sector_name === $sector->name);
+        $this->get(route('beneficiaries.summary', ['sector_id' => $legacy->sector_id]))->assertOk()
+            ->assertViewHas('reportCount', 1)
+            ->assertViewHas('groupedBeneficiaries', fn ($groups) => $groups->first()->indicador_proyecto_id === null);
+    }
+
+    public function test_selected_indicator_is_applied_to_excel_and_mark_reported(): void
+    {
+        [$admin, $included, $excluded, $legacy] = $this->reports();
+        $filters = ['indicator_filter' => 'project:'.$included->indicador_proyecto_id];
+        $response = $this->actingAs($admin)->get(route('beneficiaries.export', $filters))->assertOk();
+        $path = tempnam(sys_get_temp_dir(), 'indicator-filter-');
+        try {
+            file_put_contents($path, $response->streamedContent());
+            $workbook = IOFactory::load($path);
+            $rows = array_values(array_filter(array_slice($workbook->getActiveSheet()->toArray(), 1), fn ($row) => $row[0] !== null));
+            $this->assertCount(1, $rows);
+            $this->assertSame($included->beneficiaries()->first()->id, (int) $rows[0][0]);
+            $this->assertSame('Indicador INCLUIDO', $rows[0][11]);
+            $workbook->disconnectWorksheets();
+        } finally {
+            unlink($path);
+        }
+        $this->post(route('beneficiaries.mark-reported'), $filters + ['reported_at' => today()->toDateString()])->assertRedirect();
+        $this->assertNotNull($included->beneficiaries()->first()->reported_at);
+        $this->assertNull($legacy->beneficiaries()->first()->reported_at);
+        $this->assertNull($excluded->beneficiaries()->first()->reported_at);
     }
 
     private function indicatorData(string $code): array

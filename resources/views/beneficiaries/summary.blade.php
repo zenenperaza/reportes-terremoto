@@ -50,7 +50,17 @@
             <select name="sector_id" id="summary_sector_id"><option value="">Todos</option>@foreach ($sectors as $sector)<option value="{{ $sector->id }}" @selected(($filters['sector_id'] ?? '') == $sector->id)>{{ $sector->name }}</option>@endforeach</select>
         </label>
         <label>Indicador a reportar
-            <select name="activity_id" id="summary_activity_id"><option value="">Todos</option>@foreach ($activities as $activity)<option value="{{ $activity->id }}" @selected(($filters['activity_id'] ?? '') == $activity->id)>{{ $activity->title }}</option>@endforeach</select>
+            @php
+                $selectedIndicator = !empty($filters['indicador_proyecto_id'])
+                    ? 'project:'.$filters['indicador_proyecto_id']
+                    : (!empty($filters['activity_id']) ? 'legacy:'.$filters['activity_id'] : '');
+            @endphp
+            <select name="indicator_filter" id="summary_indicator_id">
+                <option value="">Todos</option>
+                @foreach ($indicatorOptions->filter(fn ($option) => empty($filters['sector_id']) || $option['sector_id'] == $filters['sector_id'])->unique('value') as $option)
+                    <option value="{{ $option['value'] }}" @selected($selectedIndicator === $option['value'])>{{ $option['label'] }}</option>
+                @endforeach
+            </select>
         </label>
         <label>Recurrente
             <select name="is_recurrent"><option value="">Todos</option><option value="1" @selected(($filters['is_recurrent'] ?? '') === '1')>Sí</option><option value="0" @selected(($filters['is_recurrent'] ?? '') === '0')>No</option></select>
@@ -89,6 +99,7 @@
             <tbody>@foreach($groupedBeneficiaries as $group)
                 @php
                     $groupFilters = array_merge($filters, [
+                        'activity_id' => null, 'indicador_proyecto_id' => null,
                         'from' => $group->report_date, 'to' => $group->report_date,
                         'state_id' => $group->state_id, 'municipality_id' => $group->municipality_id,
                         'parish_id' => $group->parish_id, 'place_name' => $group->place_name,
@@ -183,9 +194,8 @@
 
 <script>
 const summarySelect = (id) => document.getElementById(id);
-const setSummaryOptions = (element, items, placeholder) => { element.innerHTML = `<option value="">${placeholder}</option>` + items.map(item => `<option value="${item.id}">${item.name || item.title}</option>`).join(''); };
-const loadSummaryOptions = async (element, url, placeholder) => { const response = await fetch(url, {headers: {'Accept': 'application/json'}}); setSummaryOptions(element, await response.json(), placeholder); };
-const summarySector = summarySelect('summary_sector_id'), summaryActivity = summarySelect('summary_activity_id');
+const summarySector = summarySelect('summary_sector_id'), summaryIndicator = summarySelect('summary_indicator_id');
+const summaryIndicatorOptions = {{ Illuminate\Support\Js::from($indicatorOptions) }};
 const beneficiaryFilterForm = document.getElementById('beneficiary-report-filters');
 const beneficiaryExportButton = document.getElementById('beneficiary-export-button');
 const syncBeneficiaryExportUrl = () => {
@@ -206,7 +216,19 @@ const activateReportTab = (tab) => {
     });
 };
 document.querySelectorAll('[data-report-tab]').forEach(tab => tab.addEventListener('click', () => activateReportTab(tab)));
-summarySector.addEventListener('change', async () => { setSummaryOptions(summaryActivity, [], 'Cargando actividades'); await loadSummaryOptions(summaryActivity, summarySector.value ? `/sectores/${summarySector.value}/actividades` : `{{ route('activities.all') }}`, 'Todas'); });
+summarySector.addEventListener('change', () => {
+    const previousValue = summaryIndicator.value;
+    const seen = new Set();
+    summaryIndicator.replaceChildren(new Option('Todos', ''));
+    summaryIndicatorOptions.forEach(item => {
+        if (summarySector.value && String(item.sector_id) !== summarySector.value) return;
+        if (seen.has(item.value)) return;
+        seen.add(item.value);
+        summaryIndicator.add(new Option(item.label, item.value));
+    });
+    summaryIndicator.value = seen.has(previousValue) ? previousValue : '';
+    syncBeneficiaryExportUrl();
+});
 </script>
 
 <script src="{{ asset('js/general-report-locations.js') }}?v={{ filemtime(public_path('js/general-report-locations.js')) }}"></script>

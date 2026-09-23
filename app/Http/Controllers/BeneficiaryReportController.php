@@ -2,16 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Activity;
 use App\Models\Beneficiary;
 use App\Models\Report;
 use App\Models\Sector;
 use App\Services\ReportLocationOptions;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
@@ -61,7 +63,6 @@ class BeneficiaryReportController extends Controller
         $groupedBeneficiaries = $this->groupedBeneficiaries($beneficiaryQuery, $showReportedAt);
 
         $locations = $this->locationOptions($request, $filters);
-        $selectedSector = Sector::find($filters['sector_id'] ?? null);
 
         return view('beneficiaries.summary', [
             'filters' => $filters,
@@ -75,9 +76,7 @@ class BeneficiaryReportController extends Controller
             'municipalities' => $locations['municipalities'],
             'parishes' => $locations['parishes'],
             'sectors' => Sector::orderBy('sort_order')->get(['id', 'name']),
-            'activities' => $selectedSector
-                ? $selectedSector->activities()->where('active', true)->orderBy('sort_order')->get(['id', 'title'])
-                : Activity::query()->where('active', true)->orderBy('sector_id')->orderBy('sort_order')->get(['id', 'title']),
+            'indicatorOptions' => $this->indicatorOptions($request),
             'installationTypes' => config('reports.installation_types'),
             'places' => $this->visibleReports($request)->whereNotNull('place_name')->distinct()->orderBy('place_name')->pluck('place_name'),
             'isConsolidated' => $request->user()->isCoordinator(),
@@ -113,7 +112,7 @@ class BeneficiaryReportController extends Controller
         abort_unless($request->user()->can('exportar registros excel'), 403);
 
         $filters = $this->validatedFilters($request);
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $worksheet = $spreadsheet->getActiveSheet();
         $worksheet->setTitle('Beneficiarios');
 
@@ -222,9 +221,40 @@ class BeneficiaryReportController extends Controller
             ->when($filters['parish_id'] ?? null, fn (Builder $query, int $parishId) => $query->where('parish_id', $parishId))
             ->when($filters['installation_type'] ?? null, fn (Builder $query, string $type) => $query->where('installation_type', $type))
             ->when($filters['place_name'] ?? null, fn (Builder $query, string $place) => $query->where('place_name', $place))
-            ->when($filters['sector_id'] ?? null, fn (Builder $query, int $sectorId) => $query->where('sector_id', $sectorId))
-            ->when($filters['activity_id'] ?? null, fn (Builder $query, int $activityId) => $query->where('activity_id', $activityId))
+            ->when($filters['sector_id'] ?? null, function (Builder $query, int $sectorId): void {
+                $query->where(function (Builder $sectors) use ($sectorId): void {
+                    $sectors->whereHas('indicadorProyecto.asignacionSector', fn (Builder $sector) => $sector->where('sector_id', $sectorId))
+                        ->orWhere(fn (Builder $legacy) => $legacy->whereDoesntHave('indicadorProyecto.asignacionSector')->where('sector_id', $sectorId));
+                });
+            })
+            ->when($filters['activity_id'] ?? null, fn (Builder $query, int $activityId) => $query->whereNull('indicador_proyecto_id')->where('activity_id', $activityId))
             ->when($filters['indicador_proyecto_id'] ?? null, fn (Builder $query, int $assignmentId) => $query->where('indicador_proyecto_id', $assignmentId));
+    }
+
+    private function indicatorOptions(Request $request): Collection
+    {
+        // Use the same source as the report, not the old activities catalog.
+        // Do not filter out inactive assignments that still have historical records.
+        return $this->visibleReports($request)->has('beneficiaries')
+            ->leftJoin('indicador_proyecto as option_assignments', 'reports.indicador_proyecto_id', '=', 'option_assignments.id')
+            ->leftJoin('indicadores as option_indicators', 'option_assignments.indicador_id', '=', 'option_indicators.id')
+            ->leftJoin('sector_proyecto as option_sectors', 'option_assignments.sector_proyecto_id', '=', 'option_sectors.id')
+            ->leftJoin('activities as option_activities', 'reports.activity_id', '=', 'option_activities.id')
+            ->select([
+                'reports.indicador_proyecto_id',
+                DB::raw('CASE WHEN reports.indicador_proyecto_id IS NULL THEN reports.activity_id END as legacy_activity_id'),
+                DB::raw('COALESCE(option_sectors.sector_id, reports.sector_id) as sector_id'),
+                DB::raw('COALESCE(option_indicators.descripcion, option_activities.title) as title'),
+                'option_indicators.codigo as code',
+            ])->distinct()->orderBy('title')->toBase()->get()
+            ->filter(fn ($option) => $option->indicador_proyecto_id || $option->legacy_activity_id)
+            ->map(fn ($option) => [
+                'value' => $option->indicador_proyecto_id ? 'project:'.$option->indicador_proyecto_id : 'legacy:'.$option->legacy_activity_id,
+                'sector_id' => $option->sector_id,
+                'label' => $option->indicador_proyecto_id
+                    ? $option->code.': '.$option->title
+                    : $option->title.' (registro anterior)',
+            ])->values();
     }
 
     public function locations(Request $request): JsonResponse
@@ -264,7 +294,18 @@ class BeneficiaryReportController extends Controller
     /** @return array<string, mixed> */
     private function validatedFilters(Request $request): array
     {
-        $filters = $request->validate([
+        $input = $request->all();
+        // The explicit selector overrides old query-string filters, including "Todos".
+        // Normalize to the existing keys shared by summary, Excel and mark-as-reported.
+        if ($request->exists('indicator_filter')) {
+            unset($input['activity_id'], $input['indicador_proyecto_id']);
+            if (is_string($input['indicator_filter']) && preg_match('/\A(project|legacy):([1-9][0-9]*)\z/', $input['indicator_filter'], $matches)) {
+                $input[$matches[1] === 'project' ? 'indicador_proyecto_id' : 'activity_id'] = $matches[2];
+            }
+        }
+
+        $filters = Validator::make($input, [
+            'indicator_filter' => ['nullable', 'string', 'regex:/\A(project|legacy):([1-9][0-9]*)\z/'],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],
             'included_from' => ['nullable', 'date'],
@@ -279,7 +320,9 @@ class BeneficiaryReportController extends Controller
             'indicador_proyecto_id' => ['nullable', 'integer', 'exists:indicador_proyecto,id'],
             'is_recurrent' => ['nullable', Rule::in(['0', '1', 0, 1])],
             'reported' => ['nullable', Rule::in(['0', '1', 0, 1])],
-        ]);
+        ])->validate();
+
+        unset($filters['indicator_filter']);
 
         if (! $request->exists('reported')) {
             $filters['reported'] = '0';
@@ -353,7 +396,7 @@ class BeneficiaryReportController extends Controller
             ->orderBy('beneficiaries.id');
     }
 
-    private function groupedBeneficiaries(Builder $beneficiaries, bool $includeReportedAt): \Illuminate\Support\Collection
+    private function groupedBeneficiaries(Builder $beneficiaries, bool $includeReportedAt): Collection
     {
         $select = [
             'grouped_reports.report_date', 'states.id as state_id', 'states.name as state_name',
@@ -361,7 +404,7 @@ class BeneficiaryReportController extends Controller
             'parishes.id as parish_id', 'parishes.name as parish_name', 'grouped_reports.place_name',
             'grouped_reports.activity_id',
             'grouped_reports.indicador_proyecto_id',
-            DB::raw("COALESCE(project_sectors.descripcion, project_sectors.name, 'Sin sector') as project_sector_name"),
+            DB::raw("COALESCE(project_sectors.descripcion, project_sectors.name, report_sectors.descripcion, report_sectors.name, 'Sin sector') as project_sector_name"),
             DB::raw('COALESCE(indicadores.descripcion, activities.title) as activity_title'),
             DB::raw('COUNT(beneficiaries.id) as beneficiary_count'),
         ];
@@ -371,6 +414,7 @@ class BeneficiaryReportController extends Controller
             'grouped_reports.indicador_proyecto_id', 'grouped_reports.activity_id', 'indicators_assignment.id',
             'indicadores.descripcion', 'activities.id', 'activities.title',
             'project_sectors.id', 'project_sectors.descripcion', 'project_sectors.name',
+            'report_sectors.id', 'report_sectors.descripcion', 'report_sectors.name',
         ];
 
         if ($includeReportedAt) {
@@ -387,6 +431,7 @@ class BeneficiaryReportController extends Controller
             ->leftJoin('indicador_proyecto as indicators_assignment', 'grouped_reports.indicador_proyecto_id', '=', 'indicators_assignment.id')
             ->leftJoin('sector_proyecto as project_sector_assignments', 'indicators_assignment.sector_proyecto_id', '=', 'project_sector_assignments.id')
             ->leftJoin('sectors as project_sectors', 'project_sector_assignments.sector_id', '=', 'project_sectors.id')
+            ->leftJoin('sectors as report_sectors', 'grouped_reports.sector_id', '=', 'report_sectors.id')
             ->leftJoin('indicadores', 'indicators_assignment.indicador_id', '=', 'indicadores.id')
             ->select($select)
             ->groupBy($groupBy)
@@ -415,7 +460,7 @@ class BeneficiaryReportController extends Controller
             return null;
         }
 
-        $date = \Illuminate\Support\Carbon::parse($value);
+        $date = Carbon::parse($value);
 
         return Date::PHPToExcel($includeTime ? $date : $date->startOfDay());
     }
@@ -427,7 +472,7 @@ class BeneficiaryReportController extends Controller
         return preg_match('/^[=+\\-@]/', $value) === 1 ? "'{$value}" : $value;
     }
 
-    /** @param \Illuminate\Support\Collection<int, Beneficiary> $beneficiaries */
+    /** @param Collection<int, Beneficiary> $beneficiaries */
     private function summary($beneficiaries): array
     {
         $count = function (string $sex, int $minimumAge, ?int $maximumAge) use ($beneficiaries): int {
@@ -464,7 +509,7 @@ class BeneficiaryReportController extends Controller
         ];
     }
 
-    /** @param \Illuminate\Support\Collection<int, Beneficiary> $beneficiaries */
+    /** @param Collection<int, Beneficiary> $beneficiaries */
     private function summary345w($beneficiaries): array
     {
         $ranges = [
