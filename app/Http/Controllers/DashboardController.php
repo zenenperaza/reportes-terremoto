@@ -14,10 +14,11 @@ class DashboardController extends Controller
     public function __invoke(Request $request): View
     {
         $reports = $this->visibleReports($request);
-        $visibleBeneficiaries = Beneficiary::query()->whereHas(
-            'report',
-            fn (Builder $reports) => $request->user()->constrainVisibleReports($reports),
-        );
+        $beneficiaryReports = $this->beneficiaryReports($request);
+        $visibleBeneficiaries = Beneficiary::query()
+            ->whereIn('report_id', (clone $beneficiaryReports)->select('reports.id'));
+        $allBeneficiaries = Beneficiary::query()
+            ->whereIn('report_id', (clone $reports)->select('reports.id'));
         $demographicCounts = (clone $visibleBeneficiaries)
             ->selectRaw("SUM(CASE WHEN age < 18 AND sex = 'Hombre' THEN 1 ELSE 0 END) as boys")
             ->selectRaw("SUM(CASE WHEN age < 18 AND sex = 'Mujer' THEN 1 ELSE 0 END) as girls")
@@ -68,7 +69,8 @@ class DashboardController extends Controller
         return view('dashboard', [
             'isCoordinator' => $request->user()->isCoordinator(),
             'reportCount' => (clone $reports)->count(),
-            'beneficiaryTotal' => (int) ((clone $reports)->sum('total_beneficiaries') ?? 0),
+            'beneficiaryGrandTotal' => (int) (clone $allBeneficiaries)->count(),
+            'beneficiaryTotal' => (int) (clone $visibleBeneficiaries)->count(),
             'demographicCounts' => [
                 'boys' => (int) ($demographicCounts->boys ?? 0),
                 'girls' => (int) ($demographicCounts->girls ?? 0),
@@ -99,5 +101,18 @@ class DashboardController extends Controller
         $request->user()->constrainVisibleReports($query);
 
         return $query;
+    }
+
+    private function beneficiaryReports(Request $request): Builder
+    {
+        return $this->excludeFlaggedIndicators($this->visibleReports($request));
+    }
+
+    private function excludeFlaggedIndicators(Builder $query): Builder
+    {
+        // Keep legacy reports without a project indicator; exclude only explicitly flagged indicators.
+        return $query->whereDoesntHave('indicadorProyecto.indicador',
+            fn (Builder $indicator) => $indicator->where('excluir_reporte_beneficiarios', true)
+        );
     }
 }

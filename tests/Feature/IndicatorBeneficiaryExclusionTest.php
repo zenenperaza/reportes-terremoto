@@ -158,6 +158,26 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
         $this->actingAs($admin)->get(route('general-reports.index'))->assertOk()->assertSee('Indicador EXCLUIDO');
     }
 
+    public function test_dashboard_beneficiary_totals_match_beneficiary_report_scope(): void
+    {
+        [$admin, $included, $excluded, $legacy] = $this->reports();
+        $included->update(['total_beneficiaries' => 999]);
+
+        $this->actingAs($admin)->get(route('dashboard'))->assertOk()
+            ->assertViewHas('beneficiaryTotal', 2)
+            ->assertViewHas('reportedBeneficiaryCount', 0)
+            ->assertViewHas('unreportedBeneficiaryCount', 2);
+
+        $included->beneficiaries()->update(['reported' => true, 'reported_at' => today()]);
+        $excluded->beneficiaries()->update(['reported' => true, 'reported_at' => today()]);
+        $legacy->beneficiaries()->update(['reported' => true, 'reported_at' => today()]);
+
+        $this->get(route('dashboard'))->assertOk()
+            ->assertViewHas('beneficiaryTotal', 2)
+            ->assertViewHas('reportedBeneficiaryCount', 2)
+            ->assertViewHas('unreportedBeneficiaryCount', 0);
+    }
+
     public function test_indicator_options_match_saved_visible_indicators_and_keep_legacy_separate(): void
     {
         [$admin, $included, $excluded, $legacy] = $this->reports();

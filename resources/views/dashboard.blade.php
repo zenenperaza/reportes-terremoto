@@ -18,15 +18,23 @@
 </div>
 
 <div class="row">
-    <div class="col-xl-4 col-md-6">
+    <div class="col-xl-3 col-md-6">
         <div class="card card-animate dashboard-stat-card">
             <div class="card-body">
-                <div class="d-flex align-items-start"><div class="flex-grow-1"><p class="dashboard-stat-title text-uppercase text-muted mb-0">Beneficiarios alcanzados</p></div><div class="flex-shrink-0"><span class="dashboard-stat-meta text-info"><i class="ri-user-heart-line me-1"></i>Total</span></div></div>
+                <div class="d-flex align-items-start"><div class="flex-grow-1"><p class="dashboard-stat-title text-uppercase text-muted mb-0">Beneficiarios alcanzados</p></div><div class="flex-shrink-0"><span class="dashboard-stat-meta text-primary"><i class="ri-user-heart-line me-1"></i>Total</span></div></div>
+                <div class="d-flex align-items-end justify-content-between dashboard-stat-content"><div><h4 class="dashboard-stat-number ff-secondary"><span class="counter-value" data-target="{{ $beneficiaryGrandTotal }}">{{ number_format($beneficiaryGrandTotal) }}</span></h4><a href="{{ route('beneficiaries.summary') }}" class="dashboard-stat-link">Ver informe</a></div><div class="dashboard-stat-icon dashboard-stat-icon-primary flex-shrink-0"><i class="ri-user-heart-line"></i></div></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card card-animate dashboard-stat-card">
+            <div class="card-body">
+                <div class="d-flex align-items-start"><div class="flex-grow-1"><p class="dashboard-stat-title text-uppercase text-muted mb-0">Beneficiarios reportables</p></div><div class="flex-shrink-0"><span class="dashboard-stat-meta text-info"><i class="ri-user-heart-line me-1"></i>Reportables</span></div></div>
                 <div class="d-flex align-items-end justify-content-between dashboard-stat-content"><div><h4 class="dashboard-stat-number ff-secondary"><span class="counter-value" data-target="{{ $beneficiaryTotal }}">{{ number_format($beneficiaryTotal) }}</span></h4><a href="{{ route('beneficiaries.summary') }}" class="dashboard-stat-link">Ver informe</a></div><div class="dashboard-stat-icon dashboard-stat-icon-info flex-shrink-0"><i class="ri-group-line"></i></div></div>
             </div>
         </div>
     </div>
-    <div class="col-xl-4 col-md-6">
+    <div class="col-xl-3 col-md-6">
         <div class="card card-animate dashboard-stat-card">
             <div class="card-body">
                 <div class="d-flex align-items-start"><div class="flex-grow-1"><p class="dashboard-stat-title text-uppercase text-muted mb-0">Beneficiarios reportados</p></div><div class="flex-shrink-0"><span class="dashboard-stat-meta text-success"><i class="ri-arrow-right-up-line me-1"></i>Consolidados</span></div></div>
@@ -34,10 +42,10 @@
             </div>
         </div>
     </div>
-    <div class="col-xl-4 col-md-6">
+    <div class="col-xl-3 col-md-6">
         <div class="card card-animate dashboard-stat-card">
             <div class="card-body">
-                <div class="d-flex align-items-start"><div class="flex-grow-1"><p class="dashboard-stat-title text-uppercase text-muted mb-0">Pendientes por reportar</p></div><div class="flex-shrink-0"><span class="dashboard-stat-meta text-warning"><i class="ri-time-line me-1"></i>Pendientes</span></div></div>
+                <div class="d-flex align-items-start"><div class="flex-grow-1"><p class="dashboard-stat-title text-uppercase text-muted mb-0">Beneficiarios no reportados</p></div><div class="flex-shrink-0"><span class="dashboard-stat-meta text-warning"><i class="ri-time-line me-1"></i>Pendientes</span></div></div>
                 <div class="d-flex align-items-end justify-content-between dashboard-stat-content"><div><h4 class="dashboard-stat-number ff-secondary"><span class="counter-value" data-target="{{ $unreportedBeneficiaryCount }}">{{ number_format($unreportedBeneficiaryCount) }}</span></h4><a href="{{ route('beneficiaries.summary', ['reported' => 0]) }}" class="dashboard-stat-link">Revisar pendientes</a></div><div class="dashboard-stat-icon dashboard-stat-icon-warning flex-shrink-0"><i class="ri-time-line"></i></div></div>
             </div>
         </div>
