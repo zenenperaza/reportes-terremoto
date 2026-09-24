@@ -3,7 +3,7 @@
 @section('title', 'Informe por Indicadores | SIA')
 
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('css/general-reports.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/general-reports.css') }}?v={{ filemtime(public_path('css/general-reports.css')) }}">
 @endpush
 
 @section('content')

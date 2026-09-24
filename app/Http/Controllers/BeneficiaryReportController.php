@@ -63,6 +63,11 @@ class BeneficiaryReportController extends Controller
         $groupedBeneficiaries = $this->groupedBeneficiaries($beneficiaryQuery, $showReportedAt);
 
         $locations = $this->locationOptions($request, $filters);
+        $optionReports = $this->optionReports($request, $filters);
+        $optionSectorIds = (clone $optionReports)
+            ->leftJoin('indicador_proyecto as filter_assignments', 'reports.indicador_proyecto_id', '=', 'filter_assignments.id')
+            ->leftJoin('sector_proyecto as filter_sectors', 'filter_assignments.sector_proyecto_id', '=', 'filter_sectors.id')
+            ->selectRaw('COALESCE(filter_sectors.sector_id, reports.sector_id)');
 
         return view('beneficiaries.summary', [
             'filters' => $filters,
@@ -75,10 +80,12 @@ class BeneficiaryReportController extends Controller
             'states' => $locations['states'],
             'municipalities' => $locations['municipalities'],
             'parishes' => $locations['parishes'],
-            'sectors' => Sector::orderBy('sort_order')->get(['id', 'name']),
-            'indicatorOptions' => $this->indicatorOptions($request),
-            'installationTypes' => config('reports.installation_types'),
-            'places' => $this->visibleReports($request)->whereNotNull('place_name')->distinct()->orderBy('place_name')->pluck('place_name'),
+            'sectors' => Sector::whereIn('id', $optionSectorIds)->orderBy('sort_order')->get(['id', 'name']),
+            'indicatorOptions' => $this->indicatorOptions($request, $filters),
+            'installationTypes' => (clone $optionReports)->whereNotNull('installation_type')->distinct()->orderBy('installation_type')->pluck('installation_type'),
+            'places' => (clone $optionReports)->whereNotNull('place_name')->distinct()->orderBy('place_name')->pluck('place_name'),
+            'recurrenceOptions' => $this->filteredBeneficiaries($request, ['reported' => $filters['reported'] ?? null])
+                ->distinct()->pluck('is_recurrent')->map(fn ($value) => $value ? '1' : '0')->all(),
             'isConsolidated' => $request->user()->isCoordinator(),
         ]);
     }
@@ -248,11 +255,11 @@ class BeneficiaryReportController extends Controller
             ->when($filters['indicador_proyecto_id'] ?? null, fn (Builder $query, int $assignmentId) => $query->where('indicador_proyecto_id', $assignmentId));
     }
 
-    private function indicatorOptions(Request $request): Collection
+    private function indicatorOptions(Request $request, array $filters): Collection
     {
         // Use the same source as the report, not the old activities catalog.
         // Do not filter out inactive assignments that still have historical records.
-        return $this->visibleReports($request)->has('beneficiaries')
+        return $this->optionReports($request, $filters)
             ->leftJoin('indicador_proyecto as option_assignments', 'reports.indicador_proyecto_id', '=', 'option_assignments.id')
             ->leftJoin('indicadores as option_indicators', 'option_assignments.indicador_id', '=', 'option_indicators.id')
             ->leftJoin('sector_proyecto as option_sectors', 'option_assignments.sector_proyecto_id', '=', 'option_sectors.id')
@@ -286,7 +293,7 @@ class BeneficiaryReportController extends Controller
     private function locationOptions(Request $request, array $filters): array
     {
         return (new ReportLocationOptions)->get(
-            $this->visibleReports($request),
+            $this->optionReports($request, $filters),
             filled($filters['state_id'] ?? null) ? [(int) $filters['state_id']] : [],
             filled($filters['municipality_id'] ?? null) ? (int) $filters['municipality_id'] : null,
         );
@@ -298,6 +305,18 @@ class BeneficiaryReportController extends Controller
         $request->user()->constrainVisibleReports($query);
 
         return $this->excludeFlaggedIndicators($query);
+    }
+
+    /** Available filters depend on reporting status, not the other selected filters. */
+    private function optionReports(Request $request, array $filters): Builder
+    {
+        $reported = $this->booleanFilter($filters, 'reported');
+
+        return $this->visibleReports($request)->whereHas('beneficiaries', function (Builder $beneficiaries) use ($reported): void {
+            if ($reported !== null) {
+                $reported ? $beneficiaries->whereNotNull('reported_at') : $beneficiaries->whereNull('reported_at');
+            }
+        });
     }
 
     private function excludeFlaggedIndicators(Builder $query): Builder

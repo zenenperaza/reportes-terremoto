@@ -344,6 +344,70 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
             'espacio_coordinacion' => 'NNA', 'edad_desde' => 0, 'edad_hasta' => 120];
     }
 
+    public function test_filter_options_depend_on_reported_status_and_keep_excluded_indicators_out(): void
+    {
+        [$admin, $pending, $excluded, $reported] = $this->reports();
+        $state = State::create(['code' => 'VE02', 'name' => 'Estado reportado']);
+        $municipality = Municipality::create(['state_id' => $state->id, 'code' => 'VE0201', 'name' => 'Municipio reportado']);
+        $parish = Parish::create(['municipality_id' => $municipality->id, 'code' => 'VE020101', 'name' => 'Parroquia reportada']);
+        $sector = Sector::create(['name' => 'Sector reportado', 'slug' => 'sector-reportado']);
+        $type = collect(config('reports.installation_types'))->first(fn ($type) => $type !== $pending->installation_type);
+        $reported->update(['place_name' => 'Lugar reportado', 'state_id' => $state->id,
+            'municipality_id' => $municipality->id, 'parish_id' => $parish->id,
+            'sector_id' => $sector->id, 'installation_type' => $type]);
+        $reported->beneficiaries()->update(['reported' => true, 'reported_at' => today(), 'is_recurrent' => true]);
+        $excluded->beneficiaries()->update(['reported' => true, 'reported_at' => today()]);
+        $this->actingAs($admin);
+
+        foreach (['0' => $pending, '1' => $reported] as $status => $report) {
+            $status = (string) $status;
+            $value = $report->indicador_proyecto_id ? 'project:'.$report->indicador_proyecto_id : 'legacy:'.$report->activity_id;
+            $response = $this->get(route('beneficiaries.summary', ['reported' => $status]))->assertOk()
+                ->assertViewHas('summary', fn ($summary) => $summary['total'] === 1)
+                ->assertViewHas('indicatorOptions', fn ($options) => $options->pluck('value')->all() === [$value])
+                ->assertViewHas('places', fn ($places) => $places->all() === [$report->place_name])
+                ->assertViewHas('installationTypes', fn ($types) => $types->all() === [$report->installation_type])
+                ->assertViewHas('sectors', fn ($sectors) => $sectors->pluck('id')->all() === [$report->sector_id])
+                ->assertViewHas('recurrenceOptions', fn ($options) => $options === [$status])
+                ->assertViewHas('states', fn ($states) => $states->pluck('id')->all() === [$report->state_id]);
+            $this->getJson(route('beneficiaries.locations', ['reported' => $status]))->assertOk()
+                ->assertJsonCount(1, 'states')->assertJsonCount(1, 'municipalities')->assertJsonCount(1, 'parishes')
+                ->assertJsonPath('municipalities.0.id', $report->municipality_id)
+                ->assertJsonPath('parishes.0.id', $report->parish_id);
+
+            $document = new \DOMDocument;
+            @$document->loadHTML($response->getContent());
+            $xpath = new \DOMXPath($document);
+            $this->assertSame(1, $xpath->query('//form[@id="beneficiary-reported-filter"]//select[@name="reported"]')->length);
+            $this->assertSame(0, $xpath->query('//form[@id="beneficiary-reported-filter"]//input')->length);
+            $this->assertSame($status, $xpath->query('//form[@id="beneficiary-report-filters"]//input[@name="reported"]')->item(0)->getAttribute('value'));
+        }
+        $this->get(route('beneficiaries.summary', ['reported' => '']))->assertOk()
+            ->assertViewHas('summary', fn ($summary) => $summary['total'] === 2)
+            ->assertViewHas('indicatorOptions', fn ($options) => $options->count() === 2)
+            ->assertViewHas('places', fn ($places) => $places->count() === 2)
+            ->assertViewHas('states', fn ($states) => $states->count() === 2);
+    }
+
+    public function test_mixed_report_remains_available_in_both_statuses_but_counts_only_matching_people(): void
+    {
+        [$admin, $report] = $this->reports();
+        $person = $report->beneficiaries()->create(['full_name' => 'Persona reportada', 'age' => 12, 'sex' => 'Mujer',
+            'is_recurrent' => false]);
+        $person->forceFill(['reported' => true, 'reported_at' => today()])->save();
+        foreach (['0', '1'] as $status) {
+            $this->actingAs($admin)->get(route('beneficiaries.summary', [
+                'reported' => $status, 'indicator_filter' => ['project:'.$report->indicador_proyecto_id],
+            ]))->assertOk()->assertViewHas('summary', fn ($summary) => $summary['total'] === 1)
+                ->assertViewHas('indicatorOptions', fn ($options) => $options->contains('value', 'project:'.$report->indicador_proyecto_id));
+        }
+        $reporter = User::factory()->create(['role' => 'reporter']);
+        $this->actingAs($reporter)->get(route('beneficiaries.summary', ['reported' => '1']))->assertOk()
+            ->assertViewHas('indicatorOptions', fn ($options) => $options->isEmpty())
+            ->assertViewHas('places', fn ($places) => $places->isEmpty())
+            ->assertViewHas('sectors', fn ($sectors) => $sectors->isEmpty());
+    }
+
     private function reports(): array
     {
         $admin = User::factory()->create(['role' => 'admin', 'can_mark_reported' => true]);

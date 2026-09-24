@@ -17,8 +17,24 @@
     </div>
 </section>
 
+<section class="content-card beneficiary-reported-card" aria-labelledby="summary-reported-title">
+    <h2 id="summary-reported-title">Estado de reporte</h2>
+    <form method="get" action="{{ route('beneficiaries.summary') }}" id="beneficiary-reported-filter" class="beneficiary-reported-filter">
+        <label for="summary_reported">Reportado
+            <select name="reported" id="summary_reported" aria-describedby="summary-reported-help">
+                <option value="0" @selected(($filters['reported'] ?? '') === '0')>No reportados</option>
+                <option value="1" @selected(($filters['reported'] ?? '') === '1')>Sí reportados</option>
+                <option value="" @selected(($filters['reported'] ?? '') === '')>Todos</option>
+            </select>
+        </label>
+        <button class="button button-primary" type="submit">Aplicar estado</button>
+        <p class="muted" id="summary-reported-help">Los indicadores, lugares y demás opciones corresponden al estado elegido. Al cambiarlo se actualiza el informe y se limpian los demás filtros.</p>
+    </form>
+</section>
+
 <section class="content-card filter-card">
     <form method="get" class="beneficiary-report-filters" id="beneficiary-report-filters" data-locations-url="{{ route('beneficiaries.locations') }}">
+        <input type="hidden" name="reported" value="{{ $filters['reported'] ?? '' }}">
         <label>Fecha de atención desde
             <input type="date" name="from" value="{{ $filters['from'] ?? '' }}">
         </label>
@@ -64,10 +80,7 @@
             <small class="muted" id="summary-indicator-help">Use “Seleccionar todos los indicadores” y quite los que no necesite. Sin selección se incluyen todos.</small>
         </label>
         <label>Recurrente
-            <select name="is_recurrent"><option value="">Todos</option><option value="1" @selected(($filters['is_recurrent'] ?? '') === '1')>Sí</option><option value="0" @selected(($filters['is_recurrent'] ?? '') === '0')>No</option></select>
-        </label>
-        <label>Reportado
-            <select name="reported"><option value="">Todos</option><option value="1" @selected(($filters['reported'] ?? '') === '1')>Sí</option><option value="0" @selected(($filters['reported'] ?? '') === '0')>No</option></select>
+            <select name="is_recurrent"><option value="">Todos</option>@if(in_array('1', $recurrenceOptions, true))<option value="1" @selected(($filters['is_recurrent'] ?? '') === '1')>Sí</option>@endif @if(in_array('0', $recurrenceOptions, true))<option value="0" @selected(($filters['is_recurrent'] ?? '') === '0')>No</option>@endif</select>
         </label>
         <div id="summary-locations-error" role="alert" hidden>
             No se pudieron cargar las ubicaciones. <button type="button" id="summary-locations-retry">Reintentar</button>
@@ -85,7 +98,7 @@
                     Exportar Excel
                 </a>
             @endcan
-            <a class="button button-secondary" href="{{ route('beneficiaries.summary') }}">Limpiar</a>
+            <a class="button button-secondary" href="{{ route('beneficiaries.summary', ['reported' => $filters['reported'] ?? '']) }}">Limpiar</a>
         </div>
     </form>
 </section>
@@ -198,6 +211,8 @@
 
 <script>
 const summarySelect = (id) => document.getElementById(id);
+const reportedFilterForm = summarySelect('beneficiary-reported-filter');
+summarySelect('summary_reported').addEventListener('change', () => reportedFilterForm.requestSubmit());
 const summarySector = summarySelect('summary_sector_id'), summaryIndicator = summarySelect('summary_indicator_id');
 const summarySelectAllValue = '__select_all_indicators__';
 const addSummarySelectAllOption = () => {

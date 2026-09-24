@@ -3,3 +3,16 @@
 .general-filter-card .general-indicator-field{margin-top:4px}
 .select2-dropdown.general-indicator-dropdown .select2-results>.select2-results__options{max-height:min(440px,55vh)}
 .indicator-group-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.indicator-group-totals{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;color:#5f6b7a;font-size:13px;font-weight:600;text-align:right}.indicator-group-totals span{white-space:nowrap}@media(max-width:767.98px){.indicator-group-header{flex-direction:column;align-items:flex-start}.indicator-group-totals{justify-content:flex-start;text-align:left}}
+.general-indicator-field .select2-container {
+    min-width: 0;
+    max-width: 100%;
+}
+.general-indicator-field .select2-selection__choice__display,
+.general-indicator-dropdown .select2-results__option {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.5;
+}
+.general-indicator-dropdown .select2-results__option {
+    padding: 12px 16px;
+}

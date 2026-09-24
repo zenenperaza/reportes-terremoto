@@ -28,6 +28,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const current = ++sequence;
         const selectedMunicipality = resetMunicipality ? '' : municipality.value;
         const params = new URLSearchParams();
+        if (!generalForm) {
+            params.set('reported', document.getElementById('summary_reported')?.value ?? '0');
+        }
         if (generalForm) {
             Array.from(state.selectedOptions).forEach(option => params.append('state_id[]', option.value));
         } else if (state.value) {

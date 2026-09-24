@@ -5,6 +5,21 @@ const vm = require('node:vm');
 const view = fs.readFileSync('resources/views/beneficiaries/summary.blade.php', 'utf8');
 const bulkCode = view.slice(view.indexOf('const summarySelectAllValue ='), view.indexOf('const summaryIndicatorOptions ='));
 
+test('changing reported status submits only the separate status form', () => {
+    let onChange;
+    let submissions = 0;
+    const elements = {
+        'beneficiary-reported-filter': {requestSubmit() {submissions++;}},
+        summary_reported: {addEventListener(event, handler) {assert.equal(event, 'change'); onChange = handler;}},
+    };
+    const start = view.indexOf('const reportedFilterForm =');
+    const end = view.indexOf('const summarySector =', start);
+    assert.ok(start > 0 && end > start);
+    vm.runInNewContext(view.slice(start, end), {summarySelect: id => elements[id]});
+    onChange();
+    assert.equal(submissions, 1);
+});
+
 function fixture(values = ['project:1', 'project:2', 'legacy:3']) {
     const handlers = {};
     class Option {

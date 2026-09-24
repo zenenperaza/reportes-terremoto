@@ -28,3 +28,21 @@
     line-height: 1.5;
     font-weight: 400;
 }
+.beneficiary-reported-card {
+    border-top: 4px solid var(--blue);
+    margin-bottom: 20px;
+}
+.beneficiary-reported-filter {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+.beneficiary-reported-filter label {
+    flex: 1 1 280px;
+    max-width: 540px;
+}
+.beneficiary-reported-filter p {
+    flex-basis: 100%;
+    margin: 0;
+}

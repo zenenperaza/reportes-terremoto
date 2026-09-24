@@ -21,12 +21,13 @@ function harness(useSelect2 = false, beneficiary = false) {
     const elements = {'general-report-filters': form, 'general_state_id': state, 'general_municipality_id': municipality,
         'general_parish_id': parish, 'general-locations-error': error, 'general-locations-retry': retry};
     const exportButton = element();
+    const reported = element('1');
     if (beneficiary) {
         delete elements['general-report-filters'];
         Object.assign(elements, {'beneficiary-report-filters': form, 'summary_state_id': state,
             'summary_municipality_id': municipality, 'summary_parish_id': parish,
             'summary-locations-error': error, 'summary-locations-retry': retry,
-            'beneficiary-export-button': exportButton});
+            'beneficiary-export-button': exportButton, 'summary_reported': reported});
         form.dataset.locationsUrl = '/informe-beneficiarios/ubicaciones';
         state.value = '1';
     }
@@ -48,7 +49,7 @@ function harness(useSelect2 = false, beneficiary = false) {
         fetch: (url, options) => new Promise(resolve => requests.push({url, options,
             finish: (data, ok = true) => resolve({ok, json: async () => data})})),
     });
-    return {state, municipality, parish, submit, error, retry, form, requests, select2Options, exportButton};
+    return {state, municipality, parish, submit, error, retry, form, requests, select2Options, exportButton, reported};
 }
 
 test('beneficiary report requests only saved locations using its single state and protects export while loading', async () => {
@@ -57,6 +58,7 @@ test('beneficiary report requests only saved locations using its single state an
     const url = new URL(h.requests[0].url, 'https://app.test');
     assert.equal(url.pathname, '/informe-beneficiarios/ubicaciones');
     assert.equal(url.searchParams.get('state_id'), '1');
+    assert.equal(url.searchParams.get('reported'), '1');
     assert.equal(url.searchParams.has('state_id[]'), false);
     let prevented = false;
     h.exportButton.handlers.click({preventDefault() { prevented = true; }, stopImmediatePropagation() {}});
@@ -67,8 +69,10 @@ test('beneficiary report requests only saved locations using its single state an
     assert.equal(h.parish.options.length, 1);
     assert.equal(h.submit.disabled, false);
     h.state.value = '';
+    h.reported.value = '';
     const cleared = h.state.handlers.change();
     assert.equal(new URL(h.requests[1].url, 'https://app.test').searchParams.has('state_id'), false);
+    assert.equal(new URL(h.requests[1].url, 'https://app.test').searchParams.get('reported'), '');
     h.requests[1].finish({municipalities: [], parishes: []});
     await cleared;
     assert.equal(h.municipality.options[0].text, 'Todos');
