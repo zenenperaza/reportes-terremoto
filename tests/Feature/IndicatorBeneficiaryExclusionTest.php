@@ -183,7 +183,7 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
             ->assertDontSee('Indicador INCLUIDO');
     }
 
-    public function test_selector_filters_by_project_assignment_not_shared_legacy_activity_and_preserves_links(): void
+    public function test_selector_filters_by_project_assignment_not_shared_legacy_activity_and_accepts_legacy_urls(): void
     {
         [$admin, $included, $excluded, $legacy] = $this->reports();
         $excluded->indicadorProyecto->indicador->update(['excluir_reporte_beneficiarios' => false]);
@@ -198,7 +198,7 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
                 ->assertViewHas('summary', fn ($summary) => $summary['total'] === 1)
                 ->assertViewHas('groupedBeneficiaries', fn ($groups) => $groups->count() === 1 && $groups->first()->indicador_proyecto_id === $report->indicador_proyecto_id)
                 ->assertSee('value="project:'.$report->indicador_proyecto_id.'" selected', false)
-                ->assertSee('indicador_proyecto_id='.$report->indicador_proyecto_id, false);
+                ->assertDontSee('data-detail-url=', false);
         }
 
         $this->get(route('beneficiaries.summary', ['indicator_filter' => 'legacy:'.$legacy->activity_id]))->assertOk()
@@ -267,16 +267,14 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
                 ->assertSee('name="indicator_filter[]" value="'.$value.'"', false);
         }
 
-        // Detail links must narrow the selection back to that group's one indicator.
+        // Group rows are informational and must not change the report filters or KOBO results.
         $document = new \DOMDocument;
         @$document->loadHTML($response->getContent());
-        $links = (new \DOMXPath($document))->query('//a[@class="beneficiary-group-link"]');
-        $this->assertCount(2, $links);
-        foreach ($links as $link) {
-            $this->assertStringNotContainsString('indicator_filter', $link->getAttribute('href'));
-            $detail = $this->get($link->getAttribute('href'))->assertOk();
-            $this->assertSame(1, $detail->viewData('summary')['total'], $link->getAttribute('href'));
-        }
+        $xpath = new \DOMXPath($document);
+        $this->assertCount(2, $xpath->query('//table[@id="beneficiary-attention-table"]/tbody/tr'));
+        $this->assertCount(0, $xpath->query('//table[@id="beneficiary-attention-table"]//a'));
+        $this->assertCount(0, $xpath->query('//table[@id="beneficiary-attention-table"]//*[@data-detail-url or @role="link" or @tabindex]'));
+        $response->assertDontSee('showGroupResults', false)->assertSee('Resultado KOBO')->assertSee('Resultado 345W');
     }
 
     public function test_mixed_multiple_selection_keeps_exclusions_permissions_and_other_filters(): void

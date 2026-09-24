@@ -111,20 +111,7 @@
         <div class="table-wrap"><table id="beneficiary-attention-table" class="beneficiary-attention-table">
             <thead><tr><th>Fecha de atención</th><th>Estado</th><th>Municipio</th><th>Parroquia</th><th>Nombre del lugar</th><th>Sector</th><th>Indicador</th>@if($showReportedAt)<th>Fecha de reporte</th>@endif<th>Beneficiarios</th></tr></thead>
             <tbody>@foreach($groupedBeneficiaries as $group)
-                @php
-                    $groupFilters = array_merge($filters, [
-                        'activity_id' => null, 'indicador_proyecto_id' => null, 'indicator_filter' => null,
-                        'from' => \Illuminate\Support\Carbon::parse($group->report_date)->toDateString(),
-                        'to' => \Illuminate\Support\Carbon::parse($group->report_date)->toDateString(),
-                        'state_id' => $group->state_id, 'municipality_id' => $group->municipality_id,
-                        'parish_id' => $group->parish_id, 'place_name' => $group->place_name,
-                        $group->indicador_proyecto_id
-                            ? 'indicador_proyecto_id'
-                            : 'activity_id' => $group->indicador_proyecto_id ?: $group->activity_id,
-                    ]);
-                    $groupUrl = route('beneficiaries.summary', array_filter($groupFilters, static fn ($value) => $value !== null && $value !== ''));
-                @endphp
-                <tr class="beneficiary-group-row" data-detail-url="{{ $groupUrl }}" tabindex="0" role="link" aria-label="Ver resultados del grupo del {{ \Illuminate\Support\Carbon::parse($group->report_date)->format('d/m/Y') }}"><td data-order="{{ $group->report_date }}"><a class="beneficiary-group-link" href="{{ $groupUrl }}">{{ \Illuminate\Support\Carbon::parse($group->report_date)->format('d/m/Y') }}</a></td><td>{{ $group->state_name }}</td><td>{{ $group->municipality_name }}</td><td>{{ $group->parish_name }}</td><td>{{ $group->place_name }}</td><td>{{ $group->project_sector_name }}</td><td>{{ $group->activity_title }}</td>@if($showReportedAt)<td data-order="{{ $group->reported_at }}">{{ \Illuminate\Support\Carbon::parse($group->reported_at)->format('d/m/Y') }}</td>@endif<td data-order="{{ $group->beneficiary_count }}">{{ number_format($group->beneficiary_count) }}</td></tr>
+                <tr><td data-order="{{ $group->report_date }}">{{ \Illuminate\Support\Carbon::parse($group->report_date)->format('d/m/Y') }}</td><td>{{ $group->state_name }}</td><td>{{ $group->municipality_name }}</td><td>{{ $group->parish_name }}</td><td>{{ $group->place_name }}</td><td>{{ $group->project_sector_name }}</td><td>{{ $group->activity_title }}</td>@if($showReportedAt)<td data-order="{{ $group->reported_at }}">{{ \Illuminate\Support\Carbon::parse($group->reported_at)->format('d/m/Y') }}</td>@endif<td data-order="{{ $group->beneficiary_count }}">{{ number_format($group->beneficiary_count) }}</td></tr>
             @endforeach</tbody>
         </table></div>
     @endif
@@ -345,29 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (current) current.remove();
     };
 
-    const showGroupResults = async (url) => {
-        document.body.classList.add('report-loading');
-        try {
-            const source = await reportDocument(url);
-            replaceReportSection(source, 'donor-report-section');
-            replaceReportSection(source, 'beneficiary-results-section');
-            replaceReportSection(source, 'beneficiary-results-345w');
-            document.getElementById('beneficiary-results-section')?.scrollIntoView({behavior: 'smooth', block: 'start'});
-        } catch (error) {
-            window.location.href = url;
-        } finally {
-            document.body.classList.remove('report-loading');
-        }
-    };
-
     document.addEventListener('click', async (event) => {
-        const row = event.target.closest('.beneficiary-group-row');
-        if (row) {
-            event.preventDefault();
-            await showGroupResults(row.dataset.detailUrl);
-            return;
-        }
-
         const submitButton = event.target.closest('#donor-report-section button[type="submit"]');
         if (!submitButton) return;
         const form = submitButton.form;
@@ -440,14 +405,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } finally {
             submitButton.disabled = false;
-        }
-    });
-
-    document.addEventListener('keydown', (event) => {
-        const row = event.target.closest('.beneficiary-group-row');
-        if (row && (event.key === 'Enter' || event.key === ' ')) {
-            event.preventDefault();
-            showGroupResults(row.dataset.detailUrl);
         }
     });
 

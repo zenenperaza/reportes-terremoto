@@ -57,9 +57,7 @@
     color: var(--vz-body-color) !important;
 }
 
-[data-layout-mode="dark"] .admin-layout .users-datatable tbody tr:hover td,
-[data-layout-mode="dark"] .admin-layout .beneficiary-group-row:hover td,
-[data-layout-mode="dark"] .admin-layout .beneficiary-group-row:focus td {
+[data-layout-mode="dark"] .admin-layout .users-datatable tbody tr:hover td {
     background-color: var(--vz-light) !important;
 }
 
