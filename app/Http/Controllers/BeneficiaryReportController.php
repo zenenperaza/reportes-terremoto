@@ -262,6 +262,7 @@ class BeneficiaryReportController extends Controller
         return $this->optionReports($request, $filters)
             ->leftJoin('indicador_proyecto as option_assignments', 'reports.indicador_proyecto_id', '=', 'option_assignments.id')
             ->leftJoin('indicadores as option_indicators', 'option_assignments.indicador_id', '=', 'option_indicators.id')
+            ->leftJoin('indicator_groups as option_groups', 'option_indicators.indicator_group_id', '=', 'option_groups.id')
             ->leftJoin('sector_proyecto as option_sectors', 'option_assignments.sector_proyecto_id', '=', 'option_sectors.id')
             ->leftJoin('activities as option_activities', 'reports.activity_id', '=', 'option_activities.id')
             ->select([
@@ -270,11 +271,29 @@ class BeneficiaryReportController extends Controller
                 DB::raw('COALESCE(option_sectors.sector_id, reports.sector_id) as sector_id'),
                 DB::raw('COALESCE(option_indicators.descripcion, option_activities.title) as title'),
                 'option_indicators.codigo as code',
+                'option_indicators.espacio_coordinacion as coordination',
+                'option_indicators.unidad_conteo as unit',
+                'option_indicators.edad_desde as age_from',
+                'option_indicators.edad_hasta as age_to',
+                'option_groups.id as group_id',
+                'option_groups.name as group_name',
+                'option_groups.description as group_description',
+                'option_groups.sort_order as group_order',
             ])->distinct()->orderBy('title')->toBase()->get()
             ->filter(fn ($option) => $option->indicador_proyecto_id || $option->legacy_activity_id)
             ->map(fn ($option) => [
                 'value' => $option->indicador_proyecto_id ? 'project:'.$option->indicador_proyecto_id : 'legacy:'.$option->legacy_activity_id,
                 'sector_id' => $option->sector_id,
+                'code' => $option->code,
+                'title' => $option->title,
+                'coordination' => $option->coordination,
+                'unit' => $option->unit,
+                'age_from' => $option->age_from,
+                'age_to' => $option->age_to,
+                'group_id' => $option->group_id,
+                'group_name' => $option->group_name,
+                'group_description' => $option->group_description,
+                'group_order' => $option->group_order,
                 'label' => $option->indicador_proyecto_id
                     ? $option->code.': '.$option->title
                     : $option->title.' (registro anterior)',

@@ -217,7 +217,7 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
                 ->assertViewHas('reportCount', 1)
                 ->assertViewHas('summary', fn ($summary) => $summary['total'] === 1)
                 ->assertViewHas('groupedBeneficiaries', fn ($groups) => $groups->count() === 1 && $groups->first()->indicador_proyecto_id === $report->indicador_proyecto_id)
-                ->assertSee('value="project:'.$report->indicador_proyecto_id.'" selected', false)
+                ->assertSee('value="project:'.$report->indicador_proyecto_id.'" checked', false)
                 ->assertDontSee('data-detail-url=', false);
         }
 
@@ -225,7 +225,7 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
             ->assertViewHas('reportCount', 1)
             ->assertViewHas('groupedBeneficiaries', fn ($groups) => $groups->count() === 1 && $groups->first()->indicador_proyecto_id === null);
         $this->get(route('beneficiaries.summary', ['indicador_proyecto_id' => $included->indicador_proyecto_id]))->assertOk()
-            ->assertSee('value="project:'.$included->indicador_proyecto_id.'" selected', false);
+            ->assertSee('value="project:'.$included->indicador_proyecto_id.'" checked', false);
         $this->get(route('beneficiaries.summary', ['indicator_filter' => '', 'indicador_proyecto_id' => $included->indicador_proyecto_id]))->assertOk()
             ->assertViewHas('reportCount', 3);
         $this->getJson(route('beneficiaries.summary', ['indicator_filter' => 'invalid']))->assertUnprocessable()->assertJsonValidationErrors('indicator_filter.0');
@@ -280,10 +280,11 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
             ->assertViewHas('reportCount', 2)
             ->assertViewHas('summary', fn ($summary) => $summary['total'] === 2)
             ->assertViewHas('groupedBeneficiaries', fn ($groups) => $groups->sum('beneficiary_count') === 2 && $groups->every(fn ($group) => $group->indicador_proyecto_id !== null))
-            ->assertSee('id="summary_indicator_id" multiple', false)
-            ->assertSee('Seleccionar todos los indicadores');
+            ->assertSee('id="summary-indicator-toggle"', false)
+            ->assertDontSee('id="summary_indicator_id"', false)
+            ->assertSee('Seleccionar todos los grupos')->assertSee('Seleccionar todo el grupo');
         foreach ($selected as $value) {
-            $response->assertSee('value="'.$value.'" selected', false)
+            $response->assertSee('value="'.$value.'" checked', false)
                 ->assertSee('name="indicator_filter[]" value="'.$value.'"', false);
         }
 
@@ -295,6 +296,37 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
         $this->assertCount(0, $xpath->query('//table[@id="beneficiary-attention-table"]//a'));
         $this->assertCount(0, $xpath->query('//table[@id="beneficiary-attention-table"]//*[@data-detail-url or @role="link" or @tabindex]'));
         $response->assertDontSee('showGroupResults', false)->assertSee('Resultado KOBO')->assertSee('Resultado 345W');
+    }
+
+    public function test_indicator_cards_render_groups_full_descriptions_and_only_enable_current_sector(): void
+    {
+        [$admin, $included, $excluded, $legacy] = $this->reports();
+        $group = \App\Models\IndicatorGroup::create(['name' => 'Apoyo psicosocial de prueba', 'description' => 'Descripción del grupo', 'sort_order' => 1]);
+        $included->indicadorProyecto->indicador->update([
+            'indicator_group_id' => $group->id, 'nombre_corto' => 'Nombre corto',
+            'descripcion' => 'Descripción completa del indicador para seleccionar',
+            'espacio_coordinacion' => 'NNA', 'unidad_conteo' => 'Personas', 'edad_desde' => 0, 'edad_hasta' => 17,
+        ]);
+        $sector = Sector::create(['name' => 'Sector de tarjetas', 'slug' => 'sector-tarjetas', 'sort_order' => 2]);
+        $assignment = SectorProyecto::create(['proyecto_id' => $included->proyecto_id, 'sector_id' => $sector->id]);
+        $included->indicadorProyecto->update(['sector_proyecto_id' => $assignment->id]);
+        $response = $this->actingAs($admin)->get(route('beneficiaries.summary', [
+            'sector_id' => $sector->id, 'indicator_filter' => ['project:'.$included->indicador_proyecto_id],
+        ]))->assertOk()->assertSee('1. Apoyo psicosocial de prueba')->assertSee('Descripción del grupo')
+            ->assertSee('Descripción completa del indicador para seleccionar')->assertSee('Personas · Edad: 0 a 17 años')
+            ->assertDontSee('Indicador EXCLUIDO');
+        $document = new \DOMDocument;
+        @$document->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($document);
+        $root = '//*[@id="summary-indicator-picker"]';
+        $this->assertCount(0, $xpath->query($root.'//select'));
+        $this->assertCount(1, $xpath->query($root.'//input[@name="indicator_filter[]" and @type="checkbox" and not(@disabled)]'));
+        $this->assertCount(1, $xpath->query($root.'//input[@name="indicator_filter[]" and @type="checkbox" and @checked and not(@disabled)]'));
+        $this->assertCount(1, $xpath->query($root.'//input[@id="summary-indicator-all" and not(@name)]'));
+        $this->assertCount(2, $xpath->query($root.'//input[@data-group-all and not(@name)]'));
+        $this->assertCount(1, $xpath->query($root.'//*[@data-indicator-group and not(@hidden)]'));
+        $this->assertCount(1, $xpath->query($root.'//input[@value="legacy:'.$legacy->activity_id.'" and @disabled and not(@checked)]'));
+        $this->assertSame('1', trim($xpath->query($root.'//*[@data-indicator-group and not(@hidden)]//*[@data-group-count]')->item(0)->textContent));
     }
 
     public function test_mixed_multiple_selection_keeps_exclusions_permissions_and_other_filters(): void

@@ -27,6 +27,19 @@
 [data-layout=horizontal] .admin-layout .navbar-menu .navbar-nav>.nav-item>.nav-link{display:flex;align-items:center;gap:7px;white-space:nowrap}
 [data-layout=horizontal] .admin-layout .navbar-menu .menu-dropdown{max-height:min(65vh,520px);overflow-y:auto;overscroll-behavior:contain}
 [data-layout=horizontal] .admin-layout .navbar-menu .menu-dropdown .nav-link{white-space:nowrap}
+/* Nested configuration sections expand in place, avoiding clipped side flyouts. */
+/* Only Bootstrap's open state controls visibility; hovering must not open siblings. */
+[data-layout=horizontal] .admin-layout #main-navigation .nav-item:hover>.menu-dropdown:not(.show):not(.collapsing){display:none}
+[data-layout=horizontal] .admin-layout #main-navigation .menu-dropdown.show,
+[data-layout=horizontal] .admin-layout #main-navigation .menu-dropdown.collapsing{display:block}
+/* Preserve Velzon's original icon and spacing; only rotate its native chevron. */
+.admin-layout #main-navigation .nav-link[data-bs-toggle="collapse"][aria-expanded="false"]::after{-webkit-transform:rotate(0deg)!important;transform:rotate(0deg)!important}
+.admin-layout #main-navigation .nav-link[data-bs-toggle="collapse"][aria-expanded="true"]::after{-webkit-transform:rotate(90deg)!important;transform:rotate(90deg)!important}
+@media(prefers-reduced-motion:reduce){.admin-layout #main-navigation .nav-link[data-bs-toggle="collapse"]::after{transition:none}}
+.admin-layout #sidebarConfiguration .configuration-group-toggle{display:flex;align-items:center;gap:10px;font-weight:600}
+.admin-layout #sidebarConfiguration .configuration-group-toggle i{font-size:18px;min-width:20px}
+.admin-layout #sidebarConfiguration .configuration-submenu{padding-left:16px;margin:0 12px 4px;border-left:1px solid var(--vz-border-color)}
+.admin-layout #sidebarConfiguration .configuration-submenu .nav-link{white-space:normal;line-height:1.4;padding-top:9px;padding-bottom:9px}
 [data-layout=horizontal] .admin-layout .navbar-menu .navbar-nav>.nav-item>.nav-link.active,[data-layout=horizontal] .admin-layout .navbar-menu .navbar-nav>.nav-item>.nav-link.active i{color:var(--vz-topnav-item-color-active)}
 @media(min-width:1024.1px){[data-layout=horizontal] .admin-layout .page-content>.container-fluid,[data-layout=horizontal] .admin-layout .navbar-menu .container-fluid{max-width:90%}[data-layout=horizontal] .admin-layout #sidebarConfiguration{min-width:245px}}
 @media(max-width:1024.98px){[data-layout=horizontal] .admin-layout .navbar-menu #scrollbar{max-height:calc(100vh - 70px);overflow-y:auto}[data-layout=horizontal] .admin-layout .navbar-menu .navbar-nav{padding-bottom:24px}[data-layout=horizontal] .admin-layout .navbar-menu .menu-dropdown{max-height:none;overflow:visible}}

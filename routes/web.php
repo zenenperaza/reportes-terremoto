@@ -30,6 +30,7 @@ use App\Http\Controllers\SectorController;
 use App\Http\Controllers\SectorProyectoController;
 use App\Http\Controllers\ServicioController;
 use App\Http\Controllers\SystemMaintenanceController;
+use App\Http\Controllers\SystemConfigurationController;
 use App\Http\Controllers\UserGroupController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Middleware\EnsureActiveUser;
@@ -90,6 +91,8 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
     });
 
     Route::middleware('admin')->group(function (): void {
+        Route::get('configuracion/configuraciones', [SystemConfigurationController::class, 'index'])->name('system-configuration.index');
+        Route::put('configuracion/configuraciones', [SystemConfigurationController::class, 'update'])->name('system-configuration.update');
         Route::resource('configuracion/grupos-usuarios', UserGroupController::class)
             ->parameters(['grupos-usuarios' => 'userGroup'])->names('user-groups')->except('show');
         Route::resource('configuracion/roles', RoleController::class)

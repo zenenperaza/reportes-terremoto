@@ -112,7 +112,7 @@
                 @can('ver casos')
                     <li class="nav-item">
                         <a class="nav-link menu-link collapsed {{ request()->routeIs('cases.*', 'families.*') ? 'active' : '' }}" href="#sidebarCases" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarCases"><i class="ri-folder-shield-2-line"></i><span>Gestión de casos</span></a>
-                        <div class="collapse menu-dropdown" id="sidebarCases"><ul class="nav nav-sm flex-column">
+                        <div class="collapse menu-dropdown" id="sidebarCases" data-bs-parent="#navbar-nav"><ul class="nav nav-sm flex-column">
                             <li class="nav-item"><a class="nav-link {{ request()->routeIs('cases.*') ? 'active' : '' }}" href="{{ route('cases.index') }}">Casos</a></li>
                             <li class="nav-item"><a class="nav-link {{ request()->routeIs('families.*') ? 'active' : '' }}" href="{{ route('families.index') }}">Familias</a></li>
                         </ul></div>
@@ -121,7 +121,7 @@
             @endif
             <li class="nav-item">
                 <a class="nav-link menu-link collapsed {{ $reportsMenuOpen ? 'active' : '' }}" href="#sidebarReports" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarReports"><i class="ri-bar-chart-grouped-line"></i><span>Informes</span></a>
-                    <div class="collapse menu-dropdown" id="sidebarReports"><ul class="nav nav-sm flex-column">
+                    <div class="collapse menu-dropdown" id="sidebarReports" data-bs-parent="#navbar-nav"><ul class="nav nav-sm flex-column">
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('beneficiaries.summary') ? 'active' : '' }}" href="{{ route('beneficiaries.summary') }}">Informe de beneficiarios</a></li>
                         @if(Route::has('general-reports.index'))
                             <li class="nav-item"><a class="nav-link {{ request()->routeIs('general-reports.*') ? 'active' : '' }}" href="{{ route('general-reports.index') }}">Informes generales</a></li>
@@ -132,30 +132,12 @@
                     </ul></div>
             </li>
             @if(auth()->user()->isAdministrator())
-                @php($catalogOpen = request()->routeIs('users.*', 'user-groups.*', 'roles.*', 'permissions.*', 'place-names.*', 'donantes.*', 'proyectos.*', 'sectores.*', 'indicator-groups.*', 'indicadores.*', 'actividades.*', 'servicios.*', 'system-maintenance.*', 'backups.*', 'audit-logs.*'))
+                @php($catalogOpen = request()->routeIs('users.*', 'user-groups.*', 'roles.*', 'permissions.*', 'place-names.*', 'donantes.*', 'proyectos.*', 'sector-proyecto.*', 'indicador-proyecto.*', 'actividad-indicador.*', 'servicio-actividad.*', 'sectores.*', 'indicator-groups.*', 'indicadores.*', 'actividades.*', 'servicios.*', 'system-maintenance.*', 'system-configuration.*', 'backups.*', 'audit-logs.*'))
                 <li class="menu-title"><span>Administraci&oacute;n</span></li>
                 <li class="nav-item">
                     <a class="nav-link menu-link collapsed {{ $catalogOpen ? 'active' : '' }}" href="#sidebarConfiguration" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarConfiguration"><i class="ri-settings-3-line"></i><span>Configuraci&oacute;n</span></a>
-                    <div class="collapse menu-dropdown" id="sidebarConfiguration"><ul class="nav nav-sm flex-column">
-                        <li class="nav-item"><a class="nav-link {{ request()->routeIs('users.*') ? 'active' : '' }}" href="{{ route('users.index') }}">Usuarios</a></li>
-                        <li class="nav-item"><a class="nav-link {{ request()->routeIs('user-groups.*') ? 'active' : '' }}" href="{{ route('user-groups.index') }}">Grupos de usuarios</a></li>
-                        <li class="nav-item"><a class="nav-link {{ request()->routeIs('roles.*') ? 'active' : '' }}" href="{{ route('roles.index') }}">Roles</a></li>
-                        <li class="nav-item"><a class="nav-link {{ request()->routeIs('permissions.*') ? 'active' : '' }}" href="{{ route('permissions.index') }}">Permisos</a></li>
-                        @can('manejar lugares')<li class="nav-item"><a class="nav-link {{ request()->routeIs('place-names.*') ? 'active' : '' }}" href="{{ route('place-names.index') }}">Lugares</a></li>@endcan
-                        <li class="nav-item"><a class="nav-link {{ request()->routeIs('donantes.*') ? 'active' : '' }}" href="{{ route('donantes.index') }}">Donantes</a></li>
-                        <li class="nav-item"><a class="nav-link {{ request()->routeIs('proyectos.*') ? 'active' : '' }}" href="{{ route('proyectos.index') }}">Proyectos</a></li>
-                        <li class="nav-item"><a class="nav-link {{ request()->routeIs('sectores.*') ? 'active' : '' }}" href="{{ route('sectores.index') }}">Sectores</a></li>
-                        @if(Route::has('indicator-groups.index'))
-                            <li class="nav-item"><a class="nav-link {{ request()->routeIs('indicator-groups.*') ? 'active' : '' }}" href="{{ route('indicator-groups.index') }}">Grupos de indicadores</a></li>
-                        @endif
-                        <li class="nav-item"><a class="nav-link {{ request()->routeIs('indicadores.*') ? 'active' : '' }}" href="{{ route('indicadores.index') }}">Indicadores</a></li>
-                        <li class="nav-item"><a class="nav-link {{ request()->routeIs('actividades.*') ? 'active' : '' }}" href="{{ route('actividades.index') }}">Actividades</a></li>
-                        <li class="nav-item"><a class="nav-link {{ request()->routeIs('servicios.*') ? 'active' : '' }}" href="{{ route('servicios.index') }}">Servicios</a></li>
-                        @if(Route::has('backups.index') && auth()->user()->canAny(['generar respaldos', 'descargar respaldos', 'eliminar respaldos']))
-                            <li class="nav-item"><a class="nav-link {{ request()->routeIs('backups.*') ? 'active' : '' }}" href="{{ route('backups.index') }}">Respaldos</a></li>
-                        @endif
-                        <li class="nav-item"><a class="nav-link {{ request()->routeIs('system-maintenance.*') ? 'active' : '' }}" href="{{ route('system-maintenance.index') }}">Mantenimiento</a></li>
-                        <li class="nav-item"><a class="nav-link {{ request()->routeIs('audit-logs.*') ? 'active' : '' }}" href="{{ route('audit-logs.index') }}">Bit&aacute;cora</a></li>
+                    <div class="collapse menu-dropdown" id="sidebarConfiguration" data-bs-parent="#navbar-nav"><ul class="nav nav-sm flex-column">
+                        @include('layouts.partials.configuration-menu')
                     </ul></div>
                 </li>
             @endif

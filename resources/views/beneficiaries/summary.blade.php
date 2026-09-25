@@ -65,20 +65,7 @@
         <label>Sector programático
             <select name="sector_id" id="summary_sector_id"><option value="">Todos</option>@foreach ($sectors as $sector)<option value="{{ $sector->id }}" @selected(($filters['sector_id'] ?? '') == $sector->id)>{{ $sector->name }}</option>@endforeach</select>
         </label>
-        <label class="beneficiary-indicator-field">Indicador a reportar
-            @php
-                $selectedIndicators = $filters['indicator_filter'] ?? (!empty($filters['indicador_proyecto_id'])
-                    ? ['project:'.$filters['indicador_proyecto_id']]
-                    : (!empty($filters['activity_id']) ? ['legacy:'.$filters['activity_id']] : []));
-            @endphp
-            <input type="hidden" name="indicator_filter[]" value="">
-            <select name="indicator_filter[]" id="summary_indicator_id" multiple aria-describedby="summary-indicator-help">
-                @foreach ($indicatorOptions->filter(fn ($option) => empty($filters['sector_id']) || $option['sector_id'] == $filters['sector_id'])->unique('value') as $option)
-                    <option value="{{ $option['value'] }}" @selected(in_array($option['value'], $selectedIndicators, true))>{{ $option['label'] }}</option>
-                @endforeach
-            </select>
-            <small class="muted" id="summary-indicator-help">Use “Seleccionar todos los indicadores” y quite los que no necesite. Sin selección se incluyen todos.</small>
-        </label>
+        @include('beneficiaries.partials.indicator-picker')
         <label>Recurrente
             <select name="is_recurrent"><option value="">Todos</option>@if(in_array('1', $recurrenceOptions, true))<option value="1" @selected(($filters['is_recurrent'] ?? '') === '1')>Sí</option>@endif @if(in_array('0', $recurrenceOptions, true))<option value="0" @selected(($filters['is_recurrent'] ?? '') === '0')>No</option>@endif</select>
         </label>
@@ -200,27 +187,6 @@
 const summarySelect = (id) => document.getElementById(id);
 const reportedFilterForm = summarySelect('beneficiary-reported-filter');
 summarySelect('summary_reported').addEventListener('change', () => reportedFilterForm.requestSubmit());
-const summarySector = summarySelect('summary_sector_id'), summaryIndicator = summarySelect('summary_indicator_id');
-const summarySelectAllValue = '__select_all_indicators__';
-const addSummarySelectAllOption = () => {
-    const option = new Option('Seleccionar todos los indicadores', summarySelectAllValue);
-    option.disabled = !Array.from(summaryIndicator.options).some(item => item.value && !item.disabled);
-    summaryIndicator.prepend(option);
-};
-const selectAllSummaryIndicators = () => {
-    Array.from(summaryIndicator.options).forEach(option => {
-        option.selected = Boolean(option.value && option.value !== summarySelectAllValue && !option.disabled);
-    });
-    summaryIndicator.dispatchEvent(new Event('change', {bubbles: true}));
-};
-// The bulk action is UI-only; never send it as an indicator filter.
-addSummarySelectAllOption();
-summaryIndicator.addEventListener('change', () => {
-    if (Array.from(summaryIndicator.selectedOptions).some(option => option.value === summarySelectAllValue)) {
-        selectAllSummaryIndicators();
-    }
-});
-const summaryIndicatorOptions = {{ Illuminate\Support\Js::from($indicatorOptions) }};
 const beneficiaryFilterForm = document.getElementById('beneficiary-report-filters');
 const beneficiaryExportButton = document.getElementById('beneficiary-export-button');
 const syncBeneficiaryExportUrl = () => {
@@ -241,36 +207,9 @@ const activateReportTab = (tab) => {
     });
 };
 document.querySelectorAll('[data-report-tab]').forEach(tab => tab.addEventListener('click', () => activateReportTab(tab)));
-summarySector.addEventListener('change', () => {
-    const previousValues = new Set(Array.from(summaryIndicator.selectedOptions, option => option.value));
-    const seen = new Set();
-    summaryIndicator.replaceChildren();
-    summaryIndicatorOptions.forEach(item => {
-        if (summarySector.value && String(item.sector_id) !== summarySector.value) return;
-        if (seen.has(item.value)) return;
-        seen.add(item.value);
-        summaryIndicator.add(new Option(item.label, item.value, false, previousValues.has(item.value)));
-    });
-    addSummarySelectAllOption();
-    if (window.jQuery?.fn?.select2) window.jQuery(summaryIndicator).trigger('change.select2');
-    syncBeneficiaryExportUrl();
-});
-document.addEventListener('DOMContentLoaded', () => {
-    if (window.jQuery?.fn?.select2) {
-        window.jQuery(summaryIndicator).select2({
-            width: '100%', placeholder: 'Todos los indicadores', allowClear: true, closeOnSelect: false,
-            dropdownCssClass: 'beneficiary-indicator-dropdown',
-            language: {noResults: () => 'No se encontraron indicadores', searching: () => 'Buscando...'},
-        }).on('select2:selecting', event => {
-            if (event.params.args.data.id !== summarySelectAllValue) return;
-            event.preventDefault();
-            selectAllSummaryIndicators();
-            window.jQuery(summaryIndicator).select2('close');
-        }).on('change', syncBeneficiaryExportUrl);
-    }
-});
 </script>
 
+<script src="{{ asset('js/beneficiary-indicator-picker.js') }}?v={{ filemtime(public_path('js/beneficiary-indicator-picker.js')) }}" defer></script>
 <script src="{{ asset('js/general-report-locations.js') }}?v={{ filemtime(public_path('js/general-report-locations.js')) }}"></script>
 <script src="/vendor/datatables/jquery-3.7.1.min.js"></script>
 <script src="/vendor/datatables/dataTables.min.js"></script>
