@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Middleware\ReportPeriodTransaction;
+
 use App\Http\Controllers\ActividadController;
 use App\Http\Controllers\ActividadIndicadorServicioController;
 use App\Http\Controllers\AuditLogController;
@@ -93,6 +95,8 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
     Route::middleware('admin')->group(function (): void {
         Route::get('configuracion/configuraciones', [SystemConfigurationController::class, 'index'])->name('system-configuration.index');
         Route::put('configuracion/configuraciones', [SystemConfigurationController::class, 'update'])->name('system-configuration.update');
+        Route::put('configuracion/configuraciones/periodos/{period}', [SystemConfigurationController::class, 'updatePeriod'])
+            ->where('period', '[0-9]{4}-(0[1-9]|1[0-2])')->name('system-configuration.periods.update');
         Route::resource('configuracion/grupos-usuarios', UserGroupController::class)
             ->parameters(['grupos-usuarios' => 'userGroup'])->names('user-groups')->except('show');
         Route::resource('configuracion/roles', RoleController::class)
@@ -171,14 +175,14 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
     Route::get('/actividades', [LocationController::class, 'allActivities'])->name('activities.all');
     Route::get('/sectores/{sector}/actividades', [LocationController::class, 'activities'])->name('sectors.activities');
     Route::get('/beneficiarios/verificar-recurrencia', [BeneficiaryLookupController::class, 'recurrence'])->name('beneficiaries.recurrence');
-    Route::post('/beneficiarios', [ReportController::class, 'storeBeneficiary'])->middleware('permission:registrar actividad')->name('beneficiaries.store');
-    Route::put('/beneficiarios/{beneficiary}', [ReportController::class, 'updateBeneficiary'])->middleware('permission:editar beneficiarios')->name('beneficiaries.update');
-    Route::put('/beneficiarios/{beneficiary}/atencion', [ReportController::class, 'updateBeneficiaryAttention'])->middleware('permission:editar beneficiarios')->name('beneficiaries.update-attention');
-    Route::delete('/beneficiarios/{beneficiary}', [ReportController::class, 'destroyBeneficiary'])->middleware('permission:eliminar beneficiarios')->name('beneficiaries.destroy');
+    Route::post('/beneficiarios', [ReportController::class, 'storeBeneficiary'])->middleware(['permission:registrar actividad', ReportPeriodTransaction::class])->name('beneficiaries.store');
+    Route::put('/beneficiarios/{beneficiary}', [ReportController::class, 'updateBeneficiary'])->middleware(['permission:editar beneficiarios', ReportPeriodTransaction::class])->name('beneficiaries.update');
+    Route::put('/beneficiarios/{beneficiary}/atencion', [ReportController::class, 'updateBeneficiaryAttention'])->middleware(['permission:editar beneficiarios', ReportPeriodTransaction::class])->name('beneficiaries.update-attention');
+    Route::delete('/beneficiarios/{beneficiary}', [ReportController::class, 'destroyBeneficiary'])->middleware(['permission:eliminar beneficiarios', ReportPeriodTransaction::class])->name('beneficiaries.destroy');
     Route::get('/informe-beneficiarios/exportar', [BeneficiaryReportController::class, 'export'])->middleware('permission:exportar registros excel')->name('beneficiaries.export');
     Route::get('/informe-beneficiarios', [BeneficiaryReportController::class, 'index'])->name('beneficiaries.summary');
     Route::get('/informe-beneficiarios/ubicaciones', [BeneficiaryReportController::class, 'locations'])->name('beneficiaries.locations');
-    Route::post('/informe-beneficiarios/marcar-reportados', [BeneficiaryReportController::class, 'markAsReported'])->name('beneficiaries.mark-reported');
+    Route::post('/informe-beneficiarios/marcar-reportados', [BeneficiaryReportController::class, 'markAsReported'])->middleware(ReportPeriodTransaction::class)->name('beneficiaries.mark-reported');
     Route::get('/informes-generales', GeneralReportController::class)->name('general-reports.index');
     Route::get('/informes-generales/ubicaciones', [GeneralReportController::class, 'locations'])->name('general-reports.locations');
     Route::get('/informes-por-indicadores', IndicatorReportController::class)->name('indicator-reports.index');
@@ -187,11 +191,11 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
     Route::get('/reportes/exportar', [ReportController::class, 'export'])->name('reports.export');
     Route::get('/reportes', [ReportController::class, 'index'])->middleware('permission:solo ver registros')->name('reports.index');
     Route::get('/reportes/nuevo', [ReportController::class, 'create'])->middleware('permission:registrar actividad')->name('reports.create');
-    Route::post('/reportes', [ReportController::class, 'store'])->middleware('permission:registrar actividad')->name('reports.store');
+    Route::post('/reportes', [ReportController::class, 'store'])->middleware(['permission:registrar actividad', ReportPeriodTransaction::class])->name('reports.store');
     Route::get('/reportes/{report}/editar', [ReportController::class, 'edit'])->middleware('permission:editar registros|editar beneficiarios')->name('reports.edit');
-    Route::put('/reportes/{report}', [ReportController::class, 'update'])->middleware('permission:editar registros')->name('reports.update');
-    Route::delete('/reportes/{report}', [ReportController::class, 'destroy'])->middleware('permission:eliminar registros')->name('reports.destroy');
+    Route::put('/reportes/{report}', [ReportController::class, 'update'])->middleware(['permission:editar registros', ReportPeriodTransaction::class])->name('reports.update');
+    Route::delete('/reportes/{report}', [ReportController::class, 'destroy'])->middleware(['permission:eliminar registros', ReportPeriodTransaction::class])->name('reports.destroy');
     Route::get('/reportes/{report}', [ReportController::class, 'show'])->middleware('permission:ver detalle de registros')->name('reports.show');
-    Route::post('/reportes/{report}/revisar', [ReportController::class, 'review'])->name('reports.review');
+    Route::post('/reportes/{report}/revisar', [ReportController::class, 'review'])->middleware(ReportPeriodTransaction::class)->name('reports.review');
     Route::get('/evidencias/{evidence}/descargar', [ReportController::class, 'downloadEvidence'])->middleware('permission:solo ver registros')->name('evidences.download');
 });

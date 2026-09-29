@@ -20,6 +20,28 @@ test('changing reported status submits only the separate status form', () => {
     assert.equal(submissions, 1);
 });
 
+test('period changes preserve the selection for reported status and refresh export, including all periods', () => {
+    let onChange;
+    let exportsSynced = 0;
+    const elements = {
+        'reporting-period': {value: '2031-12', addEventListener(event, handler) {assert.equal(event, 'change'); onChange = handler;}},
+        'reported-period': {value: '2031-11'},
+    };
+    const start = view.indexOf("summarySelect('reporting-period').addEventListener");
+    const end = view.indexOf('beneficiaryExportButton?.addEventListener', start);
+    assert.ok(start > 0 && end > start);
+    vm.runInNewContext(view.slice(start, end), {
+        summarySelect: id => elements[id],
+        syncBeneficiaryExportUrl() {exportsSynced++;},
+    });
+    onChange();
+    assert.equal(elements['reported-period'].value, '2031-12');
+    elements['reporting-period'].value = '';
+    onChange();
+    assert.equal(elements['reported-period'].value, '');
+    assert.equal(exportsSynced, 2);
+});
+
 function element(extra = {}) {
     const handlers = {};
     const classes = new Set();

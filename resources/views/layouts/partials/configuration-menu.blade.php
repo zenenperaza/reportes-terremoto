@@ -40,10 +40,10 @@
     @endphp
     @if($links->isNotEmpty())
         <li class="nav-item">
-            <a class="nav-link configuration-group-toggle {{ $sectionActive ? 'active' : 'collapsed' }}" href="#{{ $sectionId }}" data-bs-toggle="collapse" role="button" aria-expanded="{{ $sectionActive ? 'true' : 'false' }}" aria-controls="{{ $sectionId }}">
+            <a class="nav-link configuration-group-toggle collapsed {{ $sectionActive ? 'active' : '' }}" href="#{{ $sectionId }}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="{{ $sectionId }}">
                 <i class="{{ $section['icon'] }}" aria-hidden="true"></i><span>{{ $section['label'] }}</span>
             </a>
-            <div class="collapse configuration-submenu {{ $sectionActive ? 'show' : '' }}" id="{{ $sectionId }}" data-bs-parent="#sidebarConfiguration">
+            <div class="collapse configuration-submenu" id="{{ $sectionId }}" data-bs-parent="#sidebarConfiguration">
                 <ul class="nav nav-sm flex-column">
                     @foreach($links as [$label, $route, $patterns])
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs(...$patterns) ? 'active' : '' }}" href="{{ route($route) }}" @if(request()->routeIs(...$patterns)) aria-current="page" @endif>{{ $label }}</a></li>

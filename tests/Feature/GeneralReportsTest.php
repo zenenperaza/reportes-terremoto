@@ -37,6 +37,7 @@ class GeneralReportsTest extends TestCase
         $secondIndicator = Indicador::create(['codigo' => 'PN/02', 'descripcion' => 'Otra población atendida', 'unidad_conteo' => 'Personas', 'espacio_coordinacion' => 'NNA', 'edad_desde' => 0, 'edad_hasta' => 120]);
         $secondIndicatorAssignment = IndicadorProyecto::create(['proyecto_id' => $project->id, 'sector_proyecto_id' => $projectSector->id, 'indicador_id' => $secondIndicator->id, 'estatus' => true]);
         $report = Report::create([
+            'reporting_period' => \App\Support\ReportPeriod::current(),
             'user_id' => $user->id,
             'proyecto_id' => $project->id,
             'indicador_proyecto_id' => $indicatorAssignment->id,

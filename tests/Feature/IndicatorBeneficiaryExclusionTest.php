@@ -382,7 +382,7 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
             unlink($path);
         }
         $this->post(route('beneficiaries.mark-reported'), ['indicator_filter' => $selected, 'reported_at' => today()->toDateString()])
-            ->assertRedirect(route('beneficiaries.summary', ['indicator_filter' => $selected, 'reported' => '0']));
+            ->assertRedirect(route('beneficiaries.summary', ['reporting_period' => \App\Support\ReportPeriod::current(), 'indicator_filter' => $selected, 'reported' => '0']));
         $this->assertNotNull($included->beneficiaries()->first()->reported_at);
         $this->assertNotNull($legacy->beneficiaries()->first()->reported_at);
         $this->assertNull($excluded->beneficiaries()->first()->reported_at);
@@ -429,7 +429,8 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
             @$document->loadHTML($response->getContent());
             $xpath = new \DOMXPath($document);
             $this->assertSame(1, $xpath->query('//form[@id="beneficiary-reported-filter"]//select[@name="reported"]')->length);
-            $this->assertSame(0, $xpath->query('//form[@id="beneficiary-reported-filter"]//input')->length);
+            $this->assertSame(1, $xpath->query('//form[@id="beneficiary-reported-filter"]//input')->length);
+            $this->assertSame(\App\Support\ReportPeriod::current(), $xpath->query('//form[@id="beneficiary-reported-filter"]//input[@name="reporting_period"]')->item(0)->getAttribute('value'));
             $this->assertSame($status, $xpath->query('//form[@id="beneficiary-report-filters"]//input[@name="reported"]')->item(0)->getAttribute('value'));
         }
         $this->get(route('beneficiaries.summary', ['reported' => '']))->assertOk()
@@ -476,6 +477,7 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
                 'proyecto_id' => $project->id, 'indicador_id' => $indicator->id, 'estatus' => true,
             ]) : null;
             $report = Report::create([
+                'reporting_period' => \App\Support\ReportPeriod::current(),
                 'user_id' => $admin->id, 'proyecto_id' => $assignment ? $project->id : null,
                 'indicador_proyecto_id' => $assignment?->id, 'report_date' => today(),
                 'reporter_first_name' => 'Prueba', 'reporter_last_name' => 'Reporte', 'reporter_email' => $admin->email,

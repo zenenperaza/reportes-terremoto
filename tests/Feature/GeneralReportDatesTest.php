@@ -31,6 +31,7 @@ class GeneralReportDatesTest extends TestCase
     private function record(User $user, string $attention, string $registered): void
     {
         $report = Report::create($this->geography + [
+            'reporting_period' => \App\Support\ReportPeriod::current(),
             'user_id' => $user->id, 'report_date' => $attention, 'reporter_first_name' => 'Prueba',
             'reporter_last_name' => 'Fechas', 'reporter_email' => $user->email, 'organization' => 'ASONACOP',
             'installation_type' => 'Comunidad / Espacio Comunitario', 'place_name' => 'Lugar',

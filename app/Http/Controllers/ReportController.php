@@ -17,6 +17,7 @@ use App\Models\State;
 use App\Models\Proyecto;
 use App\Models\User;
 use App\Services\ReportDataTable;
+use App\Support\ReportPeriod;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
@@ -31,7 +32,7 @@ class ReportController extends Controller
 {
     public function index(Request $request): View|JsonResponse|StreamedResponse
     {
-        $request->validate(['user_id' => ['nullable', 'integer', 'min:1']]);
+        $request->validate(['user_id' => ['nullable', 'integer', 'min:1'], 'reporting_period' => ReportPeriod::rules()]);
         $isCoordinator = $request->user()->isCoordinator();
         $reports = collect();
 
@@ -78,17 +79,20 @@ class ReportController extends Controller
                 ? User::withTrashed()->whereIn('id', $request->user()->constrainVisibleReports(Report::query())->select('reports.user_id'))
                     ->orderBy('name')->orderBy('id')->get(['id', 'name'])
                 : collect(),
-            'filters' => $request->only(['state_id', 'reported', 'from', 'to', 'user_id']),
+            'filters' => $request->only(['state_id', 'reported', 'from', 'to', 'user_id', 'reporting_period']),
+            'periodOptions' => ReportPeriod::options($request->user()->constrainVisibleReports(Report::query())),
         ]);
     }
 
     public function create(Request $request): View
     {
+        ReportPeriod::assertOpen(ReportPeriod::current());
         $projects = $this->availableProjects($request);
         $selectedProjectId = old('proyecto_id', $projects->first()?->id);
         $locations = $this->availableLocations($request, $projects);
 
         return view('reports.create', [
+            'reportingPeriod' => ReportPeriod::current(),
             'projects' => $projects,
             'projectIndicatorOptions' => $this->projectIndicatorOptions($projects),
             'selectedProjectId' => $selectedProjectId,
@@ -123,6 +127,7 @@ class ReportController extends Controller
 
         return view('reports.create', [
             'report' => $report,
+            'reportingPeriod' => $report->reporting_period,
             'projects' => $projects,
             'projectIndicatorOptions' => $this->projectIndicatorOptions($projects),
             'selectedProjectId' => $selectedProjectId,
@@ -180,6 +185,7 @@ class ReportController extends Controller
     public function store(StoreReportRequest $request): RedirectResponse
     {
         $data = $request->validated();
+        $data['reporting_period'] = ReportPeriod::forNewReport($request);
         $beneficiaries = $data['beneficiaries'];
         $serviceIds = $data['servicio_actividad_ids'] ?? [];
         unset($data['beneficiaries'], $data['servicio_actividad_ids'], $data['sector_proyecto_id'], $data['evidence_1'], $data['evidence_2'], $data['evidence_3']);
@@ -247,6 +253,7 @@ class ReportController extends Controller
             } else {
                 $summary = $this->beneficiarySummary([$beneficiaryData]);
                 $report = Report::create(array_merge($data, [
+                    'reporting_period' => ReportPeriod::forNewReport($request),
                     'user_id' => $request->user()->id,
                     'total_beneficiaries' => $summary['total'],
                     'recurrence_status' => $summary['recurrence_status'],
@@ -419,22 +426,24 @@ class ReportController extends Controller
     {
         $this->ensureVisible($request, $report);
         $report->load(['user', 'state', 'municipality', 'parish', 'sector', 'activity', 'proyecto', 'indicadorProyecto.indicador', 'actividadIndicador.actividad', 'serviciosActividad.servicio', 'beneficiaries', 'evidences', 'reviewer']);
+        $periodClosed = ReportPeriod::isClosed($report->reporting_period);
 
         return view('reports.show', [
             'report' => $report,
+            'periodClosed' => $periodClosed,
             'isCoordinator' => $request->user()->isCoordinator(),
-            'canEditReport' => $request->user()->can('editar registros')
+            'canEditReport' => !$periodClosed && $request->user()->can('editar registros')
                 && $request->user()->canManageGroupReport($report)
                 && $report->status !== 'reviewed',
-            'canEditBeneficiaries' => $request->user()->can('editar beneficiarios')
+            'canEditBeneficiaries' => !$periodClosed && $request->user()->can('editar beneficiarios')
                 && $request->user()->canManageGroupReport($report)
                 && $report->status !== 'reviewed',
-            'canDeleteBeneficiaries' => $request->user()->can('eliminar beneficiarios')
+            'canDeleteBeneficiaries' => !$periodClosed && $request->user()->can('eliminar beneficiarios')
                 && $request->user()->canManageGroupReport($report)
                 && $report->status !== 'reviewed'
                 && ($report->beneficiaries->count() > 1
                     || ($request->user()->isAdministrator() && $request->user()->can('eliminar registros'))),
-            'canDeleteReport' => $request->user()->can('eliminar registros'),
+            'canDeleteReport' => !$periodClosed && $request->user()->can('eliminar registros'),
             'beneficiaryOptions' => config('reports.beneficiary_options'),
             'beneficiaryEditData' => $report->beneficiaries->keyBy('id')->map(fn (Beneficiary $beneficiary): array => [
                 'id' => $beneficiary->id,
@@ -455,6 +464,7 @@ class ReportController extends Controller
     public function destroy(Request $request, Report $report): RedirectResponse
     {
         abort_unless($request->user()->can('eliminar registros'), 403);
+        ReportPeriod::assertOpen($report->reporting_period, true);
 
         $reportId = $report->id;
 
@@ -471,6 +481,7 @@ class ReportController extends Controller
     {
         abort_unless($request->user()->isCoordinator(), 403);
         $this->ensureVisible($request, $report);
+        ReportPeriod::assertOpen($report->reporting_period, true);
         $report->update([
             'status' => 'reviewed',
             'reviewed_at' => now(),
@@ -491,7 +502,7 @@ class ReportController extends Controller
     public function export(Request $request): StreamedResponse
     {
         abort_unless($request->user()->isAdministrator(), 403);
-        $request->validate(['user_id' => ['nullable', 'integer', 'min:1']]);
+        $request->validate(['user_id' => ['nullable', 'integer', 'min:1'], 'reporting_period' => ReportPeriod::rules()]);
         $beneficiaries = $this->filteredBeneficiaries($request)
             ->with(['report.state', 'report.municipality', 'report.parish', 'report.sector', 'report.activity', 'report.proyecto', 'report.indicadorProyecto.indicador', 'report.indicadorProyecto.asignacionSector.sector', 'report.actividadIndicador.actividad', 'report.serviciosActividad.servicio'])
             ->latest('created_at')
@@ -666,6 +677,7 @@ class ReportController extends Controller
         return $query
             ->when($request->integer('user_id'), fn (Builder $query, int $userId) => $query->where('user_id', $userId))
             ->when($request->integer('state_id'), fn (Builder $query, int $stateId) => $query->where('state_id', $stateId))
+            ->reportingPeriod($request->input('reporting_period'))
             ->when($request->input('from'), fn (Builder $query, string $from) => $query->whereDate('report_date', '>=', $from))
             ->when($request->input('to'), fn (Builder $query, string $to) => $query->whereDate('report_date', '<=', $to));
     }
@@ -678,6 +690,7 @@ class ReportController extends Controller
             ->whereHas('report', function (Builder $reports) use ($request): void {
                 $request->user()->constrainVisibleReports($reports);
                 $reports->when($request->integer('user_id'), fn (Builder $query, int $userId) => $query->where('user_id', $userId))
+                    ->reportingPeriod($request->input('reporting_period'))
                     ->when($request->integer('state_id'), fn (Builder $query, int $stateId) => $query->where('state_id', $stateId))
                     ->when($request->input('from'), fn (Builder $query, string $from) => $query->whereDate('report_date', '>=', $from))
                     ->when($request->input('to'), fn (Builder $query, string $to) => $query->whereDate('report_date', '<=', $to));
@@ -729,6 +742,7 @@ class ReportController extends Controller
             403
         );
         abort_if($report->status === 'reviewed', 409, 'No se puede modificar un registro revisado.');
+        ReportPeriod::assertOpen($report->reporting_period, !$request->isMethodSafe());
     }
 
     private function storeEvidence(Report $report, Request $request): void

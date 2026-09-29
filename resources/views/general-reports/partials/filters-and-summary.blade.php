@@ -2,6 +2,7 @@
     <div class="card-header"><div><h2 class="card-title mb-1">Filtros del informe</h2><p class="text-muted mb-0">Combine uno o varios criterios para actualizar todos los resultados.</p></div></div>
     <div class="card-body">
         <form method="get" id="general-report-filters" class="row g-3" data-locations-url="{{ $locationsRoute }}">
+            <div class="col-12 report-period-row">@include('reports.partials.period-filter')</div>
             @foreach(['attention_from' => ['attention', 'Fecha de atenciÃ³n desde'], 'attention_to' => ['attention', 'Fecha de atenciÃ³n hasta'], 'registered_from' => ['registered', 'Fecha de registro desde'], 'registered_to' => ['registered', 'Fecha de registro hasta']] as $field => [$dateGroup, $label])
                 @php($bounds = $dateBounds[$dateGroup])
                 <div class="col-xl-3 col-md-6">

@@ -10,6 +10,7 @@ class Report extends Model
     use HasFactory;
 
     protected $fillable = [
+        'reporting_period',
         'user_id', 'proyecto_id', 'indicador_proyecto_id', 'actividad_indicador_id', 'report_date', 'reporter_first_name', 'reporter_last_name', 'reporter_email',
         'organization', 'other_organization', 'state_id', 'municipality_id', 'parish_id',
         'installation_type', 'place_name', 'latitude', 'longitude', 'altitude', 'gps_accuracy',
@@ -25,6 +26,15 @@ class Report extends Model
             'beneficiary_breakdown' => 'array',
             'reviewed_at' => 'datetime',
         ];
+    }
+
+    public function scopeReportingPeriod(\Illuminate\Database\Eloquent\Builder $query, ?string $period): \Illuminate\Database\Eloquent\Builder
+    {
+        if ($period === 'unassigned') {
+            return $query->whereNull('reports.reporting_period');
+        }
+
+        return $period ? $query->where('reports.reporting_period', $period) : $query;
     }
 
     public function user() { return $this->belongsTo(User::class)->withTrashed(); }

@@ -6,6 +6,7 @@ use App\Models\Beneficiary;
 use App\Models\Report;
 use App\Models\Sector;
 use App\Services\ReportLocationOptions;
+use App\Support\ReportPeriod;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -51,6 +52,9 @@ class BeneficiaryReportController extends Controller
 
         $beneficiaryQuery = $this->filteredBeneficiaries($request, $filters);
         $pendingBeneficiaryCount = (clone $beneficiaryQuery)->whereNull('reported_at')->count();
+        $hasClosedPendingPeriods = (clone $beneficiaryQuery)->whereNull('reported_at')
+            ->whereHas('report', fn (Builder $q) => $q->whereIn('reporting_period',
+                \App\Models\ReportingPeriod::where('is_closed', true)->select('period')))->exists();
         $beneficiaries = (clone $beneficiaryQuery)
             ->with([
                 'report:id,place_name,activity_id,indicador_proyecto_id',
@@ -71,10 +75,12 @@ class BeneficiaryReportController extends Controller
 
         return view('beneficiaries.summary', [
             'filters' => $filters,
+            'periodOptions' => ReportPeriod::options($this->optionReports($request, $filters), true),
             'summary' => $this->summary($beneficiaries),
             'summary345w' => $this->summary345w($beneficiaries),
             'reportCount' => $reports->count(),
             'pendingBeneficiaryCount' => $pendingBeneficiaryCount,
+            'hasClosedPendingPeriods' => $hasClosedPendingPeriods,
             'groupedBeneficiaries' => $groupedBeneficiaries,
             'showReportedAt' => $showReportedAt,
             'states' => $locations['states'],
@@ -102,11 +108,16 @@ class BeneficiaryReportController extends Controller
         $reportedAt = $request->validate([
             'reported_at' => ['required', 'date', 'before_or_equal:today'],
         ])['reported_at'];
-        $updated = $this->filteredBeneficiaries($request, $filters)
-            ->whereNull('reported_at')
-            ->update(['reported' => true, 'reported_at' => $reportedAt]);
+        $pending = $this->filteredBeneficiaries($request, $filters)->whereNull('reported_at');
+        $periods = Report::whereIn('id', (clone $pending)->select('report_id'))
+            ->whereNotNull('reporting_period')->distinct()->orderBy('reporting_period')->pluck('reporting_period');
+        foreach ($periods as $period) {
+            ReportPeriod::assertOpen($period, true);
+        }
+        $updated = $pending->update(['reported' => true, 'reported_at' => $reportedAt]);
 
         $query = array_filter($filters, static fn (mixed $value): bool => $value !== null && $value !== '');
+        $query['reporting_period'] = $filters['reporting_period'] ?? '';
         $message = $updated === 1
             ? '1 beneficiario fue actualizado como reportado con la fecha indicada.'
             : "{$updated} beneficiarios fueron actualizados como reportados con la fecha indicada.";
@@ -220,6 +231,7 @@ class BeneficiaryReportController extends Controller
     /** @param array<string, mixed> $filters */
     private function applyReportFilters(Builder $query, array $filters): Builder
     {
+        $query->reportingPeriod($filters['reporting_period'] ?? null);
         return $query
             ->when($filters['from'] ?? null, fn (Builder $query, string $from) => $query->whereDate('report_date', '>=', $from))
             ->when($filters['to'] ?? null, fn (Builder $query, string $to) => $query->whereDate('report_date', '<=', $to))
@@ -349,7 +361,7 @@ class BeneficiaryReportController extends Controller
     /** @return array<string, mixed> */
     private function validatedFilters(Request $request): array
     {
-        $input = $request->all();
+        $input = $request->all() + ['reporting_period' => ReportPeriod::current()];
         // The explicit selector overrides old query-string filters, including "Todos".
         // Keep old single-selection links compatible with the new array selector.
         if ($request->exists('indicator_filter')) {
@@ -368,6 +380,7 @@ class BeneficiaryReportController extends Controller
                     }
                 },
             ],
+            'reporting_period' => ReportPeriod::rules(),
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],
             'included_from' => ['nullable', 'date'],

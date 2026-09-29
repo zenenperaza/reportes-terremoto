@@ -49,6 +49,7 @@ class BeneficiaryExcelExportTest extends TestCase
             'estatus' => true,
         ]);
         $report = Report::create([
+            'reporting_period' => \App\Support\ReportPeriod::current(),
             'user_id' => $administrator->id,
             'proyecto_id' => $project->id,
             'indicador_proyecto_id' => $indicatorAssignment->id,

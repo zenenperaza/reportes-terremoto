@@ -179,6 +179,7 @@
 <script src="{{ asset('assets/js/plugins.js') }}"></script>
 <script src="{{ asset('assets/js/app.js') }}"></script>
 <script src="{{ $versionedAsset('js/horizontal-menu.js') }}"></script>
+<script src="{{ $versionedAsset('js/navigation-disclosure.js') }}" defer></script>
 <script src="{{ $versionedAsset('js/theme-switcher.js') }}"></script>
 @if($showMaintenanceBanner)<script src="{{ $versionedAsset('js/maintenance-banner.js') }}"></script>@endif
 @else

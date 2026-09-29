@@ -6,6 +6,7 @@
 <section class="page-heading detail-heading">
     <div>
         <p class="eyebrow">Registro #{{ $report->id }} · {{ $report->report_date->format('d/m/Y') }}</p>
+        <p class="muted">Período: {{ \App\Support\ReportPeriod::label($report->reporting_period) }}</p>
         <h1>{{ $report->proyecto?->codigo ?? $report->sector?->name ?? 'Registro de actividad' }}</h1>
         <p class="muted">{{ $report->actividadIndicador?->actividad?->descripcion ?? $report->indicadorProyecto?->indicador?->descripcion ?? $report->activity?->title }}</p>
     </div>
@@ -23,7 +24,10 @@
     </div>
 </section>
 
-@if($isCoordinator && $report->status !== 'reviewed')
+@if($periodClosed)
+    <div class="alert alert-warning" role="status">Período cerrado: este registro y sus beneficiarios son de solo lectura.</div>
+@endif
+@if(!$periodClosed && $isCoordinator && $report->status !== 'reviewed')
     <form method="post" action="{{ route('reports.review', $report) }}" class="review-banner">@csrf<span>Confirme cuando haya comprobado los datos y evidencias del registro.</span><button class="button button-small" type="submit">Marcar como revisado</button></form>
 @endif
 

@@ -36,6 +36,7 @@
 
 <section class="content-card filter-card">
     <form method="get" class="filters">
+        @include('reports.partials.period-filter')
         <label>Estado
             <select name="state_id"><option value="">Todos</option>@foreach($states as $state)<option value="{{ $state->id }}" @selected(($filters['state_id'] ?? '') == $state->id)>{{ $state->name }}</option>@endforeach</select>
         </label>

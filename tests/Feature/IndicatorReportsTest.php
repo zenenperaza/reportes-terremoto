@@ -39,6 +39,7 @@ class IndicatorReportsTest extends TestCase
         $secondIndicator = Indicador::create(['indicator_group_id' => $group->id, 'codigo' => 'PN/02', 'nombre_corto' => 'Otra poblaci?n atendida corta', 'descripcion' => 'Otra poblaci?n atendida', 'unidad_conteo' => 'Personas', 'espacio_coordinacion' => 'NNA', 'edad_desde' => 0, 'edad_hasta' => 120]);
         $secondIndicatorAssignment = IndicadorProyecto::create(['proyecto_id' => $project->id, 'sector_proyecto_id' => $projectSector->id, 'indicador_id' => $secondIndicator->id, 'estatus' => true]);
         $report = Report::create([
+            'reporting_period' => \App\Support\ReportPeriod::current(),
             'user_id' => $user->id,
             'proyecto_id' => $project->id,
             'indicador_proyecto_id' => $indicatorAssignment->id,

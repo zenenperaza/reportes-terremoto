@@ -42,14 +42,14 @@ class ConfigurationNavigationTest extends TestCase
         }
     }
 
-    public function test_current_section_is_expanded_and_destination_marked_active(): void
+    public function test_current_section_stays_collapsed_but_destination_is_marked_active(): void
     {
         $this->actingAs(User::factory()->create(['role' => 'admin', 'is_active' => true]));
         foreach (['donantes.index' => 'sidebarConfigurationProjects', 'system-configuration.index' => 'sidebarConfigurationSettings', 'users.index' => 'sidebarConfigurationUsers'] as $route => $section) {
             $response = $this->get(route($route))->assertOk();
             $xpath = $this->navigation($response->getContent());
-            $this->assertCount(1, $xpath->query('//*[@id="'.$section.'" and contains(concat(" ", normalize-space(@class), " "), " show ")]'));
-            $this->assertCount(1, $xpath->query('//a[@aria-controls="'.$section.'" and @aria-expanded="true"]'));
+            $this->assertCount(0, $xpath->query('//*[@id="'.$section.'" and contains(concat(" ", normalize-space(@class), " "), " show ")]'));
+            $this->assertCount(1, $xpath->query('//a[@aria-controls="'.$section.'" and @aria-expanded="false"]'));
             $this->assertCount(1, $xpath->query('//*[@id="'.$section.'"]//a[@href="'.route($route).'" and @aria-current="page"]'));
         }
     }

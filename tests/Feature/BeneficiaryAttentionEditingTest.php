@@ -162,6 +162,7 @@ class BeneficiaryAttentionEditingTest extends TestCase
     public function test_individual_context_change_moves_only_one_person_and_keeps_identity_dates_status_and_evidence(): void
     {
         [$report, $first, $second, $original, $destination, $owner] = $this->fixture();
+        $report->update(['reporting_period' => '2026-07']);
         $first->forceFill(['reported' => true, 'reported_at' => today()])->save();
         $originalPerson = $first->fresh()->getAttributes();
         $untouchedPerson = $second->getAttributes();
@@ -174,6 +175,8 @@ class BeneficiaryAttentionEditingTest extends TestCase
         $response = $this->putJson(route('beneficiaries.update-attention', $first), $destination + ['user_id' => 99999, 'beneficiary' => $this->person($first)])
             ->assertOk()->assertJsonPath('separated', true)->assertJsonPath('beneficiary.id', $first->id);
         $target = Report::findOrFail($response->json('report.id'));
+        $this->assertSame('2026-07', $target->reporting_period);
+        $this->assertSame('2026-07', $report->refresh()->reporting_period);
         $this->assertNotEquals($report->id, $target->id);
         $this->assertSame($target->id, $first->refresh()->report_id);
         $this->assertSame($destination['indicador_proyecto_id'], $target->indicador_proyecto_id);

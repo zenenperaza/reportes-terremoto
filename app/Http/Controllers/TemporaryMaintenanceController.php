@@ -16,10 +16,13 @@ class TemporaryMaintenanceController extends Controller
         abort_if($token === '', 503, 'Falta configurar SERVER_MAINTENANCE_TOKEN en el archivo .env.');
         abort_unless(hash_equals($token, (string) request('token')), 403);
 
-        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos'], true),
+        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos'], true),
             422, 'Modo de mantenimiento no reconocido.');
         $permissionsOnly = request('only') === 'permisos-beneficiarios';
         $groupEditingOnly = request('only') === 'edicion-cruzada-grupos';
+        $periodsOnly = request('only') === 'periodos';
+        abort_if($periodsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
+            422, 'El modo periodos no se puede combinar con opciones de caché o importación.');
         abort_if($permissionsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
             422, 'El modo permisos-beneficiarios no se puede combinar con opciones de caché o importación.');
         abort_if($groupEditingOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
@@ -38,6 +41,26 @@ class TemporaryMaintenanceController extends Controller
         ]];
         abort_if($groupEditingOnly && ! is_file(base_path($groupEditingMigration['parameters']['--path'])),
             422, 'Suba la migración 2026_09_23_160539_add_allow_member_editing_to_user_groups_table.php antes de continuar.');
+
+        $periodMigrations = array_map(fn (string $path): array => [
+            'name' => 'migrate', 'parameters' => ['--path' => $path, '--force' => true],
+        ], [
+            'database/migrations/2026_09_28_120000_add_reporting_period_to_reports.php',
+            'database/migrations/2026_09_28_130000_create_reporting_periods_table.php',
+        ]);
+        if ($periodsOnly) {
+            $requiredFiles = array_merge(array_column(array_column($periodMigrations, 'parameters'), '--path'), [
+                'app/Models/ReportingPeriod.php',
+                'app/Support/ReportPeriod.php',
+                'app/Http/Middleware/ReportPeriodTransaction.php',
+                'resources/views/reports/partials/period-filter.blade.php',
+                'public/css/system-configuration.css',
+                'public/js/navigation-disclosure.js',
+            ]);
+            foreach ($requiredFiles as $file) {
+                abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
+            }
+        }
 
         $cacheCommands = [
             ['name' => 'optimize:clear', 'parameters' => []],
@@ -161,6 +184,14 @@ class TemporaryMaintenanceController extends Controller
                 '--path' => 'database/migrations/2026_09_18_120000_add_excluir_reporte_beneficiarios_to_indicadores_table.php',
                 '--force' => true,
             ]],
+            ['name' => 'migrate', 'parameters' => [
+                '--path' => 'database/migrations/2026_09_28_120000_add_reporting_period_to_reports.php',
+                '--force' => true,
+            ]],
+            ['name' => 'migrate', 'parameters' => [
+                '--path' => 'database/migrations/2026_09_28_130000_create_reporting_periods_table.php',
+                '--force' => true,
+            ]],
             ['name' => 'db:seed', 'parameters' => [
                 '--class' => 'Database\\Seeders\\IndicatorGroupSeeder',
                 '--force' => true,
@@ -193,9 +224,16 @@ class TemporaryMaintenanceController extends Controller
         $excelOnly = request('only') === 'excel';
         $includeExcel = $excelOnly || request()->boolean('import_excel');
 
+        $selectedMigrations = match (true) {
+            $periodsOnly => $periodMigrations,
+            $permissionsOnly => [$permissionMigration],
+            $groupEditingOnly => [$groupEditingMigration],
+            $cacheOnly || $excelOnly => [],
+            default => array_merge($migrationCommands, [$permissionMigration]),
+        };
         $commands = array_merge(
             $cacheCommands,
-            $permissionsOnly ? [$permissionMigration] : ($groupEditingOnly ? [$groupEditingMigration] : ($cacheOnly || $excelOnly ? [] : array_merge($migrationCommands, [$permissionMigration]))),
+            $selectedMigrations,
             $includeExcel ? $excelImportCommands : [],
             $warmupCommands,
         );
@@ -207,6 +245,13 @@ class TemporaryMaintenanceController extends Controller
             'EDICIÓN CRUZADA DE GRUPOS: se ejecutará únicamente la migración que agrega la columna allow_member_editing a user_groups y se reconstruirán las cachés. No se importarán ni modificarán registros o beneficiarios.',
             'Luego de aplicar esta migración, active "Edición cruzada entre miembros" en el grupo de usuarios correspondiente para permitir que los coordinadores editen registros de sus compañeros de grupo.',
         ] : []);
+        if ($periodsOnly) {
+            $results = [
+                'PERÍODOS: se ejecutarán únicamente las dos migraciones de períodos, en orden, y se reconstruirán las cachés.',
+                'No se ejecutan seeders ni importaciones. No se asignan períodos a registros anteriores ni se cierra ningún período.',
+                'Las migraciones ya aplicadas se omiten; repetir este modo conserva los períodos y cierres guardados.',
+            ];
+        }
         $exitCode = 1;
 
         try {
@@ -233,6 +278,11 @@ class TemporaryMaintenanceController extends Controller
         } catch (Throwable $exception) {
             return response('<pre>ERROR: '.e($exception->getMessage()).'</pre>', 500);
         }
+    }
+
+    protected function deploymentFileExists(string $path): bool
+    {
+        return is_file(base_path($path));
     }
 
     protected function maintenanceToken(): string

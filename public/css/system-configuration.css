@@ -1,0 +1,48 @@
+.admin-layout .period-close-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    padding: 9px 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--soft);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.4;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.admin-layout .period-close-control input[type="checkbox"] {
+    appearance: auto;
+    flex: 0 0 18px;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    padding: 0;
+    float: none;
+    accent-color: #b42318;
+    cursor: pointer;
+}
+.period-close-caption {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.admin-layout .period-close-control:hover {
+    border-color: var(--muted);
+}
+.admin-layout .period-close-control:focus-within {
+    outline: 3px solid rgba(28, 171, 226, .3);
+    outline-offset: 2px;
+}
+.admin-layout .period-close-control:has(input:checked) {
+    background: #fff0ee;
+    border-color: #e8aaa4;
+    color: #94332a;
+}
+[data-layout-mode="dark"] .admin-layout .period-close-control:has(input:checked) {
+    background: #422c2d;
+    border-color: #9d6864;
+    color: #ffb4ac;
+}

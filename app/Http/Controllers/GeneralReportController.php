@@ -73,6 +73,7 @@ class GeneralReportController extends Controller
 
         return [
             'filters' => $filters,
+            'periodOptions' => \App\Support\ReportPeriod::options($this->visibleReports($request), true),
             'dateBounds' => $dateBounds,
             'ageGroups' => self::AGE_GROUPS,
             'states' => $locations['states'],
@@ -121,6 +122,7 @@ class GeneralReportController extends Controller
     {
         return Beneficiary::query()
             ->whereHas('report', function (Builder $query) use ($request, $filters): void {
+                $query->reportingPeriod($filters['reporting_period'] ?? null);
                 $request->user()->constrainVisibleReports($query);
                 $query
                     ->when($filters['attention_from'] ?? null, fn (Builder $q, string $date) => $q->whereDate('report_date', '>=', $date))
@@ -174,7 +176,7 @@ class GeneralReportController extends Controller
     /** @return array<string, mixed> */
     private function validatedFilters(Request $request, ?array $dateBounds = null): array
     {
-        $input = $request->all();
+        $input = $request->all() + ['reporting_period' => \App\Support\ReportPeriod::current()];
         // Continue accepting bookmarked URLs with a single state_id.
         if (! is_array($input['state_id'] ?? null)) {
             $input['state_id'] = filled($input['state_id'] ?? null) ? [$input['state_id']] : [];
@@ -192,6 +194,7 @@ class GeneralReportController extends Controller
         }
 
         $filters = validator($input, [
+            'reporting_period' => \App\Support\ReportPeriod::rules(),
             'attention_from' => ['nullable', 'date_format:Y-m-d'],
             'attention_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:attention_from'],
             'registered_from' => ['nullable', 'date_format:Y-m-d'],

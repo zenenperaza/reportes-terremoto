@@ -988,6 +988,7 @@ class ReportWorkflowTest extends TestCase
             'estatus' => true,
         ]);
         $report = Report::create([
+            'reporting_period' => \App\Support\ReportPeriod::current(),
             'user_id' => $user->id,
             'proyecto_id' => $proyecto->id,
             'indicador_proyecto_id' => $asignacion->id,
@@ -1041,6 +1042,7 @@ class ReportWorkflowTest extends TestCase
     private function makeReport(User $user, State $state, Municipality $municipality, Parish $parish, Sector $sector, Activity $activity, string $placeName): Report
     {
         return Report::create([
+            'reporting_period' => \App\Support\ReportPeriod::current(),
             'user_id' => $user->id,
             'report_date' => today(),
             'reporter_first_name' => $user->name,

@@ -17,9 +17,14 @@
     </div>
 </section>
 
+<section class="content-card report-period-row">
+    @include('reports.partials.period-filter', ['periodForm' => 'beneficiary-report-filters'])
+</section>
+
 <section class="content-card beneficiary-reported-card" aria-labelledby="summary-reported-title">
     <h2 id="summary-reported-title">Estado de reporte</h2>
     <form method="get" action="{{ route('beneficiaries.summary') }}" id="beneficiary-reported-filter" class="beneficiary-reported-filter">
+        <input type="hidden" name="reporting_period" id="reported-period" value="{{ $filters['reporting_period'] ?? '' }}">
         <label for="summary_reported">Reportado
             <select name="reported" id="summary_reported" aria-describedby="summary-reported-help">
                 <option value="0" @selected(($filters['reported'] ?? '') === '0')>No reportados</option>
@@ -28,7 +33,7 @@
             </select>
         </label>
         <button class="button button-primary" type="submit">Aplicar estado</button>
-        <p class="muted" id="summary-reported-help">Los indicadores, lugares y demás opciones corresponden al estado elegido. Al cambiarlo se actualiza el informe y se limpian los demás filtros.</p>
+        <p class="muted" id="summary-reported-help">Los indicadores, lugares y demás opciones corresponden al estado elegido. Al cambiarlo se conserva el período y se limpian los demás filtros.</p>
     </form>
 </section>
 
@@ -77,7 +82,7 @@
             @can('exportar registros excel')
                 <a class="button button-excel" id="beneficiary-export-button"
                     data-export-url="{{ route('beneficiaries.export') }}"
-                    href="{{ route('beneficiaries.export', request()->query()) }}">
+                    href="{{ route('beneficiaries.export', array_merge($filters, ['reporting_period' => $filters['reporting_period'] ?? ''])) }}">
                     <svg class="excel-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <path d="M13 3h8v18h-8v-3h5v-2h-5v-2h5v-2h-5v-2h5V8h-5V6h5V5h-5V3Z" fill="currentColor" opacity=".72"/>
                         <path d="M3 5.2 14 3v18L3 18.8V5.2Zm3.2 3.1 2 3.6-2.2 3.8h2.1l1.2-2.3 1.3 2.3h2.1l-2.2-3.9 2-3.5h-2L9.4 10.4 8.2 8.3h-2Z" fill="currentColor"/>
@@ -159,12 +164,14 @@
 @if((string) ($filters['reported'] ?? '') !== '1' && auth()->user()->canMarkAsReported())
     <section class="content-card donor-report-card" id="donor-report-section">
         <div><h2>Reporte al donante</h2><p class="muted">Indique la fecha con la que se consolidará la información actualmente filtrada.</p></div>
-        @if($pendingBeneficiaryCount > 0)
+        @if($hasClosedPendingPeriods)
+            <p class="alert alert-warning mb-0">La selección incluye beneficiarios de períodos cerrados. Seleccione un período abierto para marcar reportados; no se realizará una actualización parcial.</p>
+        @elseif($pendingBeneficiaryCount > 0)
             <form method="post" action="{{ route('beneficiaries.mark-reported') }}" class="donor-report-form" data-beneficiary-count="{{ $pendingBeneficiaryCount }}" data-can-report="1">
                 @csrf
                 @foreach($filters as $name => $value)
                     @foreach(is_array($value) ? $value : [$value] as $item)
-                        @if($item !== null && $item !== '')<input type="hidden" name="{{ $name }}{{ is_array($value) ? '[]' : '' }}" value="{{ $item }}">@endif
+                        @if($name === 'reporting_period' || ($item !== null && $item !== ''))<input type="hidden" name="{{ $name }}{{ is_array($value) ? '[]' : '' }}" value="{{ $item }}">@endif
                     @endforeach
                 @endforeach
                 <label>Fecha de reporte *<input type="date" name="reported_at" value="{{ today()->format('Y-m-d') }}" max="{{ today()->format('Y-m-d') }}" required></label>
@@ -197,6 +204,10 @@ const syncBeneficiaryExportUrl = () => {
 };
 beneficiaryFilterForm.addEventListener('change', syncBeneficiaryExportUrl);
 beneficiaryFilterForm.addEventListener('input', syncBeneficiaryExportUrl);
+summarySelect('reporting-period').addEventListener('change', () => {
+    summarySelect('reported-period').value = summarySelect('reporting-period').value;
+    syncBeneficiaryExportUrl();
+});
 beneficiaryExportButton?.addEventListener('click', syncBeneficiaryExportUrl);
 const activateReportTab = (tab) => {
     document.querySelectorAll('[data-report-tab]').forEach(button => {

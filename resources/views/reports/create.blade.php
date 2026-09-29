@@ -93,6 +93,8 @@
             </div>
             <br>
             <div class="form-grid three-cols">
+                <label>Período<input type="text" id="report-period" value="{{ \App\Support\ReportPeriod::label($reportingPeriod) }}" readonly aria-readonly="true"></label>
+                @if(!$editing)<input type="hidden" name="period_snapshot" value="{{ $reportingPeriod }}">@endif
                 <label>Fecha de atencion *<input type="date" name="report_date"
                         value="{{ old('report_date', $editing ? $report->report_date->format('Y-m-d') : today()->format('Y-m-d')) }}" max="{{ today()->format('Y-m-d') }}"
                         required></label>

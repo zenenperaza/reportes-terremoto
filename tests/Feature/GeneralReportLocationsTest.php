@@ -27,6 +27,7 @@ class GeneralReportLocationsTest extends TestCase
             $parish = Parish::create(['municipality_id' => $municipality->id, 'code' => $code.'0101', 'name' => 'Centro']);
             $this->locations[$code] = compact('state', 'municipality', 'parish');
             $report = Report::create([
+                'reporting_period' => \App\Support\ReportPeriod::current(),
                 'user_id' => $admin->id, 'report_date' => today(), 'reporter_first_name' => 'Prueba',
                 'reporter_last_name' => 'Registro', 'reporter_email' => $admin->email, 'organization' => 'ASONACOP',
                 'state_id' => $state->id, 'municipality_id' => $municipality->id, 'parish_id' => $parish->id,
