@@ -227,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dataLabels: {enabled: true, formatter: value => Number(value).toLocaleString('es-VE'), style: {fontSize: '11px'}},
             colors: ['#405189'],
             xaxis: {categories: activityData.map(item => `${item.sector} — ${item.activity}`), labels: {formatter: value => Number(value).toLocaleString('es-VE')}},
-            yaxis: {labels: {maxWidth: 255, formatter: value => value.length > 42 ? `${value.slice(0, 39)}…` : value}},
+            yaxis: {labels: {maxWidth: 480}},
             grid: {borderColor: '#e9ebec', strokeDashArray: 3},
             tooltip: {y: {formatter: value => `${Number(value).toLocaleString('es-VE')} beneficiarios`}},
         }).render();
