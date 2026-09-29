@@ -48,7 +48,26 @@ class ReportPeriod
 
     public static function rules(): array
     {
-        return ['nullable', 'string', 'regex:/^(?:[0-9]{4}-(?:0[1-9]|1[0-2])|unassigned)$/'];
+        // Accept existing single-period URLs as well as the new multiple selector.
+        return ['nullable', function (string $attribute, mixed $value, \Closure $fail): void {
+            $values = is_array($value) ? $value : [$value];
+            if (!array_is_list($values) || count($values) > 240) {
+                $fail('Seleccione como máximo 240 períodos válidos.');
+                return;
+            }
+            foreach ($values as $period) {
+                if ($period === null || $period === '') continue;
+                if (!is_string($period) || !preg_match('/^(?:[0-9]{4}-(?:0[1-9]|1[0-2])|unassigned)$/', $period)) {
+                    $fail('Seleccione períodos válidos.');
+                    return;
+                }
+            }
+        }];
+    }
+
+    public static function selection(array|string|null $periods): array
+    {
+        return array_values(array_unique(array_filter((array) $periods, fn ($value) => $value !== null && $value !== '')));
     }
 
     public static function label(?string $period): string

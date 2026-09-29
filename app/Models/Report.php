@@ -28,13 +28,18 @@ class Report extends Model
         ];
     }
 
-    public function scopeReportingPeriod(\Illuminate\Database\Eloquent\Builder $query, ?string $period): \Illuminate\Database\Eloquent\Builder
+    public function scopeReportingPeriod(\Illuminate\Database\Eloquent\Builder $query, array|string|null $period): \Illuminate\Database\Eloquent\Builder
     {
-        if ($period === 'unassigned') {
-            return $query->whereNull('reports.reporting_period');
-        }
+        $selected = \App\Support\ReportPeriod::selection($period);
+        if (!$selected) return $query;
+        $assigned = array_values(array_diff($selected, ['unassigned']));
 
-        return $period ? $query->where('reports.reporting_period', $period) : $query;
+        return $query->where(function ($q) use ($assigned, $selected): void {
+            if ($assigned) $q->whereIn('reports.reporting_period', $assigned);
+            if (in_array('unassigned', $selected, true)) {
+                $assigned ? $q->orWhereNull('reports.reporting_period') : $q->whereNull('reports.reporting_period');
+            }
+        });
     }
 
     public function user() { return $this->belongsTo(User::class)->withTrashed(); }

@@ -430,7 +430,7 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
             $xpath = new \DOMXPath($document);
             $this->assertSame(1, $xpath->query('//form[@id="beneficiary-reported-filter"]//select[@name="reported"]')->length);
             $this->assertSame(1, $xpath->query('//form[@id="beneficiary-reported-filter"]//input')->length);
-            $this->assertSame(\App\Support\ReportPeriod::current(), $xpath->query('//form[@id="beneficiary-reported-filter"]//input[@name="reporting_period"]')->item(0)->getAttribute('value'));
+            $this->assertSame(\App\Support\ReportPeriod::current(), $xpath->query('//form[@id="beneficiary-reported-filter"]//input[@name="reporting_period[]"]')->item(0)->getAttribute('value'));
             $this->assertSame($status, $xpath->query('//form[@id="beneficiary-report-filters"]//input[@name="reported"]')->item(0)->getAttribute('value'));
         }
         $this->get(route('beneficiaries.summary', ['reported' => '']))->assertOk()

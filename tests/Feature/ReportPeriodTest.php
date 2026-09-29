@@ -118,6 +118,71 @@ class ReportPeriodTest extends TestCase
         }
     }
 
+    public function test_multiple_periods_combine_results_and_exports_without_bypassing_closed_periods(): void
+    {
+        $payload = $this->payload();
+        foreach (['2026-08', '2026-09', '2026-10', null] as $period) {
+            $this->period($period ?? '2026-09');
+            $this->postJson(route('beneficiaries.store'), $payload + ['beneficiary' => $this->person()])->assertCreated();
+            if ($period === null) Report::latest('id')->first()->update(['reporting_period' => null]);
+        }
+        foreach ([
+            [['2026-08', '2026-09'], 2], [['2026-09', 'unassigned'], 2],
+            [['unassigned'], 1], [[''], 4], [['', '2026-09', '2026-09'], 1],
+        ] as [$periods, $expected]) {
+            $filters = ['reporting_period' => $periods];
+            $this->getJson(route('reports.index', $filters + ['draw' => 1]))->assertOk()->assertJsonPath('recordsFiltered', $expected);
+            $this->get(route('beneficiaries.summary', $filters))->assertOk()->assertViewHas('summary', fn ($s) => $s['total'] === $expected);
+            foreach (['general-reports.index', 'indicator-reports.index'] as $route) {
+                $this->get(route($route, $filters))->assertOk()->assertViewHas('summary', fn ($s) => $s['beneficiaries'] === $expected);
+            }
+        }
+        $filters = ['reporting_period' => ['2026-08', '2026-09', 'unassigned']];
+        $response = $this->get(route('beneficiaries.summary', $filters))->assertOk()
+            ->assertSee('name="reporting_period[]" id="reporting-period" multiple', false)
+            ->assertSee('value="2026-08" selected', false)->assertSee('value="2026-09" selected', false)
+            ->assertSee('value="unassigned" selected', false);
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($dom);
+        $this->assertSame(3, $xpath->query('//form[@id="beneficiary-reported-filter"]//input[@name="reporting_period[]"]')->length);
+        $this->assertSame(3, $xpath->query('//form[contains(@action,"marcar-reportados")]//input[@name="reporting_period[]"]')->length);
+        $csv = $this->get(route('reports.export', $filters))->assertOk();
+        $this->assertCount(4, array_filter(explode("\n", trim($csv->streamedContent()))));
+        $excel = $this->get(route('beneficiaries.export', $filters))->assertOk();
+        $path = tempnam(sys_get_temp_dir(), 'multi-period-');
+        try {
+            file_put_contents($path, $excel->streamedContent());
+            $book = IOFactory::load($path);
+            $this->assertSame(4, $book->getActiveSheet()->getHighestDataRow());
+            $book->disconnectWorksheets();
+        } finally { unlink($path); }
+
+        $this->put(route('system-configuration.periods.update', '2026-08'), ['is_closed' => 1])->assertRedirect();
+        $this->postJson(route('beneficiaries.mark-reported'), $filters + ['reported_at' => today()->toDateString()])->assertStatus(409);
+        $this->assertSame(0, \App\Models\Beneficiary::whereNotNull('reported_at')->count());
+        $open = ['reporting_period' => ['2026-09', '2026-10'], 'reported_at' => today()->toDateString()];
+        $this->post(route('beneficiaries.mark-reported'), $open)->assertRedirect();
+        $this->assertSame(2, \App\Models\Beneficiary::whereNotNull('reported_at')->count());
+        $this->actingAs(User::factory()->create(['role' => 'reporter', 'is_active' => true]));
+        foreach (['beneficiaries.summary', 'general-reports.index', 'indicator-reports.index'] as $route) {
+            $key = $route === 'beneficiaries.summary' ? 'total' : 'beneficiaries';
+            $this->get(route($route, $filters + ['reported' => '']))->assertOk()->assertViewHas('summary', fn ($s) => $s[$key] === 0);
+        }
+    }
+
+    public function test_invalid_multiple_periods_are_rejected_before_queries(): void
+    {
+        $this->payload();
+        foreach (['reports.index', 'reports.export', 'beneficiaries.summary', 'beneficiaries.export', 'general-reports.index', 'indicator-reports.index'] as $route) {
+            foreach ([['2026-09', 'invalid'], [['2026-09']], ['wrong_key' => '2026-09']] as $invalid) {
+                $this->getJson(route($route, ['reporting_period' => $invalid]))->assertUnprocessable()->assertJsonValidationErrors('reporting_period');
+            }
+        }
+        $this->getJson(route('beneficiaries.summary', ['reporting_period' => array_fill(0, 241, '2026-09')]))
+            ->assertUnprocessable()->assertJsonValidationErrors('reporting_period');
+    }
+
     public function test_period_history_keeps_empty_previous_periods_and_only_admins_can_close_or_reopen(): void
     {
         $this->payload();
@@ -221,8 +286,8 @@ class ReportPeriodTest extends TestCase
                 ->assertViewHas('summary', fn ($summary) => $summary[$countKey] === 1)
                 ->assertSee('value="2031-12" selected', false);
             $response->assertSeeInOrder($route === 'beneficiaries.summary'
-                ? ['report-period-row', 'name="reporting_period"', 'name="reported"', 'name="from"']
-                : ['col-12 report-period-row', 'name="reporting_period"', 'name="attention_from"'], false);
+                ? ['report-period-row', 'name="reporting_period[]"', 'name="reported"', 'name="from"']
+                : ['col-12 report-period-row', 'name="reporting_period[]"', 'name="attention_from"'], false);
 
             $this->get(route($route, ['reporting_period' => '']))->assertOk()
                 ->assertViewHas('summary', fn ($summary) => $summary[$countKey] === 3);

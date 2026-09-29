@@ -56,6 +56,7 @@ class TemporaryMaintenanceController extends Controller
                 'resources/views/reports/partials/period-filter.blade.php',
                 'public/css/system-configuration.css',
                 'public/js/navigation-disclosure.js',
+                'public/js/period-filter.js',
             ]);
             foreach ($requiredFiles as $file) {
                 abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');

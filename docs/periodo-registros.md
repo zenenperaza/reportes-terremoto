@@ -18,6 +18,11 @@ formulario completo como al guardar beneficiarios individualmente).
   se aplica el período actual configurado, incluso si no tiene registros. Elegir
   «Todos los períodos» mantiene todos, incluidas las exportaciones y el reporte al
   donante. Cambiar el estado Reportado conserva el período seleccionado.
+- El selector admite varios períodos y puede combinarlos con «Sin período
+  asignado». Vaciar la selección equivale a «Todos los períodos». Las URLs antiguas
+  de selección única siguen funcionando. No se requiere una nueva migración para
+  la selección múltiple; al desplegarla suba también `public/js/period-filter.js`
+  y `public/js/report-export.js` y reconstruya las cachés con `only=cache`.
 
 ## Despliegue
 

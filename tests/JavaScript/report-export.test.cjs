@@ -20,7 +20,7 @@ function element() {
     };
 }
 
-function harness({rows, ok = true, popupBlocked = false} = {}) {
+function harness({rows, ok = true, popupBlocked = false, filters = {state_id: '7', from: '2026-09-01', reported: '0'}} = {}) {
     const state = {disabled: 0, enabled: 0, completed: 0, exports: [], printed: 0};
     const status = element();
     const popup = {closed: false, document: {head: element(), body: element(), createElement: element},
@@ -51,7 +51,7 @@ function harness({rows, ok = true, popupBlocked = false} = {}) {
         DataTable: {ext: {buttons: native}},
         fetch: async url => { state.url = url; return {ok, json: async () => ({data: rows})}; },
     });
-    return {state, status, popup, run: format => window.reportExportAction(format, {state_id: '7', from: '2026-09-01', reported: '0'})
+    return {state, status, popup, run: format => window.reportExportAction(format, filters)
         .call({}, {}, dt, {}, {title: 'Consolidado', exportOptions: {columns: ':not(.no-export)'}}, () => state.completed++)};
 }
 
@@ -79,6 +79,15 @@ for (const format of ['copy', 'csv', 'excel', 'pdf', 'print']) {
         assert.equal(state.completed, 1);
     });
 }
+
+test('exports serialize multiple periods separately, including clearing all periods', async () => {
+    for (const periods of [['2026-08', '2026-09', 'unassigned'], []]) {
+        const {run, state} = harness({rows: [], filters: {reporting_period: periods}});
+        await run('csv');
+        assert.deepEqual(state.url.searchParams.getAll('reporting_period[]'), periods.length ? periods : ['']);
+        assert.equal(state.url.searchParams.has('reporting_period'), false);
+    }
+});
 
 test('export errors never fall back to the visible page', async () => {
     const {run, state, status} = harness({ok: false});

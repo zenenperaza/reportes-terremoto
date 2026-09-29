@@ -252,6 +252,10 @@ class GeneralReportController extends Controller
             throw ValidationException::withMessages(['parish_id' => 'La parroquia no pertenece a los estados o al municipio seleccionados.']);
         }
 
+        if (is_array($filters['reporting_period'] ?? null)) {
+            $filters['reporting_period'] = \App\Support\ReportPeriod::selection($filters['reporting_period']) ?: '';
+        }
+
         return $filters;
     }
 

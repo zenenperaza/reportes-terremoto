@@ -69,7 +69,7 @@ class TemporaryMaintenancePeriodsTest extends TestCase
         foreach ([self::FIRST, self::SECOND, 'app/Models/ReportingPeriod.php',
             'app/Support/ReportPeriod.php', 'app/Http/Middleware/ReportPeriodTransaction.php',
             'resources/views/reports/partials/period-filter.blade.php', 'public/css/system-configuration.css',
-            'public/js/navigation-disclosure.js'] as $file) {
+            'public/js/navigation-disclosure.js', 'public/js/period-filter.js'] as $file) {
             $this->app->make(TemporaryMaintenanceController::class)->missing = $file;
             $this->getJson($this->endpoint())->assertStatus(422)->assertJsonPath('message', 'Suba el archivo '.$file.' antes de continuar.');
         }

@@ -62,7 +62,15 @@
             try {
                 if (format === 'print' && !popup) throw new Error('Permita las ventanas emergentes para imprimir.');
                 const url = new URL(dt.ajax.url(), window.location.href);
-                Object.entries(filters).forEach(([key, value]) => url.searchParams.set(key, value ?? ''));
+                Object.entries(filters).forEach(([key, value]) => {
+                    url.searchParams.delete(key);
+                    url.searchParams.delete(key + '[]');
+                    if (Array.isArray(value)) {
+                        (value.length ? value : ['']).forEach(item => url.searchParams.append(key + '[]', item ?? ''));
+                    } else {
+                        url.searchParams.set(key, value ?? '');
+                    }
+                });
                 url.searchParams.set('draw', '0');
                 url.searchParams.set('export_type', format);
                 // Include text just typed, even if the debounced table request has not run yet.

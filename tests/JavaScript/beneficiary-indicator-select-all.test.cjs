@@ -24,21 +24,24 @@ test('period changes preserve the selection for reported status and refresh expo
     let onChange;
     let exportsSynced = 0;
     const elements = {
-        'reporting-period': {value: '2031-12', addEventListener(event, handler) {assert.equal(event, 'change'); onChange = handler;}},
-        'reported-period': {value: '2031-11'},
+        'reporting-period': {selectedOptions: [{value: '2031-12'}, {value: '2031-11'}], addEventListener(event, handler) {assert.equal(event, 'change'); onChange = handler;}},
+        'reported-periods': {replaceChildren(...inputs) {this.inputs = inputs;}},
     };
     const start = view.indexOf("summarySelect('reporting-period').addEventListener");
     const end = view.indexOf('beneficiaryExportButton?.addEventListener', start);
     assert.ok(start > 0 && end > start);
     vm.runInNewContext(view.slice(start, end), {
         summarySelect: id => elements[id],
+        document: {createElement: () => ({})},
         syncBeneficiaryExportUrl() {exportsSynced++;},
     });
     onChange();
-    assert.equal(elements['reported-period'].value, '2031-12');
-    elements['reporting-period'].value = '';
+    assert.equal(elements['reported-periods'].inputs.map(input => input.value).join(','), '2031-12,2031-11');
+    assert.ok(elements['reported-periods'].inputs.every(input => input.name === 'reporting_period[]'));
+    elements['reporting-period'].selectedOptions = [];
     onChange();
-    assert.equal(elements['reported-period'].value, '');
+    assert.equal(elements['reported-periods'].inputs.length, 1);
+    assert.equal(elements['reported-periods'].inputs[0].value, '');
     assert.equal(exportsSynced, 2);
 });
 

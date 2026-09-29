@@ -405,6 +405,10 @@ class BeneficiaryReportController extends Controller
             $filters['reported'] = '0';
         }
 
+        if (is_array($filters['reporting_period'] ?? null)) {
+            $filters['reporting_period'] = ReportPeriod::selection($filters['reporting_period']) ?: '';
+        }
+
         return $filters;
     }
 

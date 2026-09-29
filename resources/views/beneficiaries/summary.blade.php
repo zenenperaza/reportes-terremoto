@@ -24,7 +24,11 @@
 <section class="content-card beneficiary-reported-card" aria-labelledby="summary-reported-title">
     <h2 id="summary-reported-title">Estado de reporte</h2>
     <form method="get" action="{{ route('beneficiaries.summary') }}" id="beneficiary-reported-filter" class="beneficiary-reported-filter">
-        <input type="hidden" name="reporting_period" id="reported-period" value="{{ $filters['reporting_period'] ?? '' }}">
+        <span id="reported-periods" hidden>
+            @foreach(\App\Support\ReportPeriod::selection($filters['reporting_period'] ?? null) ?: [''] as $selectedPeriod)
+                <input type="hidden" name="reporting_period[]" value="{{ $selectedPeriod }}">
+            @endforeach
+        </span>
         <label for="summary_reported">Reportado
             <select name="reported" id="summary_reported" aria-describedby="summary-reported-help">
                 <option value="0" @selected(($filters['reported'] ?? '') === '0')>No reportados</option>
@@ -205,7 +209,15 @@ const syncBeneficiaryExportUrl = () => {
 beneficiaryFilterForm.addEventListener('change', syncBeneficiaryExportUrl);
 beneficiaryFilterForm.addEventListener('input', syncBeneficiaryExportUrl);
 summarySelect('reporting-period').addEventListener('change', () => {
-    summarySelect('reported-period').value = summarySelect('reporting-period').value;
+    const values = Array.from(summarySelect('reporting-period').selectedOptions, option => option.value);
+    const inputs = (values.length ? values : ['']).map(value => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'reporting_period[]';
+        input.value = value;
+        return input;
+    });
+    summarySelect('reported-periods').replaceChildren(...inputs);
     syncBeneficiaryExportUrl();
 });
 beneficiaryExportButton?.addEventListener('click', syncBeneficiaryExportUrl);
