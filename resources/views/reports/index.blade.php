@@ -36,15 +36,15 @@
 
 <section class="content-card filter-card">
     <form method="get" class="filters">
+        <label>Reportados
+            <select name="reported"><option value="">Todos</option><option value="1" @selected(($filters['reported'] ?? '') === '1')>Sí</option><option value="0" @selected(($filters['reported'] ?? '') === '0')>No</option></select>
+        </label>
         @include('reports.partials.period-filter')
         <label>Estado
             <select name="state_id"><option value="">Todos</option>@foreach($states as $state)<option value="{{ $state->id }}" @selected(($filters['state_id'] ?? '') == $state->id)>{{ $state->name }}</option>@endforeach</select>
         </label>
         <label>Desde<input type="date" name="from" value="{{ $filters['from'] ?? '' }}"></label>
         <label>Hasta<input type="date" name="to" value="{{ $filters['to'] ?? '' }}"></label>
-        <label>Reportados
-            <select name="reported"><option value="">Todos</option><option value="1" @selected(($filters['reported'] ?? '') === '1')>Sí</option><option value="0" @selected(($filters['reported'] ?? '') === '0')>No</option></select>
-        </label>
         @if ($isCoordinator)
             <label>Registrado por
                 <select name="user_id">

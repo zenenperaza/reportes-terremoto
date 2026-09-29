@@ -17,10 +17,6 @@
     </div>
 </section>
 
-<section class="content-card report-period-row">
-    @include('reports.partials.period-filter', ['periodForm' => 'beneficiary-report-filters'])
-</section>
-
 <section class="content-card beneficiary-reported-card" aria-labelledby="summary-reported-title">
     <h2 id="summary-reported-title">Estado de reporte</h2>
     <form method="get" action="{{ route('beneficiaries.summary') }}" id="beneficiary-reported-filter" class="beneficiary-reported-filter">
@@ -39,6 +35,10 @@
         <button class="button button-primary" type="submit">Aplicar estado</button>
         <p class="muted" id="summary-reported-help">Los indicadores, lugares y demás opciones corresponden al estado elegido. Al cambiarlo se conserva el período y se limpian los demás filtros.</p>
     </form>
+</section>
+
+<section class="content-card report-period-row">
+    @include('reports.partials.period-filter', ['periodForm' => 'beneficiary-report-filters'])
 </section>
 
 <section class="content-card filter-card">
