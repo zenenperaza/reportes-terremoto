@@ -75,10 +75,8 @@ class ReportController extends Controller
             'isCoordinator' => $isCoordinator,
             'serverColumns' => $isCoordinator ? ReportDataTable::columns($request->user()) : [],
             'canViewPersonalData' => $request->user()->isAdministrator(),
-            'registeringUsers' => $isCoordinator
-                ? User::withTrashed()->whereIn('id', $request->user()->constrainVisibleReports(Report::query())->select('reports.user_id'))
-                    ->orderBy('name')->orderBy('id')->get(['id', 'name'])
-                : collect(),
+            'registeringUsers' => User::withTrashed()->whereIn('id', $request->user()->constrainVisibleReports(Report::query())->select('reports.user_id'))
+                ->orderBy('name')->orderBy('id')->get(['id', 'name']),
             'filters' => $request->only(['state_id', 'reported', 'from', 'to', 'user_id', 'reporting_period']),
             'periodOptions' => ReportPeriod::options($request->user()->constrainVisibleReports(Report::query())),
         ]);

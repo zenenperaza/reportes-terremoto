@@ -45,16 +45,14 @@
         </label>
         <label>Desde<input type="date" name="from" value="{{ $filters['from'] ?? '' }}"></label>
         <label>Hasta<input type="date" name="to" value="{{ $filters['to'] ?? '' }}"></label>
-        @if ($isCoordinator)
-            <label>Registrado por
-                <select name="user_id">
-                    <option value="">Todos los usuarios</option>
-                    @foreach ($registeringUsers as $registeringUser)
-                        <option value="{{ $registeringUser->id }}" @selected((string) ($filters['user_id'] ?? '') === (string) $registeringUser->id)>{{ $registeringUser->name }}</option>
-                    @endforeach
-                </select>
-            </label>
-        @endif
+        <label for="registering-user">Registrado por
+            <select name="user_id" id="registering-user">
+                <option value="">Todos los usuarios</option>
+                @foreach ($registeringUsers as $registeringUser)
+                    <option value="{{ $registeringUser->id }}" @selected((string) ($filters['user_id'] ?? '') === (string) $registeringUser->id)>{{ $registeringUser->name }}</option>
+                @endforeach
+            </select>
+        </label>
         <button class="button button-secondary" type="submit">Aplicar filtros</button>
     </form>
 </section>
@@ -72,7 +70,7 @@
                 @if ($isCoordinator)
                     <tr><th data-priority="1">Fecha atención</th><th>Registrado por</th><th>Fecha registro</th>@if($canViewPersonalData)<th>Nombres</th><th>Cédula</th><th>Teléfono</th>@endif<th>Edad / sexo</th><th>Ubicación</th><th>Proyecto</th><th data-priority="3">Indicadores</th><th data-priority="4">Actividades</th><th data-priority="5">Servicios</th><th data-priority="2">N.º de servicios</th><th>Recurrente</th><th>Reportado</th>@if($canViewReportDetail)<th class="no-export" data-priority="6">Acciones</th>@endif</tr>
                 @else
-                    <tr><th data-priority="1">Fecha atención</th><th>Ubicación</th><th>Proyecto</th><th data-priority="3">Indicadores</th><th data-priority="4">Actividades</th><th data-priority="5">Servicios</th><th data-priority="2">N.º de servicios</th><th>Beneficiarios</th><th>Reportado</th>@if($canViewReportDetail)<th class="no-export" data-priority="6">Acciones</th>@endif</tr>
+                    <tr><th data-priority="1">Fecha atención</th><th data-priority="2">Registrado por</th><th>Ubicación</th><th>Proyecto</th><th data-priority="3">Indicadores</th><th data-priority="4">Actividades</th><th data-priority="5">Servicios</th><th data-priority="2">N.º de servicios</th><th>Beneficiarios</th><th>Reportado</th>@if($canViewReportDetail)<th class="no-export" data-priority="6">Acciones</th>@endif</tr>
                 @endif
             </thead>
             <tbody>
@@ -80,6 +78,7 @@
             @foreach($reports as $report)
                 <tr>
                     <td data-order="{{ $report->report_date->format('Y-m-d') }}">{{ $report->report_date->format('d/m/Y') }}</td>
+                    <td class="report-registrant">{{ $report->user?->name ?? 'Usuario no disponible' }}</td>
                     <td>{{ $report->state->name }}<br><small>{{ $report->municipality->name }}, {{ $report->parish->name }}</small></td>
                     @include('reports._classification-columns', ['report' => $report])
                     <td data-order="{{ $report->total_beneficiaries }}">{{ number_format($report->total_beneficiaries) }}</td>

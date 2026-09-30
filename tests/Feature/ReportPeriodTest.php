@@ -286,8 +286,8 @@ class ReportPeriodTest extends TestCase
                 ->assertViewHas('summary', fn ($summary) => $summary[$countKey] === 1)
                 ->assertSee('value="2031-12" selected', false);
             $response->assertSeeInOrder($route === 'beneficiaries.summary'
-                ? ['report-period-row', 'name="reporting_period[]"', 'name="reported"', 'name="from"']
-                : ['col-12 report-period-row', 'name="reporting_period[]"', 'name="attention_from"'], false);
+                ? ['id="summary_reported"', 'report-period-row', 'id="reporting-period"', 'name="from"']
+                : ['name="reported"', 'col-12 report-period-row', 'id="reporting-period"', 'name="attention_from"'], false);
 
             $this->get(route($route, ['reporting_period' => '']))->assertOk()
                 ->assertViewHas('summary', fn ($summary) => $summary[$countKey] === 3);

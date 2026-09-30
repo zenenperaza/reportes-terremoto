@@ -292,6 +292,43 @@ class ReportServiceColumnsTest extends TestCase
         $this->assertSame(['id', 'name'], array_keys($response->viewData('registeringUsers')->first()->getAttributes()));
     }
 
+    public function test_reporter_sees_account_author_and_can_filter_visible_group_users(): void
+    {
+        $owner = User::factory()->create(['role' => 'reporter', 'name' => 'Usuario que registró']);
+        $report = $this->report($owner);
+        $report->update(['reporting_period' => '2026-09']);
+        $colleague = User::factory()->create(['role' => 'reporter', 'name' => 'Otra registradora']);
+        $otherReport = $this->copyForOwner($report, $colleague);
+        $outsider = User::factory()->create(['role' => 'reporter', 'name' => 'Usuario sin acceso']);
+        $this->copyForOwner($report, $outsider);
+        $withoutRecords = User::factory()->create(['role' => 'reporter']);
+        $group = UserGroup::create(['name' => 'Equipo de registradores', 'is_active' => true]);
+        foreach ([$owner, $colleague, $withoutRecords] as $member) {
+            $member->userGroups()->attach($group);
+        }
+
+        $response = $this->actingAs($owner)->get(route('reports.index'))->assertOk()
+            ->assertSee('id="registering-user"', false)
+            ->assertSee('Todos los usuarios')
+            ->assertSee('<td class="report-registrant">Usuario que registró</td>', false)
+            ->assertSee('<td class="report-registrant">Otra registradora</td>', false)
+            ->assertDontSee('Usuario sin acceso');
+        $this->assertEqualsCanonicalizing([$owner->id, $colleague->id], $response->viewData('registeringUsers')->modelKeys());
+        $this->assertEqualsCanonicalizing([$report->id, $otherReport->id], $response->viewData('reports')->modelKeys());
+
+        $filters = ['user_id' => $owner->id, 'reporting_period' => ['2026-09'], 'reported' => '0', 'from' => '2026-09-17', 'to' => '2026-09-17'];
+        $filtered = $this->get(route('reports.index', $filters))->assertOk()
+            ->assertSee('value="'.$owner->id.'" selected', false)
+            ->assertViewHas('reports', fn ($reports) => $reports->modelKeys() === [$report->id]);
+        $this->assertTableStructure($filtered->getContent(), 1);
+        $this->get(route('reports.index', ['user_id' => $colleague->id]))->assertOk()
+            ->assertViewHas('reports', fn ($reports) => $reports->modelKeys() === [$otherReport->id]);
+        $this->get(route('reports.index', ['user_id' => $outsider->id]))->assertOk()
+            ->assertViewHas('reports', fn ($reports) => $reports->isEmpty());
+        $this->get(route('reports.index', ['user_id' => '']))->assertOk()
+            ->assertViewHas('reports', fn ($reports) => $reports->count() === 2);
+    }
+
     public function test_registrant_filter_applies_to_server_rows_search_and_every_export_format(): void
     {
         $owner = User::factory()->create(['role' => 'reporter']);
