@@ -436,6 +436,62 @@ class ReportServiceColumnsTest extends TestCase
         return $copy;
     }
 
+    public function test_multiple_states_apply_to_rows_exports_and_preserve_visibility(): void
+    {
+        $owner = User::factory()->create(['role' => 'reporter']);
+        $first = $this->report($owner);
+        $first->update(['reporting_period' => '2026-09']);
+        $other = User::factory()->create(['role' => 'reporter']);
+        $copies = [];
+        foreach (['B', 'C'] as $code) {
+            $state = State::create(['code' => 'TEST-'.$code, 'name' => 'Estado '.$code]);
+            $municipality = Municipality::create(['state_id' => $state->id, 'code' => 'M-'.$code, 'name' => 'Municipio '.$code]);
+            $parish = Parish::create(['municipality_id' => $municipality->id, 'code' => 'P-'.$code, 'name' => 'Parroquia '.$code]);
+            $copy = $this->copyForOwner($first, $other);
+            $copy->update(['state_id' => $state->id, 'municipality_id' => $municipality->id, 'parish_id' => $parish->id, 'reporting_period' => '2026-08']);
+            $copies[] = $copy;
+        }
+        $ids = [$first->state_id, $copies[0]->state_id];
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        $this->get(route('reports.index', ['state_id' => $ids]))->assertOk()
+            ->assertViewHas('filters', fn ($filters) => $filters['state_id'] === $ids)
+            ->assertSee('value="'.$ids[0].'" selected', false)->assertSee('value="'.$ids[1].'" selected', false);
+        foreach ([[$ids, 3], [$ids[0], 2], [[$ids[0], $ids[0]], 2], [[], 4], ['', 4], [[999999], 0]] as [$selection, $count]) {
+            $this->getJson(route('reports.index', ['draw' => 1, 'state_id' => $selection]))->assertOk()->assertJsonPath('recordsFiltered', $count);
+        }
+        $this->getJson(route('reports.index', ['draw' => 1, 'state_id' => $ids, 'reporting_period' => ['2026-09'], 'user_id' => $owner->id, 'reported' => '0']))
+            ->assertOk()->assertJsonPath('recordsFiltered', 2);
+        foreach (['copy', 'csv', 'excel', 'pdf', 'print'] as $format) {
+            $response = $this->getJson(route('reports.index', ['draw' => 0, 'state_id' => $ids, 'export_type' => $format]))->assertOk();
+            $rows = json_decode($response->streamedContent(), true)['data'];
+            $this->assertCount(3, $rows);
+            $this->assertStringNotContainsString('Estado C', json_encode($rows));
+        }
+        $csv = $this->get(route('reports.export', ['state_id' => $ids]))->assertOk()->streamedContent();
+        $this->assertStringContainsString('Estado B', $csv);
+        $this->assertStringNotContainsString('Estado C', $csv);
+
+        $this->actingAs($owner)->get(route('reports.index', ['state_id' => $ids]))->assertOk()
+            ->assertViewHas('reports', fn ($reports) => $reports->modelKeys() === [$first->id]);
+        $this->get(route('reports.index', ['state_id' => [$copies[0]->state_id, $copies[1]->state_id]]))->assertOk()
+            ->assertViewHas('reports', fn ($reports) => $reports->isEmpty());
+        $group = UserGroup::create(['name' => 'Equipo de estados', 'is_active' => true]);
+        $owner->userGroups()->attach($group);
+        $coordinator = User::factory()->create(['role' => 'coordinator']);
+        $coordinator->userGroups()->attach($group);
+        $this->actingAs($coordinator)->getJson(route('reports.index', ['draw' => 1, 'state_id' => $ids]))->assertOk()->assertJsonPath('recordsFiltered', 2);
+    }
+
+    public function test_multiple_state_filter_rejects_malformed_input_in_listing_and_export(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        foreach (['invalid', -1, [0], ['invalid'], [[1]], ['key' => 1], array_fill(0, 101, 1)] as $selection) {
+            foreach (['reports.index', 'reports.export'] as $route) {
+                $this->getJson(route($route, ['state_id' => $selection]))->assertUnprocessable();
+            }
+        }
+    }
+
     public function test_legacy_reports_without_services_render_zero_and_csv_includes_new_columns(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);

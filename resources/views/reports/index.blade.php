@@ -34,18 +34,21 @@
     </div>
 </section>
 
-<section class="content-card filter-card">
-    <form method="get" class="filters">
-        <label>Reportados
+<section class="content-card filter-card report-list-filter-card" aria-label="Filtros de registros">
+    <form method="get" class="filters report-list-filters">
+        <label class="report-filter-field report-filter-top">Reportados
             <select name="reported"><option value="">Todos</option><option value="1" @selected(($filters['reported'] ?? '') === '1')>Sí</option><option value="0" @selected(($filters['reported'] ?? '') === '0')>No</option></select>
         </label>
-        @include('reports.partials.period-filter')
-        <label>Estado
-            <select name="state_id"><option value="">Todos</option>@foreach($states as $state)<option value="{{ $state->id }}" @selected(($filters['state_id'] ?? '') == $state->id)>{{ $state->name }}</option>@endforeach</select>
+        <div class="report-filter-field report-filter-top report-filter-period">
+            @include('reports.partials.period-filter')
+        </div>
+        <label class="report-filter-field report-filter-top" for="records-state-filter">Estado
+            <select name="state_id[]" id="records-state-filter" multiple aria-describedby="records-state-help">@foreach($states as $state)<option value="{{ $state->id }}" @selected(in_array($state->id, $filters['state_id'] ?? [], true))>{{ $state->name }}</option>@endforeach</select>
+            <small id="records-state-help">Seleccione uno o varios. Sin selección se incluyen todos los estados.</small>
         </label>
-        <label>Desde<input type="date" name="from" value="{{ $filters['from'] ?? '' }}"></label>
-        <label>Hasta<input type="date" name="to" value="{{ $filters['to'] ?? '' }}"></label>
-        <label for="registering-user">Registrado por
+        <label class="report-filter-field report-filter-date">Desde<input type="date" name="from" value="{{ $filters['from'] ?? '' }}"></label>
+        <label class="report-filter-field report-filter-date">Hasta<input type="date" name="to" value="{{ $filters['to'] ?? '' }}"></label>
+        <label class="report-filter-field report-filter-user" for="registering-user">Registrado por
             <select name="user_id" id="registering-user">
                 <option value="">Todos los usuarios</option>
                 @foreach ($registeringUsers as $registeringUser)
@@ -53,7 +56,9 @@
                 @endforeach
             </select>
         </label>
-        <button class="button button-secondary" type="submit">Aplicar filtros</button>
+        <div class="report-filter-actions">
+            <button class="button button-primary" type="submit"><i class="ri-filter-3-line" aria-hidden="true"></i>Aplicar filtros</button>
+        </div>
     </form>
 </section>
 
@@ -93,6 +98,9 @@
     @endif
 </section>
 
+@push('scripts')
+    <script src="{{ asset('js/record-state-filter.js') }}?v={{ filemtime(public_path('js/record-state-filter.js')) }}" defer></script>
+@endpush
 <script src="/vendor/datatables/jquery-3.7.1.min.js"></script>
 <script src="/vendor/datatables/dataTables.min.js"></script>
 <script src="/vendor/datatables/dataTables.responsive.min.js"></script>

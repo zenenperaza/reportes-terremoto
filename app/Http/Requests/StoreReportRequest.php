@@ -19,6 +19,7 @@ use Illuminate\Validation\Rule;
 
 class StoreReportRequest extends FormRequest
 {
+    use \App\Http\Requests\Concerns\ValidatesAssociatedIndicators;
     use \App\Http\Requests\Concerns\PreservesReportLocation;
     public function authorize(): bool
     {
@@ -33,7 +34,7 @@ class StoreReportRequest extends FormRequest
             $placeNameRules[] = Rule::exists('place_names', 'name');
         }
 
-        return [
+        return $this->associatedIndicatorRules() + [
             'report_date' => ['required', 'date', 'before_or_equal:today'],
             'reporter_first_name' => ['required', 'string', 'max:100'],
             'reporter_last_name' => ['present', 'nullable', 'string', 'max:100'],
@@ -102,6 +103,7 @@ class StoreReportRequest extends FormRequest
 
     public function withValidator($validator): void
     {
+        $validator->after(fn ($validator) => $this->validateAssociatedIndicators($validator));
         $validator->after(function ($validator): void {
             $preserveLocation = $this->preservesExistingLocation();
             if (! $this->boolean('is_community_location') && ! $preserveLocation) {

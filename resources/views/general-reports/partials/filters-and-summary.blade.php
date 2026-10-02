@@ -4,7 +4,7 @@
         <form method="get" id="general-report-filters" class="row g-3" data-locations-url="{{ $locationsRoute }}">
             <div class="col-xl-4 col-md-6"><label class="form-label">Reportado</label><select class="form-select" name="reported"><option value="">Todos</option><option value="1" @selected(($filters['reported'] ?? '') === '1')>S&iacute;</option><option value="0" @selected(($filters['reported'] ?? '') === '0')>No</option></select></div>
             <div class="col-12 report-period-row">@include('reports.partials.period-filter')</div>
-            @foreach(['attention_from' => ['attention', 'Fecha de atenciÃ³n desde'], 'attention_to' => ['attention', 'Fecha de atenciÃ³n hasta'], 'registered_from' => ['registered', 'Fecha de registro desde'], 'registered_to' => ['registered', 'Fecha de registro hasta']] as $field => [$dateGroup, $label])
+            @foreach(['attention_from' => ['attention', 'Fecha de atención desde'], 'attention_to' => ['attention', 'Fecha de atención hasta'], 'registered_from' => ['registered', 'Fecha de registro desde'], 'registered_to' => ['registered', 'Fecha de registro hasta']] as $field => [$dateGroup, $label])
                 @php($bounds = $dateBounds[$dateGroup])
                 <div class="col-xl-3 col-md-6">
                     <label class="form-label" for="general_{{ $field }}">{{ $label }}</label>

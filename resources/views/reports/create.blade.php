@@ -47,7 +47,7 @@
                 </label><br>
                 <div class="indicator-select-field">
                     <div class="indicator-picker-heading">
-                        <div><label for="indicator-card-search">Seleccione indicador *</label><small>Todos los indicadores disponibles para el sector seleccionado.</small></div>
+                        <div><label for="indicator-card-search">Seleccione indicador *</label><small>Seleccione un indicador principal para ver sus asociados. Vuelva a pulsarlo para desmarcarlo.</small></div>
                         <span id="indicator-card-count" class="indicator-card-count">0 indicadores</span>
                     </div>
                     <select class="indicator-native-select" name="indicador_proyecto_id" id="indicador_proyecto_id" required aria-hidden="true" tabindex="-1">
@@ -61,6 +61,19 @@
                         <span id="selected-indicator-description" class="selected-indicator-description"></span>
                     </span>
                 </div><br>
+                @unless($editing)
+                <div id="associated-indicators-home" hidden>
+                <section id="associated-indicators" class="indicator-association-branches" hidden aria-labelledby="associated-indicators-title">
+                    <h3 id="associated-indicators-title">Indicadores asociados <small>(opcional)</small></h3>
+                    <p class="muted">Seleccione uno o varios. Se guardará un registro independiente por cada indicador marcado, además del principal, con los mismos beneficiarios. Las actividades y servicios corresponden solo al principal.</p>
+                    <div id="associated-indicator-options" class="indicator-group-items"></div>
+                    <p id="associated-indicator-count" class="muted" role="status" aria-live="polite"></p>
+                </section>
+                </div>
+                @endunless
+                @if($editing && !empty($storedAssociatedIds))
+                    <p class="muted span-two">Este registro tiene {{ count($storedAssociatedIds) }} indicador(es) asociado(s). Al agregar una persona también se guardará en esos registros. La edición o eliminación de personas ya guardadas afecta únicamente al registro que esté editando.</p>
+                @endif
                 <label id="report-activity-field" hidden>Actividad a reportar <small>(opcional)</small><select name="actividad_indicador_id" id="actividad_indicador_id">
                         <option value="">Seleccione primero el indicador</option>
                     </select>
@@ -368,6 +381,7 @@
 @endsection
 
 @push('scripts')
+    <script src="{{ asset('js/associated-indicators.js') }}?v={{ filemtime(public_path('js/associated-indicators.js')) }}"></script>
     <script>
         const select = (id) => document.getElementById(id);
         const setOptions = (element, items, placeholder, selected = '') => {
@@ -420,9 +434,19 @@
             });
             return [...unique.values()];
         };
-        const selectedSectorIndicators = () => (projectIndicators[project.value] || [])
-            .filter(item => String(item.sectorProjectId) === String(projectSector.value));
+        const selectedSectorIndicators = () => window.primaryIndicatorOptions(
+            projectIndicators[project.value] || [], projectSector.value, @json($editing ? $report->indicador_proyecto_id : null)
+        );
         const selectedIndicator = () => selectedSectorIndicators().find(item => String(item.id) === String(activity.value));
+        const associatedPicker = window.createAssociatedIndicatorPicker(select('associated-indicators'));
+        const storedAssociatedIds = @json($storedAssociatedIds ?? []);
+        let associatedPrincipal = null;
+        const syncAssociatedIndicators = (selected = null) => {
+            const selectedIds = selected ?? (associatedPrincipal === activity.value ? associatedPicker.selectedIds() : []);
+            associatedPrincipal = activity.value;
+            const ids = (selectedIndicator()?.associatedIds || []).map(String);
+            associatedPicker.render((projectIndicators[project.value] || []).filter(item => ids.includes(String(item.id))), selectedIds);
+        };
         const selectedIndicatorAgeRange = () => {
             const indicator = selectedIndicator();
             if (!indicator || indicator.unit !== 'Personas') return null;
@@ -469,8 +493,10 @@
         const renderIndicatorCards = () => {
             const query = indicatorCardSearch.value.trim().toLocaleLowerCase('es-VE');
             const indicators = selectedSectorIndicators().filter(item =>
-                !query || `${item.code} ${item.shortName || ''} ${item.title} ${item.coordination} ${item.groupName || ''}`.toLocaleLowerCase('es-VE').includes(query)
+                String(item.id) === String(activity.value) || !query || `${item.code} ${item.shortName || ''} ${item.title} ${item.coordination} ${item.groupName || ''}`.toLocaleLowerCase('es-VE').includes(query)
             );
+            // Move the existing controls before rebuilding cards: retain selections and form ownership.
+            associatedPicker.park();
             indicatorCardGrid.replaceChildren();
             const groupedIndicators = new Map();
             indicators.forEach(item => {
@@ -542,10 +568,20 @@
                 meta.textContent = `${item.unit || 'Sin unidad'} · Edad: ${item.ageFrom ?? 0} a ${item.ageTo ?? 120} años`;
                 card.append(top, description, meta);
                 card.addEventListener('click', () => {
-                    activity.value = String(item.id);
-                    activity.dispatchEvent(new Event('change', {bubbles: true}));
+                    window.togglePrimaryIndicator(activity, item.id);
                 });
-                        items.append(card);
+                        if (isSelected && item.associatedIds?.length && !@json($editing)) {
+                            const branch = document.createElement('div');
+                            branch.className = 'indicator-branch';
+                            card.classList.add('indicator-branch-root');
+                            card.setAttribute('aria-controls', 'associated-indicators');
+                            card.setAttribute('aria-expanded', 'true');
+                            branch.append(card);
+                            associatedPicker.mount(branch);
+                            items.append(branch);
+                        } else {
+                            items.append(card);
+                        }
                     });
                     panel.append(items);
                     indicatorCardGrid.append(panel);
@@ -562,6 +598,7 @@
             indicatorCardSearch.value = '';
             renderIndicatorCards();
             syncIndicatorActivities(selectedActivity, selectedServices);
+            syncAssociatedIndicators();
         };
         const syncProjectSectors = (selected = '', selectedIndicator = '', selectedActivity = '', selectedServices = []) => {
             setOptions(projectSector, projectSectors(), project.value ? 'Seleccione un sector' : 'Seleccione primero el proyecto', selected);
@@ -577,8 +614,10 @@
         activity.addEventListener('change', () => {
             syncIndicatorActivities();
             renderIndicatorCards();
+            syncAssociatedIndicators();
         });
         syncProjectSectors(initialProjectSector, initialIndicator, initialActivity, initialServices);
+        syncAssociatedIndicators(@json(old('associated_indicator_ids', [])));
         const placeName = select('place_name'),
             installationType = select('installation_type'),
             placeLocationSummary = select('place-location-summary');
@@ -754,7 +793,7 @@
             saveButton = select('save-beneficiary');
         const headerFields = ['report_date', 'reporter_first_name', 'reporter_last_name', 'reporter_email', 'organization',
             'other_organization', 'state_id', 'municipality_id', 'parish_id', 'installation_type', 'place_name',
-            'proyecto_id', 'indicador_proyecto_id', 'actividad_indicador_id', 'servicio_actividad_ids[]'
+            'proyecto_id', 'indicador_proyecto_id', 'actividad_indicador_id', 'servicio_actividad_ids[]', 'associated_indicator_ids[]'
         ];
         let beneficiaries = @json($initialBeneficiaries),
             activeReportId = form.dataset.reportId || null,
@@ -772,6 +811,7 @@
             : beneficiaryInputs[field].value.trim();
         const beneficiaryRecord = () => Object.fromEntries(beneficiaryFields.map(field => [field, inputValue(field)]));
         const headerSignature = () => JSON.stringify(Object.fromEntries(headerFields.map(field => {
+            if (field === 'associated_indicator_ids[]') return [field, associatedPicker.selectedIds()];
             if (field === 'servicio_actividad_ids[]') return [field, Array.from(services.selectedOptions).map(option => option.value).sort()];
             return [field, form.elements[field]?.value.trim() || ''];
         })));
@@ -1169,6 +1209,7 @@
                 data = new FormData(form);
                 beneficiaryFields.forEach(field => data.set(`beneficiary[${field}]`, beneficiary[field]));
                 if (!createsNewReport) data.set('report_id', activeReportId);
+                if (form.dataset.reportUpdateUrl) storedAssociatedIds.forEach(id => data.append('associated_indicator_ids[]', id));
             }
             isSaving = true;
             saveButton.disabled = true;

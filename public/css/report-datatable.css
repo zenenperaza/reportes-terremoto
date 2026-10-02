@@ -1,4 +1,18 @@
 .report-table-card,.report-table-wrap{width:100%;min-width:0;max-width:100%}
+.report-list-filter-card .report-list-filters{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:22px 20px;align-items:start}
+.report-list-filters .report-filter-field{min-width:0;margin:0}
+.report-list-filters .report-filter-top{grid-column:span 4}
+.report-list-filters .report-filter-date{grid-column:span 3}
+.report-list-filters .report-filter-user{grid-column:span 4}
+.report-list-filters label{display:flex;flex-direction:column;gap:8px;line-height:1.4;margin:0;min-width:0}
+.report-list-filters select,.report-list-filters input[type="date"]{width:100%;min-width:0;min-height:44px;margin:0}
+.report-list-filters .select2-container{width:100%!important;max-width:100%;min-width:0}
+.report-list-filters .select2-selection--multiple{min-height:44px}
+.report-list-filters #reporting-period-help,.report-list-filters #records-state-help{font-size:12px;font-weight:400;line-height:1.45;margin:0}
+.report-list-filters .report-filter-actions{grid-column:span 2;align-self:end;display:flex;min-width:0}
+.report-list-filters .report-filter-actions .button{width:100%;min-height:44px;gap:8px;line-height:1.3;text-align:center}
+@media(max-width:1000px){.report-list-filters .report-filter-field{grid-column:span 6}.report-list-filters .report-filter-actions{grid-column:1/-1;justify-content:flex-end}.report-list-filters .report-filter-actions .button{width:auto}}
+@media(max-width:600px){.report-list-filter-card .report-list-filters{grid-template-columns:minmax(0,1fr);gap:18px}.report-list-filters .report-filter-field,.report-list-filters .report-filter-actions{grid-column:1/-1}.report-list-filters .report-filter-actions .button{width:100%}}
 #activity-records-table{width:100%!important;min-width:0!important}
 #activity-records-table th,#activity-records-table td{white-space:normal}
 #activity-records-table>tbody>tr:not(.child)>td{min-width:8rem;vertical-align:top}

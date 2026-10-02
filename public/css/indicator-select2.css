@@ -311,6 +311,30 @@
     font-size: 14px;
 }
 
+.indicator-branch { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr); gap: 32px; align-items: start; min-width: 0; }
+.indicator-branch-root { position: relative; width: 100%; }
+.indicator-branch-root::after { content: ''; position: absolute; top: 32px; left: 100%; width: 33px; height: 2px; background: #71bfdc; pointer-events: none; }
+#associated-indicators { position: relative; min-width: 0; border-left: 2px solid #71bfdc; padding: 8px 0 4px 22px; }
+#associated-indicators h3 { margin: 0 0 6px; font-size: 16px; color: var(--navy); }
+#associated-indicators > p { font-size: 12px; line-height: 1.5; margin: 0 0 12px; }
+#associated-indicators #associated-indicator-count { margin: 12px 0 0; }
+#associated-indicators[hidden] { display: none; }
+#associated-indicators .indicator-card { position: relative; font-weight: 400; height: 100%; }
+#associated-indicators .indicator-card::before { content: ''; position: absolute; right: 100%; top: 24px; width: 23px; height: 2px; background: #71bfdc; pointer-events: none; }
+#associated-indicators .form-check-input { width: 1.15rem; height: 1.15rem; margin: 0; padding: 0; flex: none; }
+#associated-indicators .indicator-card:focus-within { outline: 3px solid rgba(28, 171, 226, .3); outline-offset: 2px; }
+#associated-indicators .indicator-group-items { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+@media (max-width: 900px) {
+    .indicator-branch { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .indicator-branch-root::after { top: 100%; left: 20px; width: 2px; height: 20px; }
+    #associated-indicators { margin: 18px 0 0 20px; padding-left: 18px; }
+    #associated-indicators .indicator-card::before { width: 19px; }
+}
+[data-layout-mode="dark"] #associated-indicators h3 { color: #e5e8ed; }
+[data-layout-mode="dark"] #associated-indicators .indicator-card { background: #292e40; border-color: #41485a; color: #e5e8ed; }
+[data-layout-mode="dark"] #associated-indicators .indicator-card.is-selected { background: #173e50; border-color: #1cabe2; }
+[data-layout-mode="dark"] #associated-indicators .indicator-card-top strong { color: #e5e8ed; }
+
 .indicator-coordination {
     display: inline-flex;
     justify-content: center;

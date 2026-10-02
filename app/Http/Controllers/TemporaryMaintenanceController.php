@@ -16,11 +16,14 @@ class TemporaryMaintenanceController extends Controller
         abort_if($token === '', 503, 'Falta configurar SERVER_MAINTENANCE_TOKEN en el archivo .env.');
         abort_unless(hash_equals($token, (string) request('token')), 403);
 
-        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos'], true),
+        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados'], true),
             422, 'Modo de mantenimiento no reconocido.');
         $permissionsOnly = request('only') === 'permisos-beneficiarios';
         $groupEditingOnly = request('only') === 'edicion-cruzada-grupos';
         $periodsOnly = request('only') === 'periodos';
+        $associatedIndicatorsOnly = request('only') === 'indicadores-asociados';
+        abort_if($associatedIndicatorsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
+            422, 'El modo indicadores-asociados no se puede combinar con opciones de caché o importación.');
         abort_if($periodsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
             422, 'El modo periodos no se puede combinar con opciones de caché o importación.');
         abort_if($permissionsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
@@ -59,6 +62,30 @@ class TemporaryMaintenanceController extends Controller
                 'public/js/period-filter.js',
             ]);
             foreach ($requiredFiles as $file) {
+                abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
+            }
+        }
+
+        $associatedIndicatorMigration = ['name' => 'migrate', 'parameters' => [
+            '--path' => 'database/migrations/2026_09_30_120000_create_associated_indicators_tables.php',
+            '--force' => true,
+        ]];
+        if ($associatedIndicatorsOnly) {
+            foreach ([
+                $associatedIndicatorMigration['parameters']['--path'],
+                'app/Models/IndicadorProyecto.php',
+                'app/Http/Controllers/IndicadorProyectoController.php',
+                'app/Http/Controllers/ReportController.php',
+                'app/Http/Requests/Concerns/ValidatesAssociatedIndicators.php',
+                'app/Http/Requests/StoreReportRequest.php',
+                'app/Http/Requests/StoreBeneficiaryEntryRequest.php',
+                'resources/views/proyectos/indicadores/index.blade.php',
+                'resources/views/proyectos/indicadores/asociados.blade.php',
+                'resources/views/reports/create.blade.php',
+                'public/js/associated-indicators.js',
+                'public/css/indicator-select2.css',
+                'routes/web.php',
+            ] as $file) {
                 abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
             }
         }
@@ -226,6 +253,7 @@ class TemporaryMaintenanceController extends Controller
         $includeExcel = $excelOnly || request()->boolean('import_excel');
 
         $selectedMigrations = match (true) {
+            $associatedIndicatorsOnly => [$associatedIndicatorMigration],
             $periodsOnly => $periodMigrations,
             $permissionsOnly => [$permissionMigration],
             $groupEditingOnly => [$groupEditingMigration],
@@ -251,6 +279,14 @@ class TemporaryMaintenanceController extends Controller
                 'PERÍODOS: se ejecutarán únicamente las dos migraciones de períodos, en orden, y se reconstruirán las cachés.',
                 'No se ejecutan seeders ni importaciones. No se asignan períodos a registros anteriores ni se cierra ningún período.',
                 'Las migraciones ya aplicadas se omiten; repetir este modo conserva los períodos y cierres guardados.',
+            ];
+        }
+        if ($associatedIndicatorsOnly) {
+            $results = [
+                'INDICADORES ASOCIADOS: se ejecutará únicamente la migración de indicadores asociados y se reconstruirán las cachés.',
+                'Se crean las tablas indicador_proyecto_asociados y report_indicator_copies. No se ejecutan seeders ni importaciones, ni se duplican registros durante este mantenimiento.',
+                'No se modifican registros, beneficiarios, períodos ni cierres existentes. Las asociaciones se configuran desde Indicadores asociados → Gestionar.',
+                'Si la migración ya fue aplicada, se omite. Repetir este modo conserva las asociaciones y copias guardadas.',
             ];
         }
         $exitCode = 1;

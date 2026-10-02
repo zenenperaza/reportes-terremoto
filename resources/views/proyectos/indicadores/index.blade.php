@@ -31,7 +31,7 @@
     </div>
 @else
     <div class="table-wrap"><table>
-        <thead><tr><th>Código</th><th>Descripción</th><th>Meta cuantitativa</th><th>Meta cualitativa</th><th>Estado</th><th>Actividades</th><th></th></tr></thead>
+        <thead><tr><th>Código</th><th>Descripción</th><th>Meta cuantitativa</th><th>Meta cualitativa</th><th>Estado</th><th>Indicadores asociados</th><th>Actividades</th><th></th></tr></thead>
         <tbody>
         @foreach($asignaciones as $asignacion)
             <tr>
@@ -40,6 +40,7 @@
                 <td>{{ $asignacion->meta_cuantitativa === null ? 'Sin meta' : number_format($asignacion->meta_cuantitativa) }}</td>
                 <td class="catalog-description">{{ $asignacion->meta_cualitativa ?: 'Sin meta' }}</td>
                 <td><span class="status {{ $asignacion->estatus ? 'status-active' : 'status-inactive' }}">{{ $asignacion->estatus ? 'Activo' : 'Inactivo' }}</span></td>
+                <td><a class="indicator-count-link" href="{{ route('indicador-proyecto.asociados', $asignacion) }}">{{ $asignacion->indicadores_asociados_count }} · Gestionar</a></td>
                 <td><a class="indicator-count-link" href="{{ route('indicador-proyecto.actividades.index',$asignacion) }}">{{ $asignacion->asignaciones_actividades_count }} · Gestionar</a></td>
                 <td class="row-actions">
                     <a href="{{ route('indicador-proyecto.edit',$asignacion) }}">Editar</a>

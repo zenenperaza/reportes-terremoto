@@ -23,7 +23,7 @@ class IndicadorProyectoController extends Controller
             'sectorProyecto' => $sectorProyecto,
             'asignaciones' => $sectorProyecto->asignacionesIndicadores()
                 ->with('indicador')
-                ->withCount('asignacionesActividades')
+                ->withCount(['asignacionesActividades', 'indicadoresAsociados'])
                 ->orderBy('id')
                 ->paginate(20),
             'indicadoresDisponibles' => Indicador::whereNotIn(
@@ -89,6 +89,36 @@ class IndicadorProyectoController extends Controller
         $indicadorProyecto->load(['proyecto.donante', 'indicador']);
 
         return view('proyectos.indicadores.edit', compact('indicadorProyecto'));
+    }
+
+    public function asociados(IndicadorProyecto $indicadorProyecto): View
+    {
+        $indicadorProyecto->load(['indicador', 'proyecto', 'indicadoresAsociados']);
+
+        return view('proyectos.indicadores.asociados', [
+            'asignacion' => $indicadorProyecto,
+            'opciones' => IndicadorProyecto::with(['indicador', 'asignacionSector.sector'])
+                ->where('proyecto_id', $indicadorProyecto->proyecto_id)
+                ->whereNotNull('sector_proyecto_id')->whereKeyNot($indicadorProyecto->id)
+                ->orderBy('id')->get(),
+        ]);
+    }
+
+    public function guardarAsociados(Request $request, IndicadorProyecto $indicadorProyecto): RedirectResponse
+    {
+        $data = $request->validate([
+            'asociados' => ['nullable', 'array', 'max:100'],
+            'asociados.*' => ['required', 'integer', 'distinct',
+                \Illuminate\Validation\Rule::exists('indicador_proyecto', 'id')->where(fn ($query) => $query
+                    ->where('proyecto_id', $indicadorProyecto->proyecto_id)
+                    ->whereNotNull('sector_proyecto_id')->where('id', '!=', $indicadorProyecto->id))],
+        ]);
+        \Illuminate\Support\Facades\DB::transaction(function () use ($indicadorProyecto, $data): void {
+            $locked = IndicadorProyecto::lockForUpdate()->findOrFail($indicadorProyecto->id);
+            $locked->indicadoresAsociados()->sync($data['asociados'] ?? []);
+        });
+
+        return back()->with('success', 'Indicadores asociados actualizados. Los registros existentes no se modificaron.');
     }
 
     public function update(Request $request, IndicadorProyecto $indicadorProyecto): RedirectResponse

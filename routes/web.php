@@ -138,6 +138,10 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
             ->name('proyectos.indicadores.store');
         Route::get('indicadores-proyectos/{indicadorProyecto}/editar', [IndicadorProyectoController::class, 'edit'])
             ->name('indicador-proyecto.edit');
+        Route::get('indicadores-proyectos/{indicadorProyecto}/asociados', [IndicadorProyectoController::class, 'asociados'])
+            ->name('indicador-proyecto.asociados');
+        Route::put('indicadores-proyectos/{indicadorProyecto}/asociados', [IndicadorProyectoController::class, 'guardarAsociados'])
+            ->name('indicador-proyecto.asociados.update');
         Route::put('indicadores-proyectos/{indicadorProyecto}', [IndicadorProyectoController::class, 'update'])
             ->name('indicador-proyecto.update');
         Route::delete('indicadores-proyectos/{indicadorProyecto}', [IndicadorProyectoController::class, 'destroy'])

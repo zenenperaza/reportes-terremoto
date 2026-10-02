@@ -38,4 +38,14 @@ class IndicadorProyecto extends Model
     {
         return $this->hasMany(ActividadIndicador::class);
     }
+
+    public function indicadoresAsociados(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'indicador_proyecto_asociados', 'principal_id', 'asociado_id');
+    }
+
+    public function indicadoresPrincipales(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'indicador_proyecto_asociados', 'asociado_id', 'principal_id');
+    }
 }

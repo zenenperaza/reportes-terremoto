@@ -32,6 +32,7 @@ class ReportController extends Controller
 {
     public function index(Request $request): View|JsonResponse|StreamedResponse
     {
+        $this->normalizeStateFilter($request);
         $request->validate(['user_id' => ['nullable', 'integer', 'min:1'], 'reporting_period' => ReportPeriod::rules()]);
         $isCoordinator = $request->user()->isCoordinator();
         $reports = collect();
@@ -43,7 +44,7 @@ class ReportController extends Controller
                     'length' => 'nullable|integer', 'search.value' => 'nullable|string|max:200',
                     'order' => 'nullable|array|max:16', 'order.*.column' => 'required|integer|min:0',
                     'order.*.dir' => 'required|in:asc,desc',
-                    'state_id' => 'nullable|integer', 'from' => 'nullable|date_format:Y-m-d',
+                    'from' => 'nullable|date_format:Y-m-d',
                     'to' => 'nullable|date_format:Y-m-d', 'reported' => 'nullable|in:0,1',
                     'export_type' => 'nullable|in:copy,csv,excel,pdf,print',
                 ]);
@@ -125,6 +126,7 @@ class ReportController extends Controller
 
         return view('reports.create', [
             'report' => $report,
+            'storedAssociatedIds' => DB::table('report_indicator_copies')->where('source_report_id', $report->id)->pluck('indicator_assignment_id')->all(),
             'reportingPeriod' => $report->reporting_period,
             'projects' => $projects,
             'projectIndicatorOptions' => $this->projectIndicatorOptions($projects),
@@ -183,6 +185,8 @@ class ReportController extends Controller
     public function store(StoreReportRequest $request): RedirectResponse
     {
         $data = $request->validated();
+        $associatedIds = $data['associated_indicator_ids'] ?? [];
+        unset($data['associated_indicator_ids']);
         $data['reporting_period'] = ReportPeriod::forNewReport($request);
         $beneficiaries = $data['beneficiaries'];
         $serviceIds = $data['servicio_actividad_ids'] ?? [];
@@ -197,7 +201,7 @@ class ReportController extends Controller
         $data['indigenous_people'] = $summary['indigenous_people'];
         $data['pregnant_or_lactating_women'] = $summary['pregnant_or_lactating_women'];
 
-        $report = DB::transaction(function () use ($data, $beneficiaries, $request, $serviceIds): Report {
+        $report = DB::transaction(function () use ($data, $beneficiaries, $request, $serviceIds, $associatedIds): Report {
             $report = Report::create($data);
             $report->serviciosActividad()->sync($serviceIds);
             $report->beneficiaries()->createMany($beneficiaries);
@@ -219,6 +223,8 @@ class ReportController extends Controller
                 ]);
             }
 
+            $this->saveAssociatedCopies($request, $report, $associatedIds, $beneficiaries, true);
+
             return $report;
         });
 
@@ -228,14 +234,16 @@ class ReportController extends Controller
     public function storeBeneficiary(StoreBeneficiaryEntryRequest $request): JsonResponse
     {
         $data = $request->validated();
+        $associatedIds = $data['associated_indicator_ids'] ?? [];
+        unset($data['associated_indicator_ids']);
         $beneficiaryData = $data['beneficiary'];
         $reportId = $data['report_id'] ?? null;
         $serviceIds = $data['servicio_actividad_ids'] ?? [];
         unset($data['beneficiary'], $data['report_id'], $data['servicio_actividad_ids'], $data['sector_proyecto_id'], $data['evidence_1'], $data['evidence_2'], $data['evidence_3']);
 
-        [$report, $beneficiary, $summary, $createdReport] = DB::transaction(function () use ($request, $data, $beneficiaryData, $reportId, $serviceIds): array {
+        [$report, $beneficiary, $summary, $createdReport, $copies] = DB::transaction(function () use ($request, $data, $beneficiaryData, $reportId, $serviceIds, $associatedIds): array {
             if ($reportId) {
-                $report = Report::findOrFail($reportId);
+                $report = Report::lockForUpdate()->findOrFail($reportId);
                 $this->ensureEditable($request, $report);
                 abort_unless($this->headersMatch($report, $data, $serviceIds), 409, 'Los encabezados cambiaron. Guarde el beneficiario como un nuevo registro.');
 
@@ -267,12 +275,14 @@ class ReportController extends Controller
             $beneficiary = $report->beneficiaries()->create($beneficiaryData);
             $this->storeEvidence($report, $request);
             $summary = $this->syncBeneficiarySummary($report);
+            $copies = $this->saveAssociatedCopies($request, $report, $associatedIds, [$beneficiaryData], $createdReport);
 
-            return [$report->fresh(), $beneficiary->fresh(), $summary, $createdReport];
+            return [$report->fresh(), $beneficiary->fresh(), $summary, $createdReport, $copies];
         });
 
         return response()->json([
-            'message' => $createdReport ? 'Registro creado y beneficiario guardado correctamente.' : 'Beneficiario guardado correctamente.',
+            'message' => $copies ? 'Beneficiario guardado en el indicador principal y en '.count($copies).' indicador(es) asociado(s).' : ($createdReport ? 'Registro creado y beneficiario guardado correctamente.' : 'Beneficiario guardado correctamente.'),
+            'associated_reports' => $copies,
             'report' => [
                 'id' => $report->id,
                 'url' => route('reports.show', $report),
@@ -500,6 +510,7 @@ class ReportController extends Controller
     public function export(Request $request): StreamedResponse
     {
         abort_unless($request->user()->isAdministrator(), 403);
+        $this->normalizeStateFilter($request);
         $request->validate(['user_id' => ['nullable', 'integer', 'min:1'], 'reporting_period' => ReportPeriod::rules()]);
         $beneficiaries = $this->filteredBeneficiaries($request)
             ->with(['report.state', 'report.municipality', 'report.parish', 'report.sector', 'report.activity', 'report.proyecto', 'report.indicadorProyecto.indicador', 'report.indicadorProyecto.asignacionSector.sector', 'report.actividadIndicador.actividad', 'report.serviciosActividad.servicio'])
@@ -548,11 +559,12 @@ class ReportController extends Controller
             ->with(['donante', 'estados:id', 'municipios:id', 'asignacionesIndicadores' => fn ($query) => $query
                 ->with([
                     'indicador.indicatorGroup',
+                    'indicadoresAsociados' => fn ($associated) => $associated->where('indicador_proyecto.estatus', true)->whereNotNull('sector_proyecto_id'),
                     'asignacionSector.sector',
                     'asignacionesActividades' => fn ($activities) => $activities
                         ->with(['actividad', 'asignacionesServicios' => fn ($services) => $services->with('servicio')->where('estatus', true)])
                         ->where('estatus', true),
-                ])->whereNotNull('sector_proyecto_id')->where('estatus', true)])
+                ])->withCount('indicadoresPrincipales')->whereNotNull('sector_proyecto_id')->where('estatus', true)])
             ->where(function ($query) use ($includeProjectId): void {
                 $query->where('estatus', true);
                 if ($includeProjectId) $query->orWhere('proyectos.id', $includeProjectId);
@@ -643,6 +655,8 @@ class ReportController extends Controller
                     'groupOrder' => $assignment->indicador->indicatorGroup?->sort_order,
                     'ageFrom' => $assignment->indicador->edad_desde,
                     'ageTo' => $assignment->indicador->edad_hasta,
+                    'associatedIds' => $assignment->indicadoresAsociados->pluck('id')->values()->all(),
+                    'isAssociated' => $assignment->indicadores_principales_count > 0,
                     'activities' => $assignment->asignacionesActividades->map(function ($projectActivity): array {
                         return [
                             'id' => $projectActivity->id,
@@ -656,6 +670,18 @@ class ReportController extends Controller
                 ];
             })->values()->all()];
         })->all();
+    }
+
+    private function normalizeStateFilter(Request $request): void
+    {
+        // Keep old links with a single state_id compatible with the multiple selector.
+        $states = $request->input('state_id');
+        $request->merge(['state_id' => is_array($states) ? $states : (($states === null || $states === '') ? [] : [$states])]);
+        $data = $request->validate([
+            'state_id' => ['array', 'list', 'max:100'],
+            'state_id.*' => ['required', 'integer', 'min:1'],
+        ]);
+        $request->merge(['state_id' => array_values(array_unique(array_map('intval', $data['state_id'])))]);
     }
 
     private function filteredReports(Request $request): Builder
@@ -674,7 +700,7 @@ class ReportController extends Controller
 
         return $query
             ->when($request->integer('user_id'), fn (Builder $query, int $userId) => $query->where('user_id', $userId))
-            ->when($request->integer('state_id'), fn (Builder $query, int $stateId) => $query->where('state_id', $stateId))
+            ->when($request->input('state_id'), fn (Builder $query, array $stateIds) => $query->whereIn('state_id', $stateIds))
             ->reportingPeriod($request->input('reporting_period'))
             ->when($request->input('from'), fn (Builder $query, string $from) => $query->whereDate('report_date', '>=', $from))
             ->when($request->input('to'), fn (Builder $query, string $to) => $query->whereDate('report_date', '<=', $to));
@@ -689,7 +715,7 @@ class ReportController extends Controller
                 $request->user()->constrainVisibleReports($reports);
                 $reports->when($request->integer('user_id'), fn (Builder $query, int $userId) => $query->where('user_id', $userId))
                     ->reportingPeriod($request->input('reporting_period'))
-                    ->when($request->integer('state_id'), fn (Builder $query, int $stateId) => $query->where('state_id', $stateId))
+                    ->when($request->input('state_id'), fn (Builder $query, array $stateIds) => $query->whereIn('state_id', $stateIds))
                     ->when($request->input('from'), fn (Builder $query, string $from) => $query->whereDate('report_date', '>=', $from))
                     ->when($request->input('to'), fn (Builder $query, string $to) => $query->whereDate('report_date', '<=', $to));
             })
@@ -703,6 +729,56 @@ class ReportController extends Controller
     }
 
     /** @param array<string, mixed> $data */
+    /** Save only direct selections, in the same transaction as the principal. */
+    private function saveAssociatedCopies(Request $request, Report $source, array $ids, array $people, bool $created): array
+    {
+        $ids = collect($ids)->map(fn ($id) => (int) $id)->sort()->values()->all();
+        $links = DB::table('report_indicator_copies')->where('source_report_id', $source->id)->orderBy('indicator_assignment_id')->get();
+        abort_if(!$created && $ids !== $links->pluck('indicator_assignment_id')->map(fn ($id) => (int) $id)->all(),
+            409, 'Los indicadores asociados cambiaron. Inicie un nuevo registro para esta selección.');
+        if (!$ids) return [];
+
+        $principal = \App\Models\IndicadorProyecto::lockForUpdate()->find($source->indicador_proyecto_id);
+        $allowed = $principal?->indicadoresAsociados()->pluck('indicador_proyecto.id') ?? collect();
+        abort_unless(collect($ids)->diff($allowed)->isEmpty(), 409, 'La configuración de asociados cambió. Recargue el formulario.');
+        $assignments = \App\Models\IndicadorProyecto::with('asignacionSector')->whereIn('id', $ids)->get()->keyBy('id');
+        $copies = [];
+        foreach ($ids as $id) {
+            $assignment = $assignments->get($id);
+            // Newly created models retain FormData IDs as strings until reloaded.
+            abort_unless($assignment && $assignment->estatus && $assignment->asignacionSector
+                && (int) $assignment->proyecto_id === (int) $source->proyecto_id, 409, 'Un indicador asociado dejó de estar disponible. Recargue el formulario.');
+            $headers = array_merge($source->getAttributes(), [
+                'report_date' => $source->report_date->format('Y-m-d'),
+                'indicador_proyecto_id' => $id,
+                'sector_id' => $assignment->asignacionSector->sector_id,
+                'actividad_indicador_id' => null, 'activity_id' => null,
+            ]);
+            if ($created) {
+                $copy = $source->replicate()->setRelations([]);
+                $copy->forceFill(array_intersect_key($headers, array_flip([
+                    'indicador_proyecto_id', 'sector_id', 'actividad_indicador_id', 'activity_id',
+                ])));
+                $copy->save();
+                DB::table('report_indicator_copies')->insert([
+                    'source_report_id' => $source->id, 'indicator_assignment_id' => $id, 'target_report_id' => $copy->id,
+                ]);
+            } else {
+                $copy = Report::lockForUpdate()->find($links->firstWhere('indicator_assignment_id', $id)?->target_report_id);
+                abort_unless($copy, 409, 'Se eliminó un registro asociado. Inicie un nuevo registro.');
+                $this->ensureEditable($request, $copy);
+                abort_unless($this->headersMatch($copy, $headers) && $copy->reporting_period === $source->reporting_period,
+                    409, 'Se modificó un registro asociado. Inicie un nuevo registro.');
+            }
+            $copy->beneficiaries()->createMany($people);
+            $this->syncBeneficiarySummary($copy);
+            $this->storeEvidence($copy, $request);
+            $copies[] = ['id' => $copy->id, 'indicator_id' => $id, 'url' => route('reports.show', $copy)];
+        }
+
+        return $copies;
+    }
+
     private function headersMatch(Report $report, array $data, array $serviceIds = []): bool
     {
         $fields = [
@@ -712,6 +788,10 @@ class ReportController extends Controller
         ];
 
         foreach ($fields as $field) {
+            // Project forms send the project hierarchy, not its legacy catalog fields.
+            if ($report->proyecto_id && in_array($field, ['sector_id', 'activity_id'], true) && !array_key_exists($field, $data)) {
+                continue;
+            }
             $current = $field === 'report_date' ? $report->report_date->format('Y-m-d') : $report->getAttribute($field);
             if ($this->headerValue($current) !== $this->headerValue($data[$field] ?? null)) {
                 return false;
