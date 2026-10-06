@@ -35,7 +35,20 @@
 </section>
 
 <section class="content-card filter-card report-list-filter-card" aria-label="Filtros de registros">
+    @if(filled($filters['servicio_actividad_id'] ?? null))
+        <p class="muted">
+            Registros filtrados por servicio:
+            @if($selectedService)
+                <strong>{{ $selectedService->servicio->nombre }}</strong> · {{ $selectedService->actividadIndicador->indicadorProyecto->indicador->codigo }} · {{ $selectedService->actividadIndicador->actividad->codigo }}.
+            @else
+                asignación seleccionada.
+            @endif
+            <a href="{{ route('reports.index', array_diff_key($filters, ['servicio_actividad_id' => true])) }}">Quitar filtro de servicio</a>
+            @can('ver informes por servicios')<a href="{{ route('servicios-programados.index') }}">Volver a Informes por Servicios</a>@endcan
+        </p>
+    @endif
     <form method="get" class="filters report-list-filters">
+        @if(filled($filters['servicio_actividad_id'] ?? null))<input type="hidden" name="servicio_actividad_id" value="{{ $filters['servicio_actividad_id'] }}">@endif
         <label class="report-filter-field report-filter-top">Reportados
             <select name="reported"><option value="">Todos</option><option value="1" @selected(($filters['reported'] ?? '') === '1')>Sí</option><option value="0" @selected(($filters['reported'] ?? '') === '0')>No</option></select>
         </label>
@@ -153,7 +166,7 @@
                     buttons: [
                         {extend: 'copyHtml5', text: 'Copiar', exportOptions: activityExportOptions, ...fullReportExport('copy')},
                         {extend: 'csvHtml5', text: 'CSV', title: activityExportTitle, exportOptions: activityExportOptions, ...fullReportExport('csv')},
-                        @if($canExportExcel){extend: 'excelHtml5', text: 'Excel', title: activityExportTitle, exportOptions: activityExportOptions, ...fullReportExport('excel')},@endif
+                        @if($canExportExcel){extend: 'excelHtml5', text: 'Exportar Excel', className: 'report-excel-export', title: activityExportTitle, exportOptions: activityExportOptions, ...fullReportExport('excel')},@endif
                         @if($canExportPdf){extend: 'pdfHtml5', text: 'PDF', title: activityExportTitle, orientation: 'landscape', pageSize: 'A3', exportOptions: activityExportOptions, ...fullReportExport('pdf')},@endif
                         {extend: 'print', text: 'Imprimir', title: activityExportTitle, exportOptions: activityExportOptions, ...fullReportExport('print')},
                     ],
@@ -169,7 +182,10 @@
             lengthMenu: [[15, 25, 50, -1], [15, 25, 50, 'Todos']],
             @endif
             order: [],
-            columnDefs: [@if($canViewReportDetail){targets: -1, orderable: false, searchable: false}@endif],
+            columnDefs: [
+                {targets: 0, className: 'dtr-control', responsivePriority: 1},
+                @if($canViewReportDetail){targets: -1, orderable: false, searchable: false}@endif
+            ],
             language: {
                 processing: 'Cargando registros…',
                 loadingRecords: 'Cargando registros…',

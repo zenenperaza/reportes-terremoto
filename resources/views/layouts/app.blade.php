@@ -107,7 +107,7 @@
             <li class="menu-title"><span>Principal</span></li>
             <li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}"><i class="ri-dashboard-2-line"></i><span>Panel</span></a></li>
             @can('solo ver registros')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('reports.index', 'reports.show', 'reports.edit', 'reports.create') ? 'active' : '' }}" href="{{ route('reports.index') }}"><i class="ri-file-list-3-line"></i><span>Registros</span></a></li>@endcan
-            @php($reportsMenuOpen = request()->routeIs('beneficiaries.summary', 'general-reports.*', 'indicator-reports.*'))
+            @php($reportsMenuOpen = request()->routeIs('beneficiaries.summary', 'general-reports.*', 'indicator-reports.*', 'servicios-programados.*'))
             @if(Route::has('cases.index'))
                 @can('ver casos')
                     <li class="nav-item">
@@ -128,6 +128,9 @@
                         @endif
                         @if(Route::has('indicator-reports.index'))
                             <li class="nav-item"><a class="nav-link {{ request()->routeIs('indicator-reports.*') ? 'active' : '' }}" href="{{ route('indicator-reports.index') }}">Informe por Indicadores</a></li>
+                        @endif
+                        @if(auth()->user()->can('ver informes por servicios') && Route::has('servicios-programados.index'))
+                            <li class="nav-item"><a class="nav-link {{ request()->routeIs('servicios-programados.*') ? 'active' : '' }}" href="{{ route('servicios-programados.index') }}" @if(request()->routeIs('servicios-programados.*')) aria-current="page" @endif>Informes por Servicios</a></li>
                         @endif
                     </ul></div>
             </li>

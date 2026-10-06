@@ -44,12 +44,13 @@ class ReportOutputPermissionsTest extends TestCase
 
         $page = $this->actingAs($user)->get(route('reports.index'));
         $page->assertOk()->assertDontSee('NOMBRE CONFIDENCIAL')
-            ->assertDontSee("text: 'Excel'", false)->assertDontSee("text: 'PDF'", false)->assertDontSee('>Ver</a>', false);
+            ->assertDontSee("text: 'Exportar Excel'", false)->assertDontSee("text: 'PDF'", false)->assertDontSee('>Ver</a>', false);
         $this->actingAs($user)->get(route('reports.show', $report))->assertForbidden();
 
         $user->givePermissionTo(['ver detalle de registros', 'exportar registros excel']);
         $page = $this->actingAs($user->fresh())->get(route('reports.index'));
-        $page->assertOk()->assertSee("text: 'Excel'", false)->assertDontSee("text: 'PDF'", false)->assertSee('>Ver</a>', false);
+        $page->assertOk()->assertSee("text: 'Exportar Excel'", false)->assertSee("className: 'report-excel-export'", false)
+            ->assertDontSee("text: 'PDF'", false)->assertSee('>Ver</a>', false);
         $this->actingAs($user->fresh())->get(route('reports.show', $report))->assertOk();
 
         $user->givePermissionTo('exportar registros pdf');

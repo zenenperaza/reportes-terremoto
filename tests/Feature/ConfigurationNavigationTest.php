@@ -31,6 +31,8 @@ class ConfigurationNavigationTest extends TestCase
         $this->assertCount(3, $xpath->query('//*[@id="sidebarConfiguration"]/ul/li'));
         $this->assertCount(1, $xpath->query('//*[@id="sidebarConfiguration" and @data-bs-parent="#navbar-nav"]'));
         $this->assertCount(1, $xpath->query('//*[@id="sidebarReports" and @data-bs-parent="#navbar-nav"]'));
+        $this->assertCount(1, $xpath->query('//*[@id="sidebarReports"]//a[@href="'.route('servicios-programados.index').'"]'));
+        $this->assertCount(0, $xpath->query('//*[@id="sidebarConfiguration"]//a[@href="'.route('servicios-programados.index').'"]'));
         $this->assertCount(1, $xpath->query('//*[@id="sidebarCases" and @data-bs-parent="#navbar-nav"]'));
         foreach ($sections as $section => $routes) {
             $this->assertCount(1, $xpath->query('//*[@id="'.$section.'" and @data-bs-parent="#sidebarConfiguration"]'));

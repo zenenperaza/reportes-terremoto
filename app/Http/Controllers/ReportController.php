@@ -13,6 +13,7 @@ use App\Models\Municipality;
 use App\Models\PlaceName;
 use App\Models\Report;
 use App\Models\Sector;
+use App\Models\ServicioActividad;
 use App\Models\State;
 use App\Models\Proyecto;
 use App\Models\User;
@@ -33,7 +34,8 @@ class ReportController extends Controller
     public function index(Request $request): View|JsonResponse|StreamedResponse
     {
         $this->normalizeStateFilter($request);
-        $request->validate(['user_id' => ['nullable', 'integer', 'min:1'], 'reporting_period' => ReportPeriod::rules()]);
+        $request->validate(['user_id' => ['nullable', 'integer', 'min:1'], 'reporting_period' => ReportPeriod::rules(),
+            'servicio_actividad_id' => ['nullable', 'integer', 'exists:servicio_actividad,id']]);
         $isCoordinator = $request->user()->isCoordinator();
         $reports = collect();
 
@@ -72,13 +74,18 @@ class ReportController extends Controller
 
         return view('reports.index', [
             'reports' => $reports,
+            'selectedService' => $request->filled('servicio_actividad_id')
+                ? ServicioActividad::with(['servicio', 'actividadIndicador.actividad', 'actividadIndicador.indicadorProyecto.indicador'])
+                    ->when(! $request->user()->isAdministrator(), fn (Builder $query) => $query->whereHas('reports',
+                        fn (Builder $reports) => $request->user()->constrainVisibleReports($reports)))
+                    ->find($request->integer('servicio_actividad_id')) : null,
             'states' => State::orderBy('name')->get(['id', 'name']),
             'isCoordinator' => $isCoordinator,
             'serverColumns' => $isCoordinator ? ReportDataTable::columns($request->user()) : [],
             'canViewPersonalData' => $request->user()->isAdministrator(),
             'registeringUsers' => User::withTrashed()->whereIn('id', $request->user()->constrainVisibleReports(Report::query())->select('reports.user_id'))
                 ->orderBy('name')->orderBy('id')->get(['id', 'name']),
-            'filters' => $request->only(['state_id', 'reported', 'from', 'to', 'user_id', 'reporting_period']),
+            'filters' => $request->only(['state_id', 'reported', 'from', 'to', 'user_id', 'reporting_period', 'servicio_actividad_id']),
             'periodOptions' => ReportPeriod::options($request->user()->constrainVisibleReports(Report::query())),
         ]);
     }
@@ -511,7 +518,8 @@ class ReportController extends Controller
     {
         abort_unless($request->user()->isAdministrator(), 403);
         $this->normalizeStateFilter($request);
-        $request->validate(['user_id' => ['nullable', 'integer', 'min:1'], 'reporting_period' => ReportPeriod::rules()]);
+        $request->validate(['user_id' => ['nullable', 'integer', 'min:1'], 'reporting_period' => ReportPeriod::rules(),
+            'servicio_actividad_id' => ['nullable', 'integer', 'exists:servicio_actividad,id']]);
         $beneficiaries = $this->filteredBeneficiaries($request)
             ->with(['report.state', 'report.municipality', 'report.parish', 'report.sector', 'report.activity', 'report.proyecto', 'report.indicadorProyecto.indicador', 'report.indicadorProyecto.asignacionSector.sector', 'report.actividadIndicador.actividad', 'report.serviciosActividad.servicio'])
             ->latest('created_at')
@@ -699,6 +707,7 @@ class ReportController extends Controller
         }
 
         return $query
+            ->serviceAssignment($request->integer('servicio_actividad_id'))
             ->when($request->integer('user_id'), fn (Builder $query, int $userId) => $query->where('user_id', $userId))
             ->when($request->input('state_id'), fn (Builder $query, array $stateIds) => $query->whereIn('state_id', $stateIds))
             ->reportingPeriod($request->input('reporting_period'))
@@ -713,7 +722,8 @@ class ReportController extends Controller
         return Beneficiary::query()
             ->whereHas('report', function (Builder $reports) use ($request): void {
                 $request->user()->constrainVisibleReports($reports);
-                $reports->when($request->integer('user_id'), fn (Builder $query, int $userId) => $query->where('user_id', $userId))
+                $reports->serviceAssignment($request->integer('servicio_actividad_id'))
+                    ->when($request->integer('user_id'), fn (Builder $query, int $userId) => $query->where('user_id', $userId))
                     ->reportingPeriod($request->input('reporting_period'))
                     ->when($request->input('state_id'), fn (Builder $query, array $stateIds) => $query->whereIn('state_id', $stateIds))
                     ->when($request->input('from'), fn (Builder $query, string $from) => $query->whereDate('report_date', '>=', $from))

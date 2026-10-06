@@ -27,6 +27,8 @@ class PermissionController extends Controller
         'exportar registros excel',
         'exportar registros pdf',
         'ver detalle de registros',
+        'ver informes por servicios',
+        'exportar informes por servicios excel',
         'ver casos',
         'crear casos',
         'editar casos',

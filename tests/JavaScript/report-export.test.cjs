@@ -97,6 +97,14 @@ test('export errors never fall back to the visible page', async () => {
     assert.equal(state.enabled, 1);
 });
 
+test('service drilldown is preserved in the full export request with the other filters', async () => {
+    const {run, state} = harness({rows: [], filters: {servicio_actividad_id: 17, reporting_period: '', reported: ''}});
+    await run('excel');
+    assert.equal(state.url.searchParams.get('servicio_actividad_id'), '17');
+    assert.equal(state.url.searchParams.get('reporting_period'), '');
+    assert.equal(state.url.searchParams.get('reported'), '');
+});
+
 test('empty results produce an empty export', async () => {
     const {run, state} = harness({rows: []});
     await run('csv');

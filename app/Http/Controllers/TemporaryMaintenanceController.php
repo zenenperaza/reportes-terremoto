@@ -16,12 +16,15 @@ class TemporaryMaintenanceController extends Controller
         abort_if($token === '', 503, 'Falta configurar SERVER_MAINTENANCE_TOKEN en el archivo .env.');
         abort_unless(hash_equals($token, (string) request('token')), 403);
 
-        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados'], true),
+        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios'], true),
             422, 'Modo de mantenimiento no reconocido.');
         $permissionsOnly = request('only') === 'permisos-beneficiarios';
         $groupEditingOnly = request('only') === 'edicion-cruzada-grupos';
         $periodsOnly = request('only') === 'periodos';
         $associatedIndicatorsOnly = request('only') === 'indicadores-asociados';
+        $serviceReportsOnly = request('only') === 'informes-servicios';
+        abort_if($serviceReportsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
+            422, 'El modo informes-servicios no se puede combinar con opciones de caché o importación.');
         abort_if($associatedIndicatorsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
             422, 'El modo indicadores-asociados no se puede combinar con opciones de caché o importación.');
         abort_if($periodsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
@@ -88,6 +91,40 @@ class TemporaryMaintenanceController extends Controller
             ] as $file) {
                 abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
             }
+        }
+
+        $serviceReportMigration = ['name' => 'migrate', 'parameters' => [
+            '--path' => 'database/migrations/2026_10_06_120000_add_service_report_permissions.php',
+            '--force' => true,
+        ]];
+        if ($serviceReportsOnly) {
+            foreach ([
+                $serviceReportMigration['parameters']['--path'],
+                'app/Http/Controllers/ServicioProgramadoController.php',
+                'app/Services/ProgrammedServicesExcelExport.php',
+                'app/Http/Controllers/PermissionController.php',
+                'app/Http/Controllers/ReportController.php',
+                'app/Models/Report.php',
+                'app/Models/ServicioActividad.php',
+                'resources/views/servicios/programados.blade.php',
+                'resources/views/servicios/index.blade.php',
+                'resources/views/layouts/app.blade.php',
+                'resources/views/reports/index.blade.php',
+                'resources/views/reports/partials/period-filter.blade.php',
+                'public/css/programmed-services.css',
+                'public/css/report-datatable.css',
+                'public/js/service-report-table.js',
+                'public/js/period-filter.js',
+                'public/vendor/datatables/dataTables.min.js',
+                'public/vendor/datatables/dataTables.dataTables.min.css',
+                'public/vendor/datatables/dataTables.responsive.min.js',
+                'public/vendor/datatables/responsive.dataTables.min.css',
+                'routes/web.php',
+            ] as $file) {
+                abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
+            }
+            abort_unless(class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class), 422,
+                'Falta PhpSpreadsheet. Instale las dependencias de Composer del proyecto antes de continuar.');
         }
 
         $cacheCommands = [
@@ -253,6 +290,7 @@ class TemporaryMaintenanceController extends Controller
         $includeExcel = $excelOnly || request()->boolean('import_excel');
 
         $selectedMigrations = match (true) {
+            $serviceReportsOnly => [$serviceReportMigration],
             $associatedIndicatorsOnly => [$associatedIndicatorMigration],
             $periodsOnly => $periodMigrations,
             $permissionsOnly => [$permissionMigration],
@@ -289,6 +327,15 @@ class TemporaryMaintenanceController extends Controller
                 'Si la migración ya fue aplicada, se omite. Repetir este modo conserva las asociaciones y copias guardadas.',
             ];
         }
+        if ($serviceReportsOnly) {
+            $results = [
+                'INFORMES POR SERVICIOS: se ejecutará únicamente la migración de permisos de informes por servicios y se reconstruirán las cachés.',
+                'Se crean ver informes por servicios y exportar informes por servicios excel, asignados inicialmente al rol Administrador.',
+                'No se ejecutan seeders ni importaciones. No se modifican registros, beneficiarios, servicios entregados, períodos ni cierres.',
+                'Si la migración ya fue aplicada, se omite. Repetir este modo conserva los permisos y asignaciones guardados.',
+                'La consulta muestra servicios seleccionados en registros con beneficiarios. No se infieren entregas ni cantidades a partir de actividades.',
+            ];
+        }
         $exitCode = 1;
 
         try {
@@ -319,7 +366,8 @@ class TemporaryMaintenanceController extends Controller
 
     protected function deploymentFileExists(string $path): bool
     {
-        return is_file(base_path($path));
+        return is_file(base_path($path))
+            || (str_starts_with($path, 'public/') && is_file(public_path(substr($path, 7))));
     }
 
     protected function maintenanceToken(): string

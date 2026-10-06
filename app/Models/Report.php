@@ -42,6 +42,11 @@ class Report extends Model
         });
     }
 
+    public function scopeServiceAssignment(\Illuminate\Database\Eloquent\Builder $query, ?int $assignmentId): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->when($assignmentId, fn ($reports) => $reports->whereHas('serviciosActividad', fn ($services) => $services->whereKey($assignmentId)));
+    }
+
     public function user() { return $this->belongsTo(User::class)->withTrashed(); }
     public function state() { return $this->belongsTo(State::class); }
     public function municipality() { return $this->belongsTo(Municipality::class); }

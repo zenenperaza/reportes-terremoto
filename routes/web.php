@@ -31,6 +31,7 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SectorController;
 use App\Http\Controllers\SectorProyectoController;
 use App\Http\Controllers\ServicioController;
+use App\Http\Controllers\ServicioProgramadoController;
 use App\Http\Controllers\SystemMaintenanceController;
 use App\Http\Controllers\SystemConfigurationController;
 use App\Http\Controllers\UserGroupController;
@@ -189,6 +190,10 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
     Route::get('/informe-beneficiarios/fechas', [BeneficiaryReportController::class, 'dates'])->name('beneficiaries.dates');
     Route::post('/informe-beneficiarios/marcar-reportados', [BeneficiaryReportController::class, 'markAsReported'])->middleware(ReportPeriodTransaction::class)->name('beneficiaries.mark-reported');
     Route::get('/informes-generales', GeneralReportController::class)->name('general-reports.index');
+    Route::get('/informes-por-servicios', [ServicioProgramadoController::class, 'index'])
+        ->middleware('permission:ver informes por servicios')->name('servicios-programados.index');
+    Route::match(['get', 'post'], '/informes-por-servicios/exportar', [ServicioProgramadoController::class, 'export'])
+        ->middleware(['permission:ver informes por servicios', 'permission:exportar informes por servicios excel'])->name('servicios-programados.export');
     Route::get('/informes-generales/exportar', [GeneralReportController::class, 'export'])->middleware('permission:exportar registros excel')->name('general-reports.export');
     Route::get('/informes-generales/ubicaciones', [GeneralReportController::class, 'locations'])->name('general-reports.locations');
     Route::get('/informes-generales/fechas', [GeneralReportController::class, 'dates'])->name('general-reports.dates');

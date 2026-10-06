@@ -46,4 +46,8 @@
 .report-table-wrap .dt-search input{width:15rem;max-width:100%;margin-left:0}
 .report-table-wrap .dt-paging nav{display:flex;flex-wrap:wrap;gap:.2rem}
 .report-table-help{font-size:.875rem;line-height:1.6;margin-bottom:1rem}
+#activity-records-table_wrapper button.dt-button.report-excel-export{background:#197a59!important;border-color:#197a59!important;color:#fff!important}
+#activity-records-table_wrapper button.dt-button.report-excel-export:hover:not(.disabled){background:#146246!important;border-color:#146246!important}
+#activity-records-table_wrapper button.dt-button.report-excel-export:focus-visible{outline:3px solid #197a59;outline-offset:3px}
+@media(max-width:560px){#activity-records-table>tbody>tr:not(.child)>td{min-width:0}#activity-records-table>tbody>tr:not(.child)>td:first-child{min-width:0;white-space:normal}#activity-records-table .dtr-details{min-width:0;max-width:100%}.report-table-wrap .dt-layout-cell .dt-search label{width:100%}.report-table-wrap .dt-buttons .report-excel-export{min-height:44px}}
 @media(max-width:760px){.report-table-wrap .dt-layout-row:not(.dt-layout-table){align-items:stretch}.report-table-wrap .dt-layout-row:not(.dt-layout-table)>.dt-layout-cell{width:100%;margin:0;justify-content:flex-start}.report-table-wrap .dt-search{width:100%}.report-table-wrap .dt-search input{box-sizing:border-box;width:100%;margin:0}.report-table-wrap .dt-layout-table{width:100%}#activity-records-table .dtr-details li{grid-template-columns:1fr;gap:.2rem}}
