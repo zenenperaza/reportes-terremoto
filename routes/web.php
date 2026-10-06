@@ -186,11 +186,16 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
     Route::get('/informe-beneficiarios/exportar', [BeneficiaryReportController::class, 'export'])->middleware('permission:exportar registros excel')->name('beneficiaries.export');
     Route::get('/informe-beneficiarios', [BeneficiaryReportController::class, 'index'])->name('beneficiaries.summary');
     Route::get('/informe-beneficiarios/ubicaciones', [BeneficiaryReportController::class, 'locations'])->name('beneficiaries.locations');
+    Route::get('/informe-beneficiarios/fechas', [BeneficiaryReportController::class, 'dates'])->name('beneficiaries.dates');
     Route::post('/informe-beneficiarios/marcar-reportados', [BeneficiaryReportController::class, 'markAsReported'])->middleware(ReportPeriodTransaction::class)->name('beneficiaries.mark-reported');
     Route::get('/informes-generales', GeneralReportController::class)->name('general-reports.index');
+    Route::get('/informes-generales/exportar', [GeneralReportController::class, 'export'])->middleware('permission:exportar registros excel')->name('general-reports.export');
     Route::get('/informes-generales/ubicaciones', [GeneralReportController::class, 'locations'])->name('general-reports.locations');
+    Route::get('/informes-generales/fechas', [GeneralReportController::class, 'dates'])->name('general-reports.dates');
     Route::get('/informes-por-indicadores', IndicatorReportController::class)->name('indicator-reports.index');
+    Route::get('/informes-por-indicadores/exportar', [IndicatorReportController::class, 'export'])->middleware('permission:exportar registros excel')->name('indicator-reports.export');
     Route::get('/informes-por-indicadores/ubicaciones', [IndicatorReportController::class, 'locations'])->name('indicator-reports.locations');
+    Route::get('/informes-por-indicadores/fechas', [IndicatorReportController::class, 'dates'])->name('indicator-reports.dates');
 
     Route::get('/reportes/exportar', [ReportController::class, 'export'])->name('reports.export');
     Route::get('/reportes', [ReportController::class, 'index'])->middleware('permission:solo ver registros')->name('reports.index');

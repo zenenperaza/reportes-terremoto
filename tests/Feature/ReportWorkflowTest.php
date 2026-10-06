@@ -648,10 +648,9 @@ class ReportWorkflowTest extends TestCase
         $this->assertDatabaseHas('reports', ['id' => $reportId, 'place_name' => 'Comunidad El Carmen', 'total_beneficiaries' => 2]);
         $this->assertDatabaseHas('reports', ['place_name' => 'Comunidad El Manantial', 'total_beneficiaries' => 1]);
 
-        $this->actingAs($user)->get('/informe-beneficiarios?reported=0&included_from='.today()->addDay()->toDateString())
-            ->assertOk()
-            ->assertSee('No hay beneficiarios que coincidan con los filtros.');
-        $this->actingAs($user)->get('/informe-beneficiarios?reported=0&included_from='.today()->toDateString().'&included_to='.today()->toDateString())
+        $this->actingAs($user)->getJson('/informe-beneficiarios?reported=0&included_from='.today()->addDay()->toDateString())
+            ->assertUnprocessable()->assertJsonValidationErrors('included_from');
+        $this->actingAs($user)->get('/informe-beneficiarios?reported=0&included_from='.today()->toDateString())
             ->assertOk()
             ->assertSee('Comunidad El Carmen');
     }

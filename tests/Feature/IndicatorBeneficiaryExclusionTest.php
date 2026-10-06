@@ -336,8 +336,8 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
         $this->actingAs($admin)->get(route('beneficiaries.summary', ['indicator_filter' => [...$selected, $selected[0]]]))->assertOk()
             ->assertViewHas('filters', fn ($filters) => $filters['indicator_filter'] === $selected)
             ->assertViewHas('summary', fn ($summary) => $summary['total'] === 2);
-        $this->get(route('beneficiaries.summary', ['indicator_filter' => $selected, 'from' => today()->addDay()->toDateString()]))->assertOk()
-            ->assertViewHas('summary', fn ($summary) => $summary['total'] === 0);
+        $this->getJson(route('beneficiaries.summary', ['indicator_filter' => $selected, 'from' => today()->addDay()->toDateString()]))
+            ->assertUnprocessable()->assertJsonValidationErrors('from');
         $legacy->beneficiaries()->update(['reported_at' => today()->toDateString()]);
         $this->get(route('beneficiaries.summary', ['indicator_filter' => $selected, 'reported' => '1']))->assertOk()
             ->assertViewHas('summary', fn ($summary) => $summary['total'] === 1);
@@ -382,7 +382,7 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
             unlink($path);
         }
         $this->post(route('beneficiaries.mark-reported'), ['indicator_filter' => $selected, 'reported_at' => today()->toDateString()])
-            ->assertRedirect(route('beneficiaries.summary', ['reporting_period' => \App\Support\ReportPeriod::current(), 'indicator_filter' => $selected, 'reported' => '0']));
+            ->assertRedirect(route('beneficiaries.summary', ['indicator_filter' => $selected, 'reported' => '0', 'reporting_period' => '']));
         $this->assertNotNull($included->beneficiaries()->first()->reported_at);
         $this->assertNotNull($legacy->beneficiaries()->first()->reported_at);
         $this->assertNull($excluded->beneficiaries()->first()->reported_at);
@@ -430,7 +430,7 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
             $xpath = new \DOMXPath($document);
             $this->assertSame(1, $xpath->query('//form[@id="beneficiary-reported-filter"]//select[@name="reported"]')->length);
             $this->assertSame(1, $xpath->query('//form[@id="beneficiary-reported-filter"]//input')->length);
-            $this->assertSame(\App\Support\ReportPeriod::current(), $xpath->query('//form[@id="beneficiary-reported-filter"]//input[@name="reporting_period[]"]')->item(0)->getAttribute('value'));
+            $this->assertSame('', $xpath->query('//form[@id="beneficiary-reported-filter"]//input[@name="reporting_period[]"]')->item(0)->getAttribute('value'));
             $this->assertSame($status, $xpath->query('//form[@id="beneficiary-report-filters"]//input[@name="reported"]')->item(0)->getAttribute('value'));
         }
         $this->get(route('beneficiaries.summary', ['reported' => '']))->assertOk()

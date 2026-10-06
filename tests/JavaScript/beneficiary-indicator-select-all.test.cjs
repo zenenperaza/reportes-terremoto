@@ -59,7 +59,7 @@ function element(extra = {}) {
     }, extra);
 }
 
-function fixture({values = ['project:1', 'project:2', 'legacy:3'], selected = [], sectorValue = '', groupSizes = [values.length]} = {}) {
+function fixture({values = ['project:1', 'project:2', 'legacy:3'], selected = [], sectorValue = '', groupSizes = [values.length], prefix = 'summary'} = {}) {
     const cards = values.map((value, i) => {
         const input = element({value, checked: selected.includes(value)});
         return element({input,
@@ -76,14 +76,14 @@ function fixture({values = ['project:1', 'project:2', 'legacy:3'], selected = []
             querySelector: selector => selector === '[data-group-all]' ? control : count});
     });
     const group = groups[0], groupCount = group.count;
-    const picker = element({querySelectorAll: selector => selector === '[data-indicator-card]' ? cards : groups});
-    const elements = {'summary-indicator-picker': picker, summary_sector_id: element({value: sectorValue})};
-    for (const id of ['search', 'all', 'clear', 'selection', 'empty', 'panel', 'toggle']) elements[`summary-indicator-${id}`] = element();
+    const picker = element({dataset: {pickerPrefix: prefix, sectorControl: `${prefix}_sector_id`}, querySelectorAll: selector => selector === '[data-indicator-card]' ? cards : groups});
+    const elements = {[`${prefix}-indicator-picker`]: picker, [`${prefix}_sector_id`]: element({value: sectorValue})};
+    for (const id of ['search', 'all', 'clear', 'selection', 'empty', 'panel', 'toggle']) elements[`${prefix}-indicator-${id}`] = element();
     let changes = 0;
     picker.addEventListener('change', event => {if (event.bubbles) changes++;});
     vm.runInNewContext(code, {document: {getElementById: id => elements[id]}, window: {}, Event});
     const action = (id, type = 'click', value) => {
-        const target = elements[id.startsWith('summary_') ? id : `summary-indicator-${id}`];
+        const target = elements[id.startsWith(`${prefix}_`) ? id : `${prefix}-indicator-${id}`];
         if (value !== undefined) target.value = value;
         if (id === 'all' && type === 'click') {
             target.checked = !target.checked;
@@ -98,6 +98,27 @@ function fixture({values = ['project:1', 'project:2', 'legacy:3'], selected = []
     return {cards, group, groups, groupCount, picker, elements, action, selectGroup, changes: () => changes,
         selected: () => cards.filter(card => !card.input.disabled && card.input.checked).map(card => card.input.value)};
 }
+
+test('general report picker uses catalog IDs, groups, sector filtering and accent-insensitive search', () => {
+    const f = fixture({prefix: 'general', values: ['10', '20', '30'], selected: ['20'], groupSizes: [2, 1]});
+    assert.deepEqual(f.selected(), ['20']);
+    f.action('search', 'input', 'orientacion');
+    assert.deepEqual(f.cards.map(card => card.hidden), [false, true, true]);
+    f.selectGroup(0, true);
+    assert.deepEqual(f.selected(), ['10', '20']);
+    assert.equal(f.elements['general-indicator-all'].indeterminate, true);
+    f.action('all');
+    assert.deepEqual(f.selected(), ['10', '20', '30']);
+    f.action('general_sector_id', 'change', '2');
+    assert.deepEqual(f.selected(), ['20', '30']);
+    assert.equal(f.cards[0].input.checked, false);
+    assert.equal(f.cards[0].input.disabled, true);
+    f.action('toggle');
+    assert.equal(f.elements['general-indicator-toggle'].getAttribute('aria-expanded'), 'true');
+    f.action('clear');
+    assert.deepEqual(f.selected(), []);
+    assert.equal(f.elements['general-indicator-selection'].textContent, 'Todos los indicadores (sin filtro)');
+});
 
 test('select all marks real indicators, allows removing one and notifies the export form', () => {
     const f = fixture();

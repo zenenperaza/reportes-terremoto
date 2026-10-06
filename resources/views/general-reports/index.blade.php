@@ -13,6 +13,7 @@
         <h1>Informes Generales</h1>
         <p class="muted">Analice la poblaci&oacute;n atendida mediante filtros y gr&aacute;ficos interactivos.</p>
     </div>
+    @include('general-reports.partials.excel-export', ['exportRoute' => 'general-reports.export'])
 </section>
 
 @include('general-reports.partials.filters-and-summary')

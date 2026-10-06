@@ -1,15 +1,16 @@
 (() => {
     'use strict';
-    const picker = document.getElementById('summary-indicator-picker');
+    const picker = document.getElementById('summary-indicator-picker') || document.getElementById('general-indicator-picker');
     if (!picker) return;
-    const sector = document.getElementById('summary_sector_id');
-    const search = document.getElementById('summary-indicator-search');
-    const all = document.getElementById('summary-indicator-all');
-    const clear = document.getElementById('summary-indicator-clear');
-    const selection = document.getElementById('summary-indicator-selection');
-    const empty = document.getElementById('summary-indicator-empty');
-    const panel = document.getElementById('summary-indicator-panel');
-    const toggle = document.getElementById('summary-indicator-toggle');
+    const prefix = picker.dataset.pickerPrefix || 'summary';
+    const sector = document.getElementById(picker.dataset.sectorControl || `${prefix}_sector_id`);
+    const search = document.getElementById(`${prefix}-indicator-search`);
+    const all = document.getElementById(`${prefix}-indicator-all`);
+    const clear = document.getElementById(`${prefix}-indicator-clear`);
+    const selection = document.getElementById(`${prefix}-indicator-selection`);
+    const empty = document.getElementById(`${prefix}-indicator-empty`);
+    const panel = document.getElementById(`${prefix}-indicator-panel`);
+    const toggle = document.getElementById(`${prefix}-indicator-toggle`);
     const normalize = value => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es');
     const cards = [...picker.querySelectorAll('[data-indicator-card]')].map(element => ({
         element,

@@ -42,20 +42,28 @@
 </section>
 
 <section class="content-card filter-card">
-    <form method="get" class="beneficiary-report-filters" id="beneficiary-report-filters" data-locations-url="{{ route('beneficiaries.locations') }}">
+    <form method="get" class="beneficiary-report-filters" id="beneficiary-report-filters" data-period-dates data-date-bounds-url="{{ route('beneficiaries.dates') }}" data-locations-url="{{ route('beneficiaries.locations') }}">
         <input type="hidden" name="reported" value="{{ $filters['reported'] ?? '' }}">
-        <label>Fecha de atención desde
-            <input type="date" name="from" value="{{ $filters['from'] ?? '' }}">
-        </label>
-        <label>Fecha de atención hasta
-            <input type="date" name="to" value="{{ $filters['to'] ?? '' }}">
-        </label><br>
-        <label>Fecha de registro (inclusión) desde
-            <input type="date" name="included_from" value="{{ $filters['included_from'] ?? '' }}">
-        </label>
-        <label>Fecha de registro (inclusión) hasta
-            <input type="date" name="included_to" value="{{ $filters['included_to'] ?? '' }}">
-        </label><br>
+        @foreach(['from' => ['attention', 'Fecha de atención desde'], 'to' => ['attention', 'Fecha de atención hasta'], 'included_from' => ['registered', 'Fecha de registro (inclusión) desde'], 'included_to' => ['registered', 'Fecha de registro (inclusión) hasta']] as $field => [$dateGroup, $label])
+            @php
+                $bounds = $dateBounds[$dateGroup];
+            @endphp
+            <label for="summary_{{ $field }}">{{ $label }}
+                <input id="summary_{{ $field }}" type="date" name="{{ $field }}" value="{{ $filters[$field] ?? '' }}"
+                    data-period-date data-date-group="{{ $dateGroup }}" data-date-min="{{ $bounds['min'] ?? '' }}" data-date-max="{{ $bounds['max'] ?? '' }}"
+                    @if($bounds['min'] && $bounds['max']) min="{{ $bounds['min'] }}" max="{{ $bounds['max'] }}" @else disabled @endif
+                    aria-describedby="summary_{{ $field }}_help">
+                <small data-period-date-help id="summary_{{ $field }}_help">
+                    @if($bounds['min'] && $bounds['max'])
+                        Disponible: {{ \Illuminate\Support\Carbon::parse($bounds['min'])->format('d/m/Y') }} al {{ \Illuminate\Support\Carbon::parse($bounds['max'])->format('d/m/Y') }}.
+                    @else
+                        Sin fechas registradas disponibles.
+                    @endif
+                </small>
+            </label>
+            @if(in_array($field, ['to', 'included_to']))<br>@endif
+        @endforeach
+        @include('reports.partials.period-date-error')
         <label>Estado
             <select name="state_id" id="summary_state_id"><option value="">Todos</option>@foreach ($states as $state)<option value="{{ $state->id }}" @selected(($filters['state_id'] ?? '') == $state->id)>{{ $state->name }}</option>@endforeach</select>
         </label>
@@ -84,7 +92,7 @@
         <div class="filter-actions">
             <button class="button button-primary" type="submit">Generar informe</button>
             @can('exportar registros excel')
-                <a class="button button-excel" id="beneficiary-export-button"
+                <a class="button button-excel" id="beneficiary-export-button" data-period-date-export
                     data-export-url="{{ route('beneficiaries.export') }}"
                     href="{{ route('beneficiaries.export', array_merge($filters, ['reporting_period' => $filters['reporting_period'] ?? ''])) }}">
                     <svg class="excel-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -233,6 +241,7 @@ document.querySelectorAll('[data-report-tab]').forEach(tab => tab.addEventListen
 </script>
 
 <script src="{{ asset('js/beneficiary-indicator-picker.js') }}?v={{ filemtime(public_path('js/beneficiary-indicator-picker.js')) }}" defer></script>
+@include('reports.partials.period-date-assets')
 <script src="{{ asset('js/general-report-locations.js') }}?v={{ filemtime(public_path('js/general-report-locations.js')) }}"></script>
 <script src="/vendor/datatables/jquery-3.7.1.min.js"></script>
 <script src="/vendor/datatables/dataTables.min.js"></script>

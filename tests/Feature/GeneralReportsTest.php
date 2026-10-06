@@ -91,14 +91,14 @@ class GeneralReportsTest extends TestCase
 
         $this->actingAs($user)->get(route('general-reports.index', ['indicador_id' => $indicator->id]))
             ->assertOk()
-            ->assertSee('value="'.$indicator->id.'" selected', false)
+            ->assertSee('value="'.$indicator->id.'" checked', false)
             ->assertSee('<strong>2</strong>', false);
 
         $this->actingAs($user)->get(route('general-reports.index', ['indicador_id' => [$indicator->id, $secondIndicator->id]]))
             ->assertOk()
             ->assertSee('name="indicador_id[]"', false)
-            ->assertSee('value="'.$indicator->id.'" selected', false)
-            ->assertSee('value="'.$secondIndicator->id.'" selected', false)
+            ->assertSee('value="'.$indicator->id.'" checked', false)
+            ->assertSee('value="'.$secondIndicator->id.'" checked', false)
             ->assertSee('<strong>3</strong>', false);
 
         $this->actingAs($user)->get(route('general-reports.index', ['age_from' => 18, 'sex' => 'Mujer']))

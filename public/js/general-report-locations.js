@@ -28,9 +28,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const current = ++sequence;
         const selectedMunicipality = resetMunicipality ? '' : municipality.value;
         const params = new URLSearchParams();
-        if (!generalForm) {
-            params.set('reported', document.getElementById('summary_reported')?.value ?? '0');
-        }
+        params.set('reported', generalForm
+            ? form.querySelector('input[name="reported"]')?.value ?? ''
+            : document.getElementById('summary_reported')?.value ?? '0');
         if (generalForm) {
             Array.from(state.selectedOptions).forEach(option => params.append('state_id[]', option.value));
         } else if (state.value) {
@@ -40,6 +40,7 @@ document.addEventListener('DOMContentLoaded', function () {
         fill(municipality, [], 'Cargando...');
         fill(parish, [], 'Cargando...');
         municipality.disabled = parish.disabled = blocked = true;
+        form.dataset.locationsBlocked = '1';
         if (submit) submit.disabled = true;
         error.hidden = true;
 
@@ -53,7 +54,8 @@ document.addEventListener('DOMContentLoaded', function () {
             fill(municipality, options.municipalities, 'Todos', selectedMunicipality);
             fill(parish, options.parishes, 'Todas');
             municipality.disabled = parish.disabled = blocked = false;
-            if (submit) submit.disabled = false;
+            form.dataset.locationsBlocked = '0';
+            if (submit) submit.disabled = form.dataset.periodDatesBlocked === '1';
         } catch (failure) {
             if (current !== sequence || failure.name === 'AbortError') return;
             fill(municipality, [], 'No disponible');

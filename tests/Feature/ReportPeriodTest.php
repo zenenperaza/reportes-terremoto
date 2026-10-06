@@ -270,7 +270,7 @@ class ReportPeriodTest extends TestCase
         $this->get(route('system-configuration.index'))->assertOk()->assertViewHas('unassignedCount', 1);
     }
 
-    public function test_reports_default_to_configured_period_and_allow_explicit_all_or_unassigned(): void
+    public function test_reports_default_to_all_periods_and_allow_explicit_periods_or_unassigned(): void
     {
         $payload = $this->payload();
         foreach (['2031-12', '2031-11', null] as $period) {
@@ -282,9 +282,9 @@ class ReportPeriodTest extends TestCase
         foreach (['beneficiaries.summary', 'general-reports.index', 'indicator-reports.index'] as $route) {
             $countKey = $route === 'beneficiaries.summary' ? 'total' : 'beneficiaries';
             $response = $this->get(route($route))->assertOk()
-                ->assertViewHas('filters', fn ($filters) => $filters['reporting_period'] === '2031-12')
-                ->assertViewHas('summary', fn ($summary) => $summary[$countKey] === 1)
-                ->assertSee('value="2031-12" selected', false);
+                ->assertViewHas('filters', fn ($filters) => $filters['reporting_period'] === '')
+                ->assertViewHas('summary', fn ($summary) => $summary[$countKey] === 3)
+                ->assertDontSee('value="2031-12" selected', false);
             $response->assertSeeInOrder($route === 'beneficiaries.summary'
                 ? ['id="summary_reported"', 'report-period-row', 'id="reporting-period"', 'name="from"']
                 : ['name="reported"', 'col-12 report-period-row', 'id="reporting-period"', 'name="attention_from"'], false);
@@ -295,15 +295,15 @@ class ReportPeriodTest extends TestCase
                 ->assertViewHas('summary', fn ($summary) => $summary[$countKey] === 1);
             $this->period('2032-01');
             $this->get(route($route))->assertOk()
-                ->assertSee('value="2032-01" selected', false)
-                ->assertViewHas('summary', fn ($summary) => $summary[$countKey] === 0);
+                ->assertDontSee('value="2032-01" selected', false)
+                ->assertViewHas('summary', fn ($summary) => $summary[$countKey] === 3);
             $this->period('2031-12');
         }
 
         $this->get(route('beneficiaries.summary', ['reporting_period' => '']))->assertOk()
             ->assertSee('name="reporting_period" value=""', false)
             ->assertSee('reporting_period=', false);
-        foreach ([[[], 2], [['reporting_period' => ''], 4]] as [$filters, $rows]) {
+        foreach ([[[], 4], [['reporting_period' => ''], 4]] as [$filters, $rows]) {
             $response = $this->get(route('beneficiaries.export', $filters))->assertOk();
             $path = tempnam(sys_get_temp_dir(), 'period-default-export-');
             try {

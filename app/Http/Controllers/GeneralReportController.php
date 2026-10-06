@@ -6,14 +6,19 @@ use App\Models\Beneficiary;
 use App\Models\IndicadorProyecto;
 use App\Models\Municipality;
 use App\Models\Parish;
+use App\Models\Report;
 use App\Models\Sector;
 use App\Services\ReportLocationOptions;
+use App\Services\ReportSummaryExcelExport;
+use App\Support\ReportPeriod;
+use App\Support\ReportPeriodDates;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class GeneralReportController extends Controller
 {
@@ -31,11 +36,24 @@ class GeneralReportController extends Controller
         return view('general-reports.index', $this->buildViewData($request));
     }
 
+    public function export(Request $request): StreamedResponse
+    {
+        return $this->exportReport($request, false);
+    }
+
+    protected function exportReport(Request $request, bool $byIndicators): StreamedResponse
+    {
+        abort_unless($request->user()->can('exportar registros excel'), 403);
+
+        return app(ReportSummaryExcelExport::class)->download($this->buildViewData($request), $byIndicators);
+    }
+
     /** @return array<string, mixed> */
     protected function buildViewData(Request $request): array
     {
-        $dateBounds = $this->dateBounds($request);
-        $filters = $this->validatedFilters($request, $dateBounds);
+        $filters = $this->validatedFilters($request);
+        $dateBounds = $this->dateBounds($request, $filters);
+        $this->validateDateBounds($filters, $dateBounds);
         $beneficiaries = $this->filteredBeneficiaries($request, $filters)
             ->with([
                 'report:id,report_date,created_at,state_id,municipality_id,parish_id,installation_type,place_name,sector_id,activity_id,indicador_proyecto_id',
@@ -47,13 +65,18 @@ class GeneralReportController extends Controller
             ->get(['id', 'report_id', 'age', 'sex', 'is_recurrent', 'reported_at', 'created_at']);
 
         $locations = $this->locationOptions($request, $filters);
+        $optionReports = $this->optionReports($request, $filters);
+        $peopleOptions = $this->optionBeneficiaries($request, $filters)->distinct()->get(['age', 'sex', 'is_recurrent']);
         $indicatorAssignments = IndicadorProyecto::query()
-            ->with(['indicador:id,codigo,descripcion', 'asignacionSector:id,sector_id'])
-            ->whereIn('id', $this->visibleReports($request)
+            ->with([
+                'indicador:id,indicator_group_id,codigo,descripcion,unidad_conteo,espacio_coordinacion,edad_desde,edad_hasta',
+                'indicador.indicatorGroup:id,name,description,sort_order',
+                'asignacionSector:id,sector_id',
+            ])
+            ->whereIn('id', (clone $optionReports)
                 ->whereNotNull('indicador_proyecto_id')
                 ->distinct()
                 ->pluck('indicador_proyecto_id'))
-            ->where('estatus', true)
             ->get(['id', 'indicador_id', 'sector_proyecto_id']);
 
         $indicators = $indicatorAssignments
@@ -64,7 +87,18 @@ class GeneralReportController extends Controller
 
                 return [
                     'id' => $indicator->id,
+                    'value' => (string) $indicator->id,
                     'label' => trim($indicator->codigo.' - '.$indicator->descripcion, ' -'),
+                    'code' => $indicator->codigo,
+                    'title' => $indicator->descripcion,
+                    'coordination' => $indicator->espacio_coordinacion,
+                    'unit' => $indicator->unidad_conteo,
+                    'age_from' => $indicator->edad_desde,
+                    'age_to' => $indicator->edad_hasta,
+                    'group_id' => $indicator->indicatorGroup?->id,
+                    'group_name' => $indicator->indicatorGroup?->name,
+                    'group_description' => $indicator->indicatorGroup?->description,
+                    'group_order' => $indicator->indicatorGroup?->sort_order,
                     'sector_ids' => $assignments->pluck('asignacionSector.sector_id')->filter()->unique()->values()->all(),
                 ];
             })
@@ -73,17 +107,21 @@ class GeneralReportController extends Controller
 
         return [
             'filters' => $filters,
-            'periodOptions' => \App\Support\ReportPeriod::options($this->visibleReports($request), true),
+            'periodOptions' => ReportPeriod::options(clone $optionReports, true),
             'dateBounds' => $dateBounds,
+            'dateBoundsRoute' => route('general-reports.dates'),
             'ageGroups' => self::AGE_GROUPS,
+            'ageGroupOptions' => array_filter(self::AGE_GROUPS, fn ($range, $key) => $key === ($filters['age_group'] ?? null) || $peopleOptions->contains(fn ($person) => $person->age !== null && $person->age >= $range['from'] && $person->age <= $range['to']), ARRAY_FILTER_USE_BOTH),
+            'sexOptions' => $peopleOptions->pluck('sex')->filter()->unique()->sort()->values(),
+            'recurrenceOptions' => $peopleOptions->pluck('is_recurrent')->map(fn ($value) => $value ? '1' : '0')->unique()->values()->all(),
             'states' => $locations['states'],
             'municipalities' => $locations['municipalities'],
             'parishes' => $locations['parishes'],
-            'sectors' => Sector::where('estatus', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
+            'sectors' => Sector::whereIn('id', (clone $optionReports)->select('sector_id'))->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
             'indicators' => $indicators,
             'locationsRoute' => route('general-reports.locations'),
-            'installationTypes' => config('reports.installation_types'),
-            'places' => $this->visibleReports($request)->whereNotNull('place_name')->where('place_name', '<>', '')->distinct()->orderBy('place_name')->pluck('place_name'),
+            'installationTypes' => (clone $optionReports)->whereNotNull('installation_type')->distinct()->orderBy('installation_type')->pluck('installation_type'),
+            'places' => (clone $optionReports)->whereNotNull('place_name')->where('place_name', '<>', '')->distinct()->orderBy('place_name')->pluck('place_name'),
             'summary' => $this->summary($beneficiaries),
             'indicatorGroupsSummary' => $this->indicatorGroupsSummary($beneficiaries),
             'charts' => $this->charts($beneficiaries),
@@ -92,10 +130,30 @@ class GeneralReportController extends Controller
 
     private function visibleReports(Request $request): Builder
     {
-        $query = \App\Models\Report::query();
+        $query = Report::query();
         $request->user()->constrainVisibleReports($query);
 
         return $query;
+    }
+
+    private function applyReportedStatus(Builder $query, array $filters): Builder
+    {
+        return $query
+            ->when((string) ($filters['reported'] ?? '') === '1', fn (Builder $q) => $q->whereNotNull('reported_at'))
+            ->when((string) ($filters['reported'] ?? '') === '0', fn (Builder $q) => $q->whereNull('reported_at'));
+    }
+
+    private function optionReports(Request $request, array $filters): Builder
+    {
+        // A report with both pending and reported people belongs to both statuses.
+        // Other filters do not narrow options, so users can widen their selections.
+        return $this->visibleReports($request)->whereHas('beneficiaries', fn (Builder $q) => $this->applyReportedStatus($q, $filters));
+    }
+
+    private function optionBeneficiaries(Request $request, array $filters): Builder
+    {
+        return $this->applyReportedStatus(Beneficiary::query()
+            ->whereIn('report_id', $this->visibleReports($request)->select('reports.id')), $filters);
     }
 
     public function locations(Request $request): JsonResponse
@@ -103,10 +161,15 @@ class GeneralReportController extends Controller
         return response()->json($this->locationOptions($request, $this->validatedFilters($request)));
     }
 
+    public function dates(Request $request): JsonResponse
+    {
+        return response()->json($this->dateBounds($request, $this->validatedFilters($request)));
+    }
+
     private function locationOptions(Request $request, array $filters): array
     {
         $locations = (new ReportLocationOptions)->get(
-            $this->visibleReports($request), $filters['state_id'],
+            $this->optionReports($request, $filters), $filters['state_id'],
             filled($filters['municipality_id'] ?? null) ? (int) $filters['municipality_id'] : null,
         );
 
@@ -152,31 +215,17 @@ class GeneralReportController extends Controller
             ->when(($filters['reported'] ?? '') === '0', fn (Builder $q) => $q->whereNull('reported_at'));
     }
 
-    private function dateBounds(Request $request): array
+    private function dateBounds(Request $request, array $filters): array
     {
-        // Use the same records and date columns as the report, without narrowing
-        // the bounds to the current filters (users must be able to widen them).
-        $bounds = Beneficiary::query()
-            ->whereIn('beneficiaries.report_id', $this->visibleReports($request)->select('reports.id'))
-            ->join('reports', 'beneficiaries.report_id', '=', 'reports.id')
-            ->toBase()->selectRaw('MIN(reports.report_date) as attention_min, MAX(reports.report_date) as attention_max, MIN(beneficiaries.created_at) as registered_min, MAX(beneficiaries.created_at) as registered_max')
-            ->first();
-
-        $result = [];
-        foreach (['attention', 'registered'] as $group) {
-            foreach (['min', 'max'] as $limit) {
-                $value = $bounds->{$group.'_'.$limit};
-                $result[$group][$limit] = $value === null ? null : substr((string) $value, 0, 10);
-            }
-        }
-
-        return $result;
+        // Other filters must not shrink the range: users need to be able to widen dates.
+        return ReportPeriodDates::forBeneficiaries($this->optionBeneficiaries($request, $filters)
+            ->whereHas('report', fn (Builder $query) => $query->reportingPeriod($filters['reporting_period'] ?? null)));
     }
 
     /** @return array<string, mixed> */
-    private function validatedFilters(Request $request, ?array $dateBounds = null): array
+    private function validatedFilters(Request $request): array
     {
-        $input = $request->all() + ['reporting_period' => \App\Support\ReportPeriod::current()];
+        $input = $request->all() + ['reporting_period' => ''];
         // Continue accepting bookmarked URLs with a single state_id.
         if (! is_array($input['state_id'] ?? null)) {
             $input['state_id'] = filled($input['state_id'] ?? null) ? [$input['state_id']] : [];
@@ -184,6 +233,8 @@ class GeneralReportController extends Controller
         if (! is_array($input['indicador_id'] ?? null)) {
             $input['indicador_id'] = filled($input['indicador_id'] ?? null) ? [$input['indicador_id']] : [];
         }
+        // The checkbox picker submits an explicit empty value for "all indicators".
+        $input['indicador_id'] = array_values(array_filter($input['indicador_id'], fn ($value) => $value !== null && $value !== ''));
 
         // El grupo etario y el rango manual representan el mismo criterio. Si una
         // URL antigua contiene ambos, el grupo etario tiene prioridad para evitar
@@ -194,11 +245,11 @@ class GeneralReportController extends Controller
         }
 
         $filters = validator($input, [
-            'reporting_period' => \App\Support\ReportPeriod::rules(),
+            'reporting_period' => ReportPeriod::rules(),
             'attention_from' => ['nullable', 'date_format:Y-m-d'],
-            'attention_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:attention_from'],
+            'attention_to' => ['nullable', 'date_format:Y-m-d', 'after:attention_from'],
             'registered_from' => ['nullable', 'date_format:Y-m-d'],
-            'registered_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:registered_from'],
+            'registered_to' => ['nullable', 'date_format:Y-m-d', 'after:registered_from'],
             'age_from' => ['nullable', 'integer', 'min:0', 'max:120'],
             'age_to' => ['nullable', 'integer', 'min:0', 'max:120', 'gte:age_from'],
             'age_group' => ['nullable', Rule::in(array_keys(self::AGE_GROUPS))],
@@ -214,30 +265,10 @@ class GeneralReportController extends Controller
             'indicador_id.*' => ['required', 'integer', 'distinct', 'exists:indicadores,id'],
             'is_recurrent' => ['nullable', Rule::in(['0', '1', 0, 1])],
             'reported' => ['nullable', Rule::in(['0', '1', 0, 1])],
+        ], [
+            'attention_to.after' => 'La fecha de atención «Desde» debe ser anterior a «Hasta».',
+            'registered_to.after' => 'La fecha de registro «Desde» debe ser anterior a «Hasta».',
         ])->validate();
-
-        if ($dateBounds !== null) {
-            $errors = [];
-            foreach (['attention', 'registered'] as $group) {
-                foreach (['from', 'to'] as $suffix) {
-                    $field = $group.'_'.$suffix;
-                    $value = $filters[$field] ?? null;
-                    if (! filled($value)) {
-                        continue;
-                    }
-                    $min = $dateBounds[$group]['min'];
-                    $max = $dateBounds[$group]['max'];
-                    if ($min === null || $max === null) {
-                        $errors[$field] = 'No hay fechas registradas disponibles para este filtro.';
-                    } elseif ($value < $min || $value > $max) {
-                        $errors[$field] = "Seleccione una fecha entre {$min} y {$max}, el período con registros disponibles.";
-                    }
-                }
-            }
-            if ($errors) {
-                throw ValidationException::withMessages($errors);
-            }
-        }
 
         $filters['state_id'] = array_map('intval', $filters['state_id']);
         $filters['indicador_id'] = array_map('intval', $filters['indicador_id']);
@@ -253,10 +284,18 @@ class GeneralReportController extends Controller
         }
 
         if (is_array($filters['reporting_period'] ?? null)) {
-            $filters['reporting_period'] = \App\Support\ReportPeriod::selection($filters['reporting_period']) ?: '';
+            $filters['reporting_period'] = ReportPeriod::selection($filters['reporting_period']) ?: '';
         }
 
         return $filters;
+    }
+
+    private function validateDateBounds(array $filters, array $dateBounds): void
+    {
+        ReportPeriodDates::validate($filters, $dateBounds, [
+            'attention_from' => 'attention', 'attention_to' => 'attention',
+            'registered_from' => 'registered', 'registered_to' => 'registered',
+        ]);
     }
 
     private function summary($beneficiaries): array

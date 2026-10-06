@@ -17,7 +17,8 @@ function harness(useSelect2 = false, beneficiary = false) {
     state.selectedOptions = [{value: '1'}, {value: '2'}];
     const submit = element(), error = element(), retry = element(), form = element();
     form.dataset = {locationsUrl: '/informes-generales/ubicaciones'};
-    form.querySelector = () => submit;
+    const generalReported = element('1');
+    form.querySelector = selector => selector === 'input[name="reported"]' ? generalReported : submit;
     const elements = {'general-report-filters': form, 'general_state_id': state, 'general_municipality_id': municipality,
         'general_parish_id': parish, 'general-locations-error': error, 'general-locations-retry': retry};
     const exportButton = element();
@@ -87,6 +88,7 @@ test('multiple states are sent together and dependent selections are reset', asy
     assert.equal(h.select2Options.closeOnSelect, false);
     const pending = h.state.handlers.change();
     const params = new URL(h.requests[0].url, 'https://app.test').searchParams;
+    assert.equal(params.get('reported'), '1');
     assert.deepEqual(params.getAll('state_id[]'), ['1', '2']);
     assert.equal(params.has('municipality_id'), false);
     assert.equal(h.submit.disabled, true);

@@ -7,6 +7,7 @@ use App\Models\Report;
 use App\Models\Sector;
 use App\Services\ReportLocationOptions;
 use App\Support\ReportPeriod;
+use App\Support\ReportPeriodDates;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -75,6 +76,7 @@ class BeneficiaryReportController extends Controller
 
         return view('beneficiaries.summary', [
             'filters' => $filters,
+            'dateBounds' => $this->dateBounds($request, $filters),
             'periodOptions' => ReportPeriod::options($this->optionReports($request, $filters), true),
             'summary' => $this->summary($beneficiaries),
             'summary345w' => $this->summary345w($beneficiaries),
@@ -361,7 +363,7 @@ class BeneficiaryReportController extends Controller
     /** @return array<string, mixed> */
     private function validatedFilters(Request $request): array
     {
-        $input = $request->all() + ['reporting_period' => ReportPeriod::current()];
+        $input = $request->all() + ['reporting_period' => ''];
         // The explicit selector overrides old query-string filters, including "Todos".
         // Keep old single-selection links compatible with the new array selector.
         if ($request->exists('indicator_filter')) {
@@ -381,10 +383,10 @@ class BeneficiaryReportController extends Controller
                 },
             ],
             'reporting_period' => ReportPeriod::rules(),
-            'from' => ['nullable', 'date'],
-            'to' => ['nullable', 'date', 'after_or_equal:from'],
-            'included_from' => ['nullable', 'date'],
-            'included_to' => ['nullable', 'date', 'after_or_equal:included_from'],
+            'from' => ['nullable', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'date_format:Y-m-d', 'after:from'],
+            'included_from' => ['nullable', 'date_format:Y-m-d'],
+            'included_to' => ['nullable', 'date_format:Y-m-d', 'after:included_from'],
             'state_id' => ['nullable', 'integer', 'exists:states,id'],
             'municipality_id' => ['nullable', 'integer', 'exists:municipalities,id'],
             'parish_id' => ['nullable', 'integer', 'exists:parishes,id'],
@@ -395,6 +397,9 @@ class BeneficiaryReportController extends Controller
             'indicador_proyecto_id' => ['nullable', 'integer', 'exists:indicador_proyecto,id'],
             'is_recurrent' => ['nullable', Rule::in(['0', '1', 0, 1])],
             'reported' => ['nullable', Rule::in(['0', '1', 0, 1])],
+        ], [
+            'to.after' => 'La fecha de atención «Desde» debe ser anterior a «Hasta».',
+            'included_to.after' => 'La fecha de registro «Desde» debe ser anterior a «Hasta».',
         ])->validate();
 
         if (isset($filters['indicator_filter'])) {
@@ -407,6 +412,13 @@ class BeneficiaryReportController extends Controller
 
         if (is_array($filters['reporting_period'] ?? null)) {
             $filters['reporting_period'] = ReportPeriod::selection($filters['reporting_period']) ?: '';
+        }
+
+        if (collect(['from', 'to', 'included_from', 'included_to'])->contains(fn ($field) => filled($filters[$field] ?? null))) {
+            ReportPeriodDates::validate($filters, $this->dateBounds($request, $filters), [
+                'from' => 'attention', 'to' => 'attention',
+                'included_from' => 'registered', 'included_to' => 'registered',
+            ]);
         }
 
         return $filters;
@@ -437,6 +449,19 @@ class BeneficiaryReportController extends Controller
             ->when($filters['included_to'] ?? null, fn (Builder $query, string $date) => $query->whereDate('beneficiaries.created_at', '<=', $date));
 
         return $beneficiaries;
+    }
+
+    public function dates(Request $request): JsonResponse
+    {
+        return response()->json($this->dateBounds($request, $this->validatedFilters($request)));
+    }
+
+    private function dateBounds(Request $request, array $filters): array
+    {
+        return ReportPeriodDates::forBeneficiaries($this->filteredBeneficiaries($request, [
+            'reporting_period' => $filters['reporting_period'] ?? '',
+            'reported' => $filters['reported'] ?? '',
+        ]));
     }
 
     /** @param array<string, mixed> $filters */
