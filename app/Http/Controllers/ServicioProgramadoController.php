@@ -12,8 +12,12 @@ use App\Models\Servicio;
 use App\Models\ServicioActividad;
 use App\Services\ProgrammedServicesExcelExport;
 use App\Support\ReportPeriod;
+use App\Support\ReportPeriodDates;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -24,14 +28,19 @@ class ServicioProgramadoController extends Controller
     public function index(Request $request): View
     {
         $filters = $this->validatedFilters($request);
+        $dateBounds = $this->dateBounds($request, $filters);
+        ReportPeriodDates::validate($filters, $dateBounds, ['from' => 'attention', 'to' => 'attention']);
         $available = ServicioActividad::whereHas('reports', fn (Builder $reports) => $request->user()
             ->constrainVisibleReports($reports)->whereHas('beneficiaries'))->pluck('id');
         $assigned = fn (Builder $services) => $services->whereIn('servicio_actividad.id', $available);
+        $assignments = $this->query($request, $filters)->get();
 
         return view('servicios.programados', [
             'filters' => $filters,
+            'dateBounds' => $dateBounds,
             // DataTable paginates/searches all filtered assignments, not a Laravel page.
-            'asignaciones' => $this->query($request, $filters)->get(),
+            'asignaciones' => $assignments,
+            'entregas' => $filters['vista'] === 'resumen' ? collect() : $this->deliveryRows($request, $filters, $assignments->modelKeys()),
             'periodOptions' => ReportPeriod::options($request->user()->constrainVisibleReports(Report::query())
                 ->whereHas('serviciosActividad')->whereHas('beneficiaries')),
             // Include inactive assignments because historical deliveries remain valid.
@@ -46,6 +55,25 @@ class ServicioProgramadoController extends Controller
     public function export(Request $request): StreamedResponse
     {
         $filters = $this->validatedFilters($request);
+        ReportPeriodDates::validate($filters, $this->dateBounds($request, $filters), ['from' => 'attention', 'to' => 'attention']);
+        if ($filters['vista'] !== 'resumen') {
+            $rows = $this->deliveryRows($request, $filters, $this->query($request, $filters)->get()->modelKeys());
+            $selection = $request->validate([
+                'table_selection' => ['nullable', 'boolean'],
+                'row_keys_json' => ['nullable', 'string', 'json', 'max:1000000'],
+            ]);
+            if ($request->boolean('table_selection')) {
+                $keys = json_decode($selection['row_keys_json'] ?? '[]', true);
+                if (! is_array($keys) || ! array_is_list($keys) || count(array_filter($keys,
+                    fn ($key) => ! is_string($key) || ! preg_match('/^[1-9][0-9]*(?::[1-9][0-9]*)?$/D', $key))) > 0) {
+                    throw ValidationException::withMessages(['row_keys_json' => 'La selección de entregas no es válida.']);
+                }
+                // Client IDs never authorize a beneficiary or bypass the filters.
+                $rows = $rows->whereIn('key', $keys);
+            }
+
+            return app(ProgrammedServicesExcelExport::class)->downloadDeliveries($rows, $filters);
+        }
         if ($request->has('assignment_ids_json')) {
             $payload = $request->validate(['assignment_ids_json' => ['required', 'string', 'json', 'max:1000000']]);
             $ids = json_decode($payload['assignment_ids_json'], true);
@@ -68,9 +96,28 @@ class ServicioProgramadoController extends Controller
         return app(ProgrammedServicesExcelExport::class)->download($query, $filters);
     }
 
+    public function dates(Request $request): JsonResponse
+    {
+        // Ignore existing date inputs: they must not narrow the available range.
+        $filters = $request->validate(['reporting_period' => ReportPeriod::rules()]);
+
+        return response()->json($this->dateBounds($request, $filters))
+            ->header('Cache-Control', 'private, no-store');
+    }
+
+    private function dateBounds(Request $request, array $filters): array
+    {
+        $reports = $request->user()->constrainVisibleReports(Report::query())
+            ->whereHas('serviciosActividad')->reportingPeriod($filters['reporting_period'] ?? []);
+
+        return ReportPeriodDates::forBeneficiaries(Beneficiary::query()
+            ->whereIn('beneficiaries.report_id', $reports->select('reports.id')));
+    }
+
     private function validatedFilters(Request $request): array
     {
         $validated = $request->validate([
+            'vista' => ['nullable', Rule::in(['resumen', 'beneficiario', 'servicio'])],
             'proyecto_id' => ['nullable', 'integer', 'exists:proyectos,id'],
             'sector_id' => ['nullable', 'integer', 'exists:sectors,id'],
             'indicador_id' => ['nullable', 'integer', 'exists:indicadores,id'],
@@ -87,6 +134,11 @@ class ServicioProgramadoController extends Controller
             'to.date_format' => 'Ingrese una fecha de atención hasta válida.',
         ]);
         unset($validated['page']);
+        $canViewBeneficiaries = $request->user()->can('solo ver registros') && $request->user()->can('ver detalle de registros');
+        $validated['vista'] = ($validated['vista'] ?? null) ?: ($canViewBeneficiaries ? 'beneficiario' : 'resumen');
+        if ($validated['vista'] !== 'resumen') {
+            abort_unless($canViewBeneficiaries, 403);
+        }
 
         return $validated + ['proyecto_id' => '', 'sector_id' => '', 'indicador_id' => '', 'actividad_id' => '', 'servicio_id' => '', 'estatus' => '', 'reporting_period' => [], 'from' => '', 'to' => ''];
     }
@@ -98,6 +150,29 @@ class ServicioProgramadoController extends Controller
             ->reportingPeriod($filters['reporting_period'])
             ->when(filled($filters['from']), fn (Builder $reports) => $reports->whereDate('reports.report_date', '>=', $filters['from']))
             ->when(filled($filters['to']), fn (Builder $reports) => $reports->whereDate('reports.report_date', '<=', $filters['to']));
+    }
+
+    private function deliveryRows(Request $request, array $filters, array $assignmentIds): Collection
+    {
+        $beneficiaries = Beneficiary::query()->whereHas('report', fn (Builder $reports) => $this
+            ->deliveredReports($request, $filters, $reports)->whereHas('serviciosActividad',
+                fn (Builder $services) => $services->whereIn('servicio_actividad.id', $assignmentIds)))
+            ->with([
+                'report.proyecto', 'report.indicadorProyecto.indicador', 'report.indicadorProyecto.asignacionSector.sector',
+                'report.actividadIndicador.actividad',
+                'report.serviciosActividad' => fn (BelongsToMany $services) => $services->whereIn('servicio_actividad.id', $assignmentIds)->with('servicio'),
+            ])->orderBy('beneficiaries.id')->get();
+
+        return $beneficiaries->flatMap(function (Beneficiary $person) use ($filters): array {
+            $services = $person->report->serviciosActividad;
+            if ($filters['vista'] === 'beneficiario') {
+                return [['key' => (string) $person->id, 'beneficiary' => $person, 'services' => $services]];
+            }
+
+            return $services->map(fn ($service) => [
+                'key' => $person->id.':'.$service->id, 'beneficiary' => $person, 'services' => collect([$service]),
+            ])->all();
+        });
     }
 
     private function query(Request $request, array $filters): Builder

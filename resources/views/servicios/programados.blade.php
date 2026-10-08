@@ -13,11 +13,21 @@
         <p class="muted">Consulte los servicios registrados como entregados a beneficiarios, por proyecto, sector, indicador y actividad.</p>
     </div>
     <div class="heading-actions">
-        @if(auth()->user()->isAdministrator())<a class="button button-secondary" href="{{ route('servicios.index') }}">Catálogo de servicios</a>@endif
+        @can('administrar sistema')<a class="button button-secondary" href="{{ route('servicios.index') }}">Catálogo de servicios</a>@endcan
     </div>
 </section>
 <section class="content-card programmed-service-filter-card" aria-label="Filtros del informe por servicios">
-    <form method="get" action="{{ route('servicios-programados.index') }}" class="programmed-service-filters">
+    <form method="get" action="{{ route('servicios-programados.index') }}" class="programmed-service-filters" data-period-dates data-date-bounds-url="{{ route('servicios-programados.dates') }}" data-date-allow-equal="1">
+        <label for="service_view">Mostrar resultados
+            <select id="service_view" name="vista">
+                @if(auth()->user()->can('solo ver registros') && auth()->user()->can('ver detalle de registros'))
+                    <option value="beneficiario" @selected($filters['vista'] === 'beneficiario')>Por beneficiario</option>
+                    <option value="servicio" @selected($filters['vista'] === 'servicio')>Por servicio</option>
+                @endif
+                <option value="resumen" @selected($filters['vista'] === 'resumen')>Resumen por servicio</option>
+            </select>
+            <small>Por beneficiario: reúne sus servicios. Por servicio: una fila por cada entrega.</small>
+        </label>
         <label for="programmed_project">Proyecto
             <select id="programmed_project" name="proyecto_id"><option value="">Todos los proyectos</option>@foreach($proyectos as $project)<option value="{{ $project->id }}" @selected((string) $filters['proyecto_id'] === (string) $project->id)>{{ $project->codigo }}{{ $project->nombre_alias ? ' — '.$project->nombre_alias : '' }}</option>@endforeach</select>
         </label>
@@ -38,11 +48,14 @@
         </label>
         @include('reports.partials.period-filter')
         <label for="service_attention_from">Fecha de atención desde
-            <input type="date" id="service_attention_from" name="from" value="{{ $filters['from'] }}">
+            <input type="date" id="service_attention_from" name="from" value="{{ $filters['from'] }}" data-period-date data-date-group="attention" data-date-min="{{ $dateBounds['attention']['min'] }}" data-date-max="{{ $dateBounds['attention']['max'] }}" min="{{ $dateBounds['attention']['min'] }}" max="{{ $dateBounds['attention']['max'] }}" @disabled(!$dateBounds['attention']['min']) aria-describedby="service-from-help">
+            <small id="service-from-help" data-period-date-help>@if($dateBounds['attention']['min'])Disponible: {{ \Illuminate\Support\Carbon::parse($dateBounds['attention']['min'])->format('d/m/Y') }} al {{ \Illuminate\Support\Carbon::parse($dateBounds['attention']['max'])->format('d/m/Y') }}.@else Sin fechas registradas disponibles.@endif</small>
         </label>
         <label for="service_attention_to">Fecha de atención hasta
-            <input type="date" id="service_attention_to" name="to" value="{{ $filters['to'] }}">
+            <input type="date" id="service_attention_to" name="to" value="{{ $filters['to'] }}" data-period-date data-date-group="attention" data-date-min="{{ $dateBounds['attention']['min'] }}" data-date-max="{{ $dateBounds['attention']['max'] }}" min="{{ $dateBounds['attention']['min'] }}" max="{{ $dateBounds['attention']['max'] }}" @disabled(!$dateBounds['attention']['max']) aria-describedby="service-to-help">
+            <small id="service-to-help" data-period-date-help>@if($dateBounds['attention']['min'])Disponible: {{ \Illuminate\Support\Carbon::parse($dateBounds['attention']['min'])->format('d/m/Y') }} al {{ \Illuminate\Support\Carbon::parse($dateBounds['attention']['max'])->format('d/m/Y') }}.@else Sin fechas registradas disponibles.@endif</small>
         </label>
+        @include('reports.partials.period-date-error')
         <div class="programmed-service-filter-actions">
             <a class="button button-secondary" href="{{ route('servicios-programados.index') }}">Limpiar filtros</a>
             <button class="button button-primary" type="submit"><i class="ri-filter-3-line" aria-hidden="true"></i> Aplicar filtros</button>
@@ -51,9 +64,15 @@
 </section>
 <section class="content-card programmed-service-results">
     <div class="card-heading">
-        <div><h2>Servicios entregados</h2><p class="muted">{{ number_format($asignaciones->count()) }} servicio(s) con registros de beneficiarios. Cada fila resume un servicio dentro de un proyecto, indicador y actividad.</p></div>
+        <div><h2>Servicios entregados</h2>
+            @if($filters['vista'] === 'resumen')
+                <p class="muted">{{ number_format($asignaciones->count()) }} servicio(s) con registros de beneficiarios. Cada fila resume un servicio dentro de un proyecto, indicador y actividad.</p>
+            @else
+                <p class="muted">{{ number_format($entregas->count()) }} fila(s) · {{ $filters['vista'] === 'beneficiario' ? 'Por beneficiario: una fila por beneficiario de cada registro, con sus servicios.' : 'Por servicio: una fila por servicio y beneficiario; un beneficiario puede aparecer varias veces.' }}</p>
+            @endif
+        </div>
         @can('exportar informes por servicios excel')
-            <a id="service-report-export" class="button button-excel-export" href="{{ route('servicios-programados.export', $filters) }}"><i class="ri-file-excel-2-line" aria-hidden="true"></i> Exportar Excel</a>
+            <a id="service-report-export" class="button button-excel-export" data-period-date-export href="{{ route('servicios-programados.export', $filters) }}"><i class="ri-file-excel-2-line" aria-hidden="true"></i> Exportar Excel</a>
             <form id="service-report-export-form" method="post" action="{{ route('servicios-programados.export') }}" hidden>
                 @csrf
                 @foreach($filters as $field => $value)
@@ -65,6 +84,9 @@
         @endcan
     </div>
     <p class="programmed-service-note">Solo se muestran servicios seleccionados en registros con beneficiarios. Las atenciones cuentan filas de beneficiarios: no son personas únicas ni unidades entregadas. SIA no registra la cantidad de unidades entregadas por servicio. El estado indica si la asignación está activa, no si hubo entrega.</p>
+    @if($filters['vista'] !== 'resumen')
+        @include('servicios.partials.entregas')
+    @else
     @if($asignaciones->isEmpty())
         <div class="empty-state"><p>No hay servicios entregados registrados que coincidan con los filtros.</p></div>
     @endif
@@ -91,16 +113,20 @@
                         <td data-order="{{ $asignacion->reports_max_report_date }}">{{ $asignacion->reports_max_report_date ? \Illuminate\Support\Carbon::parse($asignacion->reports_max_report_date)->format('d/m/Y') : 'Sin fecha' }}</td>
                         <td><span class="status {{ $asignacion->estatus ? 'status-active' : 'status-inactive' }}">{{ $asignacion->estatus ? 'Activo' : 'Inactivo' }}</span></td>
                         <td><div class="programmed-service-row-actions">
-                            @if(auth()->user()->isAdministrator())<a href="{{ route('actividad-indicador.servicios.index', $activity) }}">Ver configuración</a>@endif
-                            @can('solo ver registros')<a href="{{ route('reports.index', ['servicio_actividad_id' => $asignacion->id, 'reported' => '', 'reporting_period' => $filters['reporting_period'] ?: '', 'from' => $filters['from'], 'to' => $filters['to']]) }}">Ver beneficiarios</a>@endcan
+                            @can('administrar sistema')<a href="{{ route('actividad-indicador.servicios.index', $activity) }}">Ver configuración</a>@endcan
+                            @if(auth()->user()->can('solo ver registros') && auth()->user()->can('ver detalle de registros'))
+                                <a href="{{ route('reports.index', ['servicio_actividad_id' => $asignacion->id, 'reported' => '', 'reporting_period' => $filters['reporting_period'] ?: '', 'from' => $filters['from'], 'to' => $filters['to']]) }}">Ver beneficiarios</a>
+                            @endif
                         </div></td>
                     </tr>
                 @endforeach
                 </tbody>
             </table>
         </div>
+    @endif
 </section>
 @endsection
+@include('reports.partials.period-date-assets')
 @push('scripts')
 <script src="{{ asset('vendor/datatables/dataTables.min.js') }}"></script>
 <script src="{{ asset('vendor/datatables/dataTables.responsive.min.js') }}"></script>

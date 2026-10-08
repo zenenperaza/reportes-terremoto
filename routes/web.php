@@ -151,10 +151,10 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
         Route::post('indicadores-proyectos/{indicadorProyecto}/actividades', [IndicadorProyectoActividadController::class, 'store'])->name('indicador-proyecto.actividades.store');
         Route::put('actividades-indicadores/{actividadIndicador}', [IndicadorProyectoActividadController::class, 'update'])->name('actividad-indicador.update');
         Route::delete('actividades-indicadores/{actividadIndicador}', [IndicadorProyectoActividadController::class, 'destroy'])->name('actividad-indicador.destroy');
-        Route::get('actividades-indicadores/{actividadIndicador}/servicios', [ActividadIndicadorServicioController::class, 'index'])->name('actividad-indicador.servicios.index');
-        Route::post('actividades-indicadores/{actividadIndicador}/servicios', [ActividadIndicadorServicioController::class, 'store'])->name('actividad-indicador.servicios.store');
-        Route::put('servicios-actividades/{servicioActividad}', [ActividadIndicadorServicioController::class, 'update'])->name('servicio-actividad.update');
-        Route::delete('servicios-actividades/{servicioActividad}', [ActividadIndicadorServicioController::class, 'destroy'])->name('servicio-actividad.destroy');
+        Route::get('actividades-indicadores/{actividadIndicador}/servicios', [ActividadIndicadorServicioController::class, 'index'])->middleware('permission:administrar sistema')->name('actividad-indicador.servicios.index');
+        Route::post('actividades-indicadores/{actividadIndicador}/servicios', [ActividadIndicadorServicioController::class, 'store'])->middleware('permission:administrar sistema')->name('actividad-indicador.servicios.store');
+        Route::put('servicios-actividades/{servicioActividad}', [ActividadIndicadorServicioController::class, 'update'])->middleware('permission:administrar sistema')->name('servicio-actividad.update');
+        Route::delete('servicios-actividades/{servicioActividad}', [ActividadIndicadorServicioController::class, 'destroy'])->middleware('permission:administrar sistema')->name('servicio-actividad.destroy');
     });
 
     Route::get('configuracion/respaldos', [BackupController::class, 'index'])
@@ -192,6 +192,8 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
     Route::get('/informes-generales', GeneralReportController::class)->name('general-reports.index');
     Route::get('/informes-por-servicios', [ServicioProgramadoController::class, 'index'])
         ->middleware('permission:ver informes por servicios')->name('servicios-programados.index');
+    Route::get('/informes-por-servicios/fechas', [ServicioProgramadoController::class, 'dates'])
+        ->middleware('permission:ver informes por servicios')->name('servicios-programados.dates');
     Route::match(['get', 'post'], '/informes-por-servicios/exportar', [ServicioProgramadoController::class, 'export'])
         ->middleware(['permission:ver informes por servicios', 'permission:exportar informes por servicios excel'])->name('servicios-programados.export');
     Route::get('/informes-generales/exportar', [GeneralReportController::class, 'export'])->middleware('permission:exportar registros excel')->name('general-reports.export');

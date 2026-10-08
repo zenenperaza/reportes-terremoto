@@ -50,9 +50,12 @@
             const from = groupFields.find(({input}) => input.name === 'from' || input.name.endsWith('_from'));
             const to = groupFields.find(({input}) => input.name === 'to' || input.name.endsWith('_to'));
             if (!from || !to || from.input.disabled || to.input.disabled || !from.input.value || !to.input.value) continue;
-            if (from.input.value >= to.input.value) {
+            const equalAllowed = form.dataset.dateAllowEqual === '1';
+            if (from.input.value > to.input.value || (!equalAllowed && from.input.value === to.input.value)) {
                 const label = group === 'attention' ? 'atención' : 'registro';
-                const message = `La fecha de ${label} «Desde» debe ser anterior a «Hasta».`;
+                const message = equalAllowed
+                    ? `La fecha de ${label} «Hasta» no puede ser anterior a «Desde».`
+                    : `La fecha de ${label} «Desde» debe ser anterior a «Hasta».`;
                 to.input.setCustomValidity(message);
                 to.picker?.altInput?.setCustomValidity(message);
                 errors.push(message);
@@ -122,7 +125,7 @@
     }
 
     function validBounds(bounds) {
-        return ['attention', 'registered'].every(group => {
+        return Array.from(new Set(fields.map(({input}) => input.dataset.dateGroup))).every(group => {
             const range = bounds?.[group];
             return range && ((range.min === null && range.max === null)
                 || (/^\d{4}-\d{2}-\d{2}$/.test(range.min) && /^\d{4}-\d{2}-\d{2}$/.test(range.max) && range.min <= range.max));

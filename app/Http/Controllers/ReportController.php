@@ -36,6 +36,10 @@ class ReportController extends Controller
         $this->normalizeStateFilter($request);
         $request->validate(['user_id' => ['nullable', 'integer', 'min:1'], 'reporting_period' => ReportPeriod::rules(),
             'servicio_actividad_id' => ['nullable', 'integer', 'exists:servicio_actividad,id']]);
+        // The service drilldown exposes beneficiaries, not just delivery totals.
+        if ($request->filled('servicio_actividad_id')) {
+            abort_unless($request->user()->can('ver detalle de registros'), 403);
+        }
         $isCoordinator = $request->user()->isCoordinator();
         $reports = collect();
 
@@ -520,6 +524,9 @@ class ReportController extends Controller
         $this->normalizeStateFilter($request);
         $request->validate(['user_id' => ['nullable', 'integer', 'min:1'], 'reporting_period' => ReportPeriod::rules(),
             'servicio_actividad_id' => ['nullable', 'integer', 'exists:servicio_actividad,id']]);
+        if ($request->filled('servicio_actividad_id')) {
+            abort_unless($request->user()->can('solo ver registros') && $request->user()->can('ver detalle de registros'), 403);
+        }
         $beneficiaries = $this->filteredBeneficiaries($request)
             ->with(['report.state', 'report.municipality', 'report.parish', 'report.sector', 'report.activity', 'report.proyecto', 'report.indicadorProyecto.indicador', 'report.indicadorProyecto.asignacionSector.sector', 'report.actividadIndicador.actividad', 'report.serviciosActividad.servicio'])
             ->latest('created_at')

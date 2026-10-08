@@ -20,23 +20,23 @@ function element() {
         reportValidity() {this.reportedInvalid = true;}, dispatchEvent(event) {this.events[event.type]?.(event);}};
 }
 
-function harness({periods = [], value = '', values = [], bounds = all, calendar = true, reported = '', beneficiary = false} = {}) {
+function harness({periods = [], value = '', values = [], bounds = all, calendar = true, reported = '', beneficiary = false, services = false} = {}) {
     const select = {...element(), selectedOptions: periods.map(value => ({value}))};
     const error = {...element(), hidden: true};
     const retry = element();
     const orderError = {...element(), hidden: true};
     const submit = {...element(), disabled: false};
     const exportButton = element();
-    const inputs = Array.from({length: 4}, (_, index) => {
+    const inputs = Array.from({length: services ? 2 : 4}, (_, index) => {
         const group = index < 2 ? 'attention' : 'registered';
         const help = {};
-        const names = beneficiary ? ['from', 'to', 'included_from', 'included_to'] : ['attention_from', 'attention_to', 'registered_from', 'registered_to'];
+        const names = beneficiary || services ? ['from', 'to', 'included_from', 'included_to'] : ['attention_from', 'attention_to', 'registered_from', 'registered_to'];
         return {...element(), id: `date${index}`, name: names[index], value: values[index] ?? value,
             dataset: {dateGroup: group, dateMin: bounds[group].min || '', dateMax: bounds[group].max || ''},
             parentElement: {querySelector: () => help}, help, labels: [{textContent: 'Fecha'}],
         };
     });
-    const form = {...element(), dataset: {dateBoundsUrl: '/fechas'},
+    const form = {...element(), dataset: {dateBoundsUrl: '/fechas', dateAllowEqual: services ? '1' : '0'},
         querySelectorAll: selector => selector === '[type="submit"]' ? [submit] : inputs,
         querySelector: () => ({value: reported}),
         checkValidity: () => inputs.every(input => !input.validity),
@@ -80,6 +80,32 @@ test('initial dates use separate actual server bounds without an extra request',
     for (const picker of h.pickers) assert.equal(picker.config.enable[0](), true);
     assert.equal(h.pickers[0].altInput.attributes['aria-label'], 'Fecha');
     assert.match(h.inputs[0].help.textContent, /01\/06\/2026 al 20\/09\/2026/);
+});
+
+test('service dates accept real October period spanning November and clear September input', async () => {
+    const h = harness({services: true, values: ['2026-09-07', ''], bounds: all});
+    const pending = h.change(['2026-10']);
+    assert.equal(blockedClick(h), true);
+    h.respond({attention: {min: '2026-10-02', max: '2026-11-04'}});
+    await pending;
+    assert.equal(h.inputs[0].min, '2026-10-02');
+    assert.equal(h.inputs[1].max, '2026-11-04');
+    assert.equal(h.inputs[0].value, '');
+    assert.match(h.inputs[0].help.textContent, /02\/10\/2026 al 04\/11\/2026/);
+    h.inputs[0].value = '2026-11-02';
+    h.inputs[1].value = '2026-11-03';
+    assert.equal(blockedClick(h), false);
+});
+
+test('service dates allow a single-day period but still reject reversed dates', async () => {
+    const h = harness({services: true});
+    const pending = h.change(['2026-10']);
+    h.respond({attention: {min: '2026-10-06', max: '2026-10-06'}});
+    await pending;
+    h.inputs[0].value = h.inputs[1].value = '2026-10-06';
+    assert.equal(blockedClick(h), false);
+    h.inputs[1].value = '2026-10-05';
+    assert.equal(blockedClick(h), true);
 });
 
 test('period selection loads real dates across months and clears only incompatible date filters', async () => {

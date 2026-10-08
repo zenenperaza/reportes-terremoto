@@ -4,10 +4,10 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync('public/js/service-report-table.js', 'utf8');
 
-function harness({ids = ['3', '8'], canExport = true, hasTable = true, hasLibrary = true} = {}) {
+function harness({ids = ['3', '8'], canExport = true, hasTable = true, hasLibrary = true, deliveryRows = false} = {}) {
     const state = {submitted: 0, inputs: [], options: null};
     const nodes = {
-        'service-report-table': hasTable ? {} : null,
+        'service-report-table': hasTable ? {dataset: {deliveryRows: deliveryRows ? '1' : ''}} : null,
         'service-report-export': canExport ? {addEventListener: (_, handler) => {state.click = handler;}} : null,
         'service-report-export-form': {submit: () => {state.submitted++;}},
         'service-report-export-selection': {
@@ -23,7 +23,7 @@ function harness({ids = ['3', '8'], canExport = true, hasTable = true, hasLibrar
         return {rows: selector => {
             assert.equal(selector.search, 'applied');
             assert.equal(selector.page, 'all');
-            return {nodes: () => ({toArray: () => ids.map(id => ({dataset: {serviceAssignment: id}}))})};
+            return {nodes: () => ({toArray: () => ids.map(id => ({dataset: {serviceAssignment: id, deliveryKey: id}}))})};
         }};
     };
     vm.runInNewContext(source, context);
@@ -70,5 +70,15 @@ test('large exports use a single JSON field, avoiding PHP input variable limits'
 test('permission denied or unavailable dependencies do not create export handlers', () => {
     for (const options of [{canExport: false}, {hasTable: false}, {hasLibrary: false}]) {
         assert.equal(harness(options).click, undefined);
+    }
+});
+
+test('delivery modes export beneficiary or beneficiary-service keys from every matching page', () => {
+    for (const ids of [['12', '25'], ['12:3', '12:8', '25:3'], []]) {
+        const state = harness({ids, deliveryRows: true});
+        assert.equal(state.options.language.lengthMenu, 'Mostrar _MENU_ filas');
+        state.click({preventDefault() {}});
+        assert.deepEqual(state.inputs.map(input => [input.name, input.value]), [['row_keys_json', JSON.stringify(ids)]]);
+        assert.equal(state.submitted, 1);
     }
 });

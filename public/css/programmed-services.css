@@ -28,6 +28,9 @@
 #service-report-table_wrapper .dt-search input{width:auto;max-width:100%}
 #service-report-table_wrapper .dt-length select{width:auto}
 .programmed-service-responsive-help{font-size:13px}
+.programmed-service-filters #report-period-dates-error,.programmed-service-filters #report-date-order-error{grid-column:1/-1}
+.programmed-service-filters [data-period-date-help]{font-size:12px;font-weight:400;line-height:1.4}
+#service-report-export[aria-disabled="true"]{opacity:.6;cursor:wait}
 @media(max-width:760px){.programmed-service-results .card-heading{flex-wrap:wrap}#service-report-table_wrapper .dt-layout-row:not(.dt-layout-table){display:flex;flex-direction:column;align-items:stretch}#service-report-table_wrapper .dt-layout-row:not(.dt-layout-table)>.dt-layout-cell{width:100%;text-align:left}#service-report-table_wrapper .dt-search input{width:100%;margin:6px 0 0}#service-report-table .dtr-details li{grid-template-columns:minmax(0,1fr);gap:4px}.programmed-service-row-actions{white-space:normal}.programmed-service-results #service-report-export{min-height:44px}}
 @media(max-width:1000px){.programmed-service-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.programmed-service-filters{grid-template-columns:1fr}.programmed-service-filter-actions .button{flex:1 1 100%}}
