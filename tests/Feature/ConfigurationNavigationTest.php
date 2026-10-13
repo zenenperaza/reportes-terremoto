@@ -24,11 +24,16 @@ class ConfigurationNavigationTest extends TestCase
         $response = $this->get(route('system-configuration.index'))->assertOk();
         $xpath = $this->navigation($response->getContent());
         $sections = [
+            'sidebarConfigurationUsers' => ['users.index', 'user-groups.index', 'roles.index', 'permissions.index'],
             'sidebarConfigurationProjects' => ['donantes.index', 'proyectos.index', 'sectores.index', 'indicator-groups.index', 'indicadores.index', 'actividades.index', 'servicios.index', 'place-names.index'],
             'sidebarConfigurationSettings' => ['audit-logs.index', 'backups.index', 'system-configuration.index', 'system-maintenance.index'],
-            'sidebarConfigurationUsers' => ['users.index', 'user-groups.index', 'roles.index', 'permissions.index'],
         ];
         $this->assertCount(3, $xpath->query('//*[@id="sidebarConfiguration"]/ul/li'));
+        $sectionOrder = [];
+        foreach ($xpath->query('//*[@id="sidebarConfiguration"]/ul/li/a[@aria-controls]') as $toggle) {
+            $sectionOrder[] = $toggle->getAttribute('aria-controls');
+        }
+        $this->assertSame(array_keys($sections), $sectionOrder);
         $this->assertCount(1, $xpath->query('//*[@id="sidebarConfiguration" and @data-bs-parent="#navbar-nav"]'));
         $this->assertCount(1, $xpath->query('//*[@id="sidebarReports" and @data-bs-parent="#navbar-nav"]'));
         $this->assertCount(1, $xpath->query('//*[@id="sidebarReports"]//a[@href="'.route('servicios-programados.index').'"]'));

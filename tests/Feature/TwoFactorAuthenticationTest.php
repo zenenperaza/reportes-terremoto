@@ -18,7 +18,7 @@ class TwoFactorAuthenticationTest extends TestCase
         $user = User::factory()->create(['requires_two_factor' => false, 'is_active' => true]);
 
         $this->post(route('login.store'), ['email' => $user->email, 'password' => 'password'])
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard'))->assertSessionHas('desktop_login_event');
 
         $this->assertAuthenticatedAs($user);
     }
@@ -32,6 +32,7 @@ class TwoFactorAuthenticationTest extends TestCase
         $this->post(route('login.store'), ['email' => $user->email, 'password' => 'password'])
             ->assertRedirect(route('two-factor.challenge'));
         $this->assertGuest();
+        $this->assertFalse(session()->has('desktop_login_event'));
 
         Notification::assertSentTo($user, EmailTwoFactorCodeNotification::class, function ($notification) use (&$code): bool {
             $code = $notification->code;
@@ -39,7 +40,8 @@ class TwoFactorAuthenticationTest extends TestCase
         });
 
         $this->get(route('two-factor.challenge'))->assertOk()->assertSee('Verifique su acceso');
-        $this->post(route('two-factor.verify'), ['code' => $code])->assertRedirect(route('dashboard'));
+        $this->post(route('two-factor.verify'), ['code' => $code])->assertRedirect(route('dashboard'))
+            ->assertSessionHas('desktop_login_event');
         $this->assertAuthenticatedAs($user);
         $this->assertNotNull(EmailTwoFactorCode::first()->consumed_at);
     }

@@ -21,7 +21,7 @@ function element() {
 }
 
 function harness({rows, ok = true, popupBlocked = false, filters = {state_id: '7', from: '2026-09-01', reported: '0'}} = {}) {
-    const state = {disabled: 0, enabled: 0, completed: 0, exports: [], printed: 0};
+    const state = {disabled: 0, enabled: 0, completed: 0, exports: [], printed: 0, notifications: []};
     const status = element();
     const popup = {closed: false, document: {head: element(), body: element(), createElement: element},
         focus() {}, setTimeout(callback) { callback(); }, print() { state.printed++; }, close() { this.closed = true; }};
@@ -38,7 +38,8 @@ function harness({rows, ok = true, popupBlocked = false, filters = {state_id: '7
         columns: () => ({indexes: () => ({toArray: () => [0, 1]})}),
         column: index => ({dataSrc: () => ['name', 'services'][index]}),
     };
-    const window = {location: {href: 'https://app.test/reportes'}, open: () => popupBlocked ? null : popup};
+    const window = {location: {href: 'https://app.test/reportes'}, open: () => popupBlocked ? null : popup,
+        SiaDesktopNotifications: {notify: kind => state.notifications.push(kind)}};
     const native = {};
     for (const type of ['copyHtml5', 'csvHtml5', 'excelHtml5', 'pdfHtml5']) {
         native[type] = {action(event, table, node, config, done) {
@@ -77,6 +78,7 @@ for (const format of ['copy', 'csv', 'excel', 'pdf', 'print']) {
         assert.equal(state.disabled, 1);
         assert.equal(state.enabled, 1);
         assert.equal(state.completed, 1);
+        assert.deepEqual(state.notifications, ['exported']);
     });
 }
 
@@ -95,6 +97,7 @@ test('export errors never fall back to the visible page', async () => {
     assert.equal(state.exports.length, 0);
     assert.match(status.textContent, /No se pudo/);
     assert.equal(state.enabled, 1);
+    assert.deepEqual(state.notifications, ['error']);
 });
 
 test('service drilldown is preserved in the full export request with the other filters', async () => {

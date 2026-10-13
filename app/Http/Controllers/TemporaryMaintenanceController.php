@@ -16,13 +16,22 @@ class TemporaryMaintenanceController extends Controller
         abort_if($token === '', 503, 'Falta configurar SERVER_MAINTENANCE_TOKEN en el archivo .env.');
         abort_unless(hash_equals($token, (string) request('token')), 403);
 
-        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios'], true),
+        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia'], true),
             422, 'Modo de mantenimiento no reconocido.');
         $permissionsOnly = request('only') === 'permisos-beneficiarios';
         $groupEditingOnly = request('only') === 'edicion-cruzada-grupos';
         $periodsOnly = request('only') === 'periodos';
         $associatedIndicatorsOnly = request('only') === 'indicadores-asociados';
         $serviceReportsOnly = request('only') === 'informes-servicios';
+        $liveMaintenanceOnly = request('only') === 'mantenimiento-en-vivo';
+        $notificationsOnly = request('only') === 'notificaciones';
+        $siaUpdateOnly = request('only') === 'actualizacion-sia';
+        abort_if($siaUpdateOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
+            422, 'El modo actualizacion-sia no se puede combinar con opciones de caché o importación.');
+        abort_if($notificationsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
+            422, 'El modo notificaciones no se puede combinar con opciones de caché o importación.');
+        abort_if($liveMaintenanceOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
+            422, 'El modo mantenimiento-en-vivo no se puede combinar con opciones de caché o importación.');
         abort_if($serviceReportsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
             422, 'El modo informes-servicios no se puede combinar con opciones de caché o importación.');
         abort_if($associatedIndicatorsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
@@ -133,6 +142,52 @@ class TemporaryMaintenanceController extends Controller
             }
             abort_unless(class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class), 422,
                 'Falta PhpSpreadsheet. Instale las dependencias de Composer del proyecto antes de continuar.');
+        }
+
+        $presenceMigration = ['name' => 'migrate', 'parameters' => [
+            '--path' => 'database/migrations/2026_10_08_120000_create_user_presences_table.php', '--force' => true,
+        ]];
+        $notificationMigrations = array_map(fn ($path) => ['name' => 'migrate', 'parameters' => ['--path' => $path, '--force' => true]], [
+            'database/migrations/2026_10_09_120000_create_system_notifications_table.php',
+            'database/migrations/2026_10_09_120100_add_receive_notifications_permission.php',
+        ]);
+        if ($notificationsOnly || $siaUpdateOnly) {
+            foreach (array_merge(array_column(array_column($notificationMigrations, 'parameters'), '--path'), [
+                'app/Models/SystemNotification.php', 'app/Support/SystemNotifications.php', 'app/Models/User.php',
+                'app/Http/Controllers/AuthController.php', 'app/Http/Controllers/ReportController.php',
+                'app/Http/Controllers/SystemMaintenanceController.php', 'app/Http/Controllers/PermissionController.php',
+                'resources/views/layouts/app.blade.php', 'resources/views/layouts/partials/desktop-notifications.blade.php',
+                'public/js/desktop-notifications.js', 'public/js/system-live-maintenance.js', 'routes/web.php',
+                'public/js/pwa.js', 'public/service-worker.js',
+            ]) as $file) {
+                abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
+            }
+        }
+        if ($liveMaintenanceOnly || $siaUpdateOnly) {
+            foreach ([
+                $presenceMigration['parameters']['--path'],
+                'app/Models/UserPresence.php', 'app/Models/SystemSetting.php',
+                'app/Models/User.php', 'app/Models/SystemNotification.php', 'app/Support/SystemNotifications.php',
+                'app/Http/Controllers/SystemMaintenanceController.php', 'app/Http/Controllers/AuthController.php',
+                'resources/views/maintenance/index.blade.php', 'resources/views/maintenance/live-notice.blade.php',
+                'resources/views/layouts/app.blade.php', 'public/css/system-maintenance.css',
+                'resources/views/layouts/partials/desktop-notifications.blade.php', 'public/js/desktop-notifications.js',
+                'public/css/maintenance-banner.css', 'public/js/system-live-maintenance.js', 'routes/web.php',
+            ] as $file) {
+                abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
+            }
+        }
+        if ($siaUpdateOnly) {
+            // Complete the preflight before clearing caches or running migrations.
+            // These are the other runtime files in the pending SIA deployment.
+            foreach ([
+                'app/Http/Controllers/TemporaryMaintenanceController.php', 'routes/maintenance.php',
+                'resources/views/layouts/partials/configuration-menu.blade.php',
+                'resources/views/reports/create.blade.php', 'resources/views/reports/show.blade.php',
+                'resources/views/beneficiaries/summary.blade.php', 'public/js/report-export.js',
+            ] as $file) {
+                abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
+            }
         }
 
         $cacheCommands = [
@@ -298,6 +353,9 @@ class TemporaryMaintenanceController extends Controller
         $includeExcel = $excelOnly || request()->boolean('import_excel');
 
         $selectedMigrations = match (true) {
+            $siaUpdateOnly => array_merge([$presenceMigration], $notificationMigrations),
+            $notificationsOnly => $notificationMigrations,
+            $liveMaintenanceOnly => [$presenceMigration],
             $serviceReportsOnly => [$serviceReportMigration],
             $associatedIndicatorsOnly => [$associatedIndicatorMigration],
             $periodsOnly => $periodMigrations,
@@ -320,6 +378,30 @@ class TemporaryMaintenanceController extends Controller
             'EDICIÓN CRUZADA DE GRUPOS: se ejecutará únicamente la migración que agrega la columna allow_member_editing a user_groups y se reconstruirán las cachés. No se importarán ni modificarán registros o beneficiarios.',
             'Luego de aplicar esta migración, active "Edición cruzada entre miembros" en el grupo de usuarios correspondiente para permitir que los coordinadores editen registros de sus compañeros de grupo.',
         ] : []);
+        if ($siaUpdateOnly) {
+            $results = [
+                'ACTUALIZACIÓN SIA: se ejecutan únicamente las tres migraciones de presencia y notificaciones, en orden, y se reconstruyen las cachés.',
+                'Se crean user_presences, system_notifications y el permiso Recibir notificaciones, asignado inicialmente a admin, coordinator y reporter.',
+                'No se ejecutan seeders ni importaciones. No se modifican registros, beneficiarios, equipos, servicios entregados, períodos ni cierres.',
+                'No se activa ni se cancela el mantenimiento: se conservan los bloqueos y avisos programados.',
+                'Las migraciones ya aplicadas se omiten. Repetir este modo conserva los permisos retirados y los avisos existentes.',
+                'Al finalizar, recargue SIA con Ctrl + F5 para cargar el menú, el footer y las notificaciones actualizados.',
+            ];
+        }
+        if ($notificationsOnly) {
+            $results = [
+                'NOTIFICACIONES: se ejecutan únicamente las dos migraciones de notificaciones y se reconstruyen las cachés.',
+                'Se crea la bandeja de avisos y el permiso Recibir notificaciones, asignado inicialmente a admin, coordinator y reporter.',
+                'No se ejecutan seeders ni importaciones; no se modifican registros, beneficiarios, equipos ni bloqueos.',
+            ];
+        }
+        if ($liveMaintenanceOnly) {
+            $results = [
+                'MANTENIMIENTO EN VIVO: se crea únicamente la tabla de presencia y se reconstruyen las cachés.',
+                'No se ejecutan seeders ni importaciones. No se modifican registros, beneficiarios, permisos ni el estado de bloqueo.',
+                'Repetir este modo conserva los bloqueos y avisos programados.',
+            ];
+        }
         if ($periodsOnly) {
             $results = [
                 'PERÍODOS: se ejecutarán únicamente las dos migraciones de períodos, en orden, y se reconstruirán las cachés.',
@@ -366,9 +448,9 @@ class TemporaryMaintenanceController extends Controller
             return response(
                 '<pre>'.e(implode("\n\n", $results)).'</pre>',
                 $exitCode === 0 ? 200 : 500,
-            );
+            )->header('Cache-Control', 'no-store');
         } catch (Throwable $exception) {
-            return response('<pre>ERROR: '.e($exception->getMessage()).'</pre>', 500);
+            return response('<pre>ERROR: '.e($exception->getMessage()).'</pre>', 500)->header('Cache-Control', 'no-store');
         }
     }
 

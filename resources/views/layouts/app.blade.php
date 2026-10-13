@@ -52,7 +52,7 @@
     @auth<link rel="stylesheet" href="{{ asset('css/admin-shell.css') }}?v={{ @filemtime(public_path('css/admin-shell.css')) ?: 1 }}">@endauth
     @stack('styles')
     @auth<link rel="stylesheet" href="{{ $versionedAsset('css/dark-theme.css') }}">@endauth
-    @if($showMaintenanceBanner)<link rel="stylesheet" href="{{ $versionedAsset('css/maintenance-banner.css') }}">@endif
+    @auth<link rel="stylesheet" href="{{ $versionedAsset('css/maintenance-banner.css') }}">@endauth
 </head>
 <body class="{{ auth()->check() ? 'admin-layout' : 'guest-layout' }}{{ $showMaintenanceBanner ? ' has-maintenance-banner' : '' }}">
 @if($showMaintenanceBanner)
@@ -66,6 +66,7 @@
     </aside>
 @endif
 @auth
+@include('maintenance.live-notice')
 <div id="layout-wrapper">
     <header id="page-topbar">
         <div class="layout-width"><div class="navbar-header">
@@ -80,6 +81,7 @@
                 <div class="app-context d-none d-md-block"><span class="app-context-title">SIA</span><small>Sistema de Información ASONACOP</small></div>
             </div>
             <div class="d-flex align-items-center gap-1">
+                @include('layouts.partials.desktop-notifications')
                 <div class="ms-1 header-item d-flex">
                     <button type="button" class="btn btn-icon btn-topbar btn-ghost-secondary rounded-circle asonacop-theme-toggle" aria-label="Activar tema oscuro" aria-pressed="false" title="Activar tema oscuro">
                         <i class="bx bx-moon fs-22" aria-hidden="true"></i>
@@ -160,7 +162,16 @@
             @if($errors->any())<div class="alert alert-danger" role="alert"><strong>Revise los datos del formulario.</strong><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
             @yield('content')
         </div></div>
-        <footer class="footer"><div class="container-fluid"><div class="row"><div class="col-sm-6">{{ now()->year }} &copy; ASONACOP.</div><div class="col-sm-6"><div class="text-sm-end d-none d-sm-block">SIA &middot; Sistema de Información ASONACOP</div></div></div></div></footer>
+        <footer class="footer"><div class="container-fluid"><div class="row align-items-center">
+            <div class="col-sm-4">{{ now()->year }} &copy; ASONACOP.</div>
+            <div class="col-sm-4 text-sm-center">
+                <span id="footer-connected-users" class="footer-connected-users" title="Usuarios distintos con una sesión que respondió en los últimos 2 minutos" role="status" aria-live="polite">
+                    <i class="ri-team-line" aria-hidden="true"></i> Usuarios conectados:
+                    <strong data-connected-count>{{ $connectedUsers ?? \App\Models\UserPresence::connectedCount() ?? 'No disponible' }}</strong>
+                </span>
+            </div>
+            <div class="col-sm-4"><div class="text-sm-end d-none d-sm-block">SIA &middot; Sistema de Información ASONACOP</div></div>
+        </div></div></footer>
     </div>
 </div>
 <button onclick="topFunction()" class="btn btn-danger btn-icon" id="back-to-top" aria-label="Volver arriba"><i class="ri-arrow-up-line"></i></button>
@@ -185,6 +196,8 @@
 <script src="{{ $versionedAsset('js/navigation-disclosure.js') }}" defer></script>
 <script src="{{ $versionedAsset('js/theme-switcher.js') }}"></script>
 @if($showMaintenanceBanner)<script src="{{ $versionedAsset('js/maintenance-banner.js') }}"></script>@endif
+<script src="{{ $versionedAsset('js/desktop-notifications.js') }}"></script>
+<script src="{{ $versionedAsset('js/system-live-maintenance.js') }}"></script>
 @else
 <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
 @endauth

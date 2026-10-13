@@ -346,6 +346,7 @@ document.querySelectorAll('[data-report-tab]').forEach(tab => tab.addEventListen
         submitButton.disabled = true;
         try {
             await reportDocument(form.action, {method: 'POST', body: new FormData(form)});
+            window.SiaDesktopNotifications?.notify('updated');
             const baseUrl = new URL(document.getElementById('beneficiary-report-filters').action || window.location.href);
             baseUrl.search = new URLSearchParams(new FormData(document.getElementById('beneficiary-report-filters'))).toString();
             const source = await reportDocument(baseUrl.toString());
@@ -365,6 +366,7 @@ document.querySelectorAll('[data-report-tab]').forEach(tab => tab.addEventListen
                 });
             }
         } catch (error) {
+            window.SiaDesktopNotifications?.notify('error');
             if (typeof Swal !== 'undefined') {
                 await Swal.fire({
                     title: 'No se pudo actualizar',

@@ -1,4 +1,4 @@
-const CACHE_VERSION = "asonacop-pwa-v45";
+const CACHE_VERSION = "asonacop-pwa-v46";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const OFFLINE_URL = "/offline.html";
 
@@ -43,6 +43,17 @@ self.addEventListener("activate", event => {
             .then(keys => Promise.all(keys.filter(key => key.startsWith("asonacop-pwa-") && key !== STATIC_CACHE).map(key => caches.delete(key))))
             .then(() => self.clients.claim())
     );
+});
+
+self.addEventListener("notificationclick", event => {
+    event.notification.close();
+    event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(windows => {
+        // Focus an existing SIA tab; never navigate/reload a form with unsaved work.
+        const sameOrigin = windows.filter(client => new URL(client.url).origin === self.location.origin);
+        const client = sameOrigin.find(client => client.focused) || sameOrigin[0];
+        if (client) return client.focus();
+        return self.clients.openWindow("/");
+    }));
 });
 
 self.addEventListener("fetch", event => {

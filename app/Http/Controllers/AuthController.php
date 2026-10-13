@@ -59,7 +59,8 @@ class AuthController extends Controller
         Auth::login($user, $request->boolean('remember'));
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard'));
+        \App\Support\SystemNotifications::login($user);
+        return redirect()->intended(route('dashboard'))->with('desktop_login_event', (string) Str::uuid());
     }
 
     public function createTwoFactorChallenge(Request $request): View|RedirectResponse
@@ -111,7 +112,8 @@ class AuthController extends Controller
         $this->clearTwoFactorSession($request);
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard'));
+        \App\Support\SystemNotifications::login($challenge->user);
+        return redirect()->intended(route('dashboard'))->with('desktop_login_event', (string) Str::uuid());
     }
 
     public function resendTwoFactorCode(Request $request): RedirectResponse
@@ -158,6 +160,7 @@ class AuthController extends Controller
 
     public function logout(Request $request): RedirectResponse
     {
+        \App\Models\UserPresence::forgetSession($request);
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

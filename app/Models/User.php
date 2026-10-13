@@ -237,6 +237,16 @@ class User extends Authenticatable
         return (bool) $this->can_mark_reported;
     }
 
+    public function activeNotificationGroupIds(): array
+    {
+        if (! Schema::hasTable('user_group_user')) {
+            return $this->user_group_id && $this->userGroup?->is_active ? [(int) $this->user_group_id] : [];
+        }
+
+        return $this->userGroups()->where('user_groups.is_active', true)->pluck('user_groups.id')
+            ->map(fn ($id) => (int) $id)->all();
+    }
+
     private function visibleGroupUserIds()
     {
         if (! Schema::hasTable('user_group_user')) {

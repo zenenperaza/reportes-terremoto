@@ -42,6 +42,17 @@ use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/panel');
 
+// Heartbeats must keep working during a lock, without backups or audit noise.
+Route::post('/sistema/estado', [SystemMaintenanceController::class, 'status'])
+    ->middleware(['auth', EnsureActiveUser::class, 'throttle:60,1'])
+    ->withoutMiddleware(\App\Http\Middleware\RecordAuditLog::class)
+    ->name('system-maintenance.status');
+
+Route::post('/sistema/notificaciones/leidas', [SystemMaintenanceController::class, 'readNotifications'])
+    ->middleware(['auth', EnsureActiveUser::class, 'throttle:60,1'])
+    ->withoutMiddleware(\App\Http\Middleware\RecordAuditLog::class)
+    ->name('system-notifications.read');
+
 Route::middleware('guest')->group(function (): void {
     Route::get('/ingresar', [AuthController::class, 'createLogin'])->name('login');
     Route::post('/ingresar', [AuthController::class, 'login'])->name('login.store');

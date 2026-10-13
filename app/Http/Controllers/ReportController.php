@@ -183,6 +183,7 @@ class ReportController extends Controller
             $this->syncBeneficiarySummary($report);
         });
 
+        \App\Support\SystemNotifications::reportChange($request->user(), $report, 'updated');
         if ($request->expectsJson()) {
             return response()->json([
                 'message' => 'Registro actualizado correctamente.',
@@ -239,6 +240,7 @@ class ReportController extends Controller
             return $report;
         });
 
+        \App\Support\SystemNotifications::reportChange($request->user(), $report, 'created');
         return redirect()->route('reports.show', $report)->with('success', 'Registro enviado correctamente para su seguimiento.');
     }
 
@@ -291,6 +293,7 @@ class ReportController extends Controller
             return [$report->fresh(), $beneficiary->fresh(), $summary, $createdReport, $copies];
         });
 
+        \App\Support\SystemNotifications::reportChange($request->user(), $report, $createdReport ? 'created' : 'updated');
         return response()->json([
             'message' => $copies ? 'Beneficiario guardado en el indicador principal y en '.count($copies).' indicador(es) asociado(s).' : ($createdReport ? 'Registro creado y beneficiario guardado correctamente.' : 'Beneficiario guardado correctamente.'),
             'associated_reports' => $copies,
@@ -310,6 +313,7 @@ class ReportController extends Controller
         $this->ensureEditable($request, $report, 'editar beneficiarios');
         $beneficiary->update($request->validated());
         $summary = $this->syncBeneficiarySummary($report);
+        \App\Support\SystemNotifications::reportChange($request->user(), $report, 'updated');
 
         return response()->json([
             'message' => 'Beneficiario actualizado correctamente.',
@@ -396,6 +400,7 @@ class ReportController extends Controller
             throw $exception;
         }
 
+        \App\Support\SystemNotifications::reportChange($request->user(), $target, 'updated');
         return response()->json([
             'message' => $separated
                 ? 'Beneficiario actualizado y separado del grupo original. Los demás beneficiarios no cambiaron.'
@@ -427,6 +432,7 @@ class ReportController extends Controller
             Storage::disk('local')->deleteDirectory("reports/{$report->id}");
             $report->delete();
 
+            \App\Support\SystemNotifications::reportChange($request->user(), $report, 'deleted');
             return response()->json([
                 'message' => 'Beneficiario eliminado. Como era el único, también se eliminó el registro.',
                 'report_deleted' => true,
@@ -434,6 +440,7 @@ class ReportController extends Controller
             ]);
         }
 
+        \App\Support\SystemNotifications::reportChange($request->user(), $report, 'deleted');
         return response()->json([
             'message' => 'Beneficiario eliminado correctamente.',
             'report_deleted' => false,
@@ -493,6 +500,7 @@ class ReportController extends Controller
 
         Storage::disk('local')->deleteDirectory("reports/{$reportId}");
 
+        \App\Support\SystemNotifications::reportChange($request->user(), $report, 'deleted');
         return redirect()->route('reports.index')->with('success', 'El registro y sus beneficiarios fueron eliminados correctamente.');
     }
 

@@ -226,6 +226,7 @@
                         const data = await response.json();
 
                         if (!response.ok) throw new Error(data.message || 'No se pudo eliminar el beneficiario.');
+                        window.SiaDesktopNotifications?.notify('deleted');
 
                         if (data.report_deleted) {
                             window.location.assign(`{{ route('reports.index') }}`);
@@ -234,6 +235,7 @@
 
                         window.location.reload();
                     } catch (exception) {
+                        window.SiaDesktopNotifications?.notify('error');
                         if (typeof Swal !== 'undefined') {
                             Swal.fire({icon: 'error', title: 'No se pudo eliminar', text: exception.message});
                         } else {
@@ -265,8 +267,10 @@
                             const validationMessage = data.errors ? Object.values(data.errors).flat()[0] : null;
                             throw new Error(validationMessage || data.message || 'No se pudo actualizar el beneficiario.');
                         }
+                        window.SiaDesktopNotifications?.notify('updated');
                         window.location.reload();
                     } catch (exception) {
+                        window.SiaDesktopNotifications?.notify('error');
                         error.textContent = exception.message;
                         error.hidden = false;
                     } finally {

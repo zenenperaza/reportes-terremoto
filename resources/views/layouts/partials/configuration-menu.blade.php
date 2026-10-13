@@ -1,5 +1,14 @@
 @php
     $configurationSections = [
+        'sidebarConfigurationUsers' => [
+            'label' => 'Usuarios', 'icon' => 'ri-team-line',
+            'links' => [
+                ['Usuarios', 'users.index', ['users.*']],
+                ['Grupos de usuarios', 'user-groups.index', ['user-groups.*']],
+                ['Roles', 'roles.index', ['roles.*']],
+                ['Permisos', 'permissions.index', ['permissions.*']],
+            ],
+        ],
         'sidebarConfigurationProjects' => [
             'label' => 'Proyectos', 'icon' => 'ri-folder-2-line',
             'links' => [
@@ -20,15 +29,6 @@
                 ['Respaldos', 'backups.index', ['backups.*'], auth()->user()->canAny(['generar respaldos', 'descargar respaldos', 'eliminar respaldos'])],
                 ['Configuraciones', 'system-configuration.index', ['system-configuration.*']],
                 ['Mantenimiento', 'system-maintenance.index', ['system-maintenance.*']],
-            ],
-        ],
-        'sidebarConfigurationUsers' => [
-            'label' => 'Usuarios', 'icon' => 'ri-team-line',
-            'links' => [
-                ['Usuarios', 'users.index', ['users.*']],
-                ['Grupos de usuarios', 'user-groups.index', ['user-groups.*']],
-                ['Roles', 'roles.index', ['roles.*']],
-                ['Permisos', 'permissions.index', ['permissions.*']],
             ],
         ],
     ];

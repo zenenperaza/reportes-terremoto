@@ -1221,6 +1221,7 @@
                     headers: requestHeaders,
                     body: data
                 }));
+                window.SiaDesktopNotifications?.notify(beneficiaryEditId || form.dataset.beneficiaryUpdateUrl ? 'updated' : 'saved');
                 if (form.dataset.beneficiaryUpdateUrl) {
                     window.location.assign(result.report.url);
                     return;
@@ -1245,6 +1246,7 @@
                     'Beneficiario guardado. Se creó un nuevo registro con estos encabezados.' : result.message);
             } catch (error) {
                 setMessage(entryError, error.message);
+                window.SiaDesktopNotifications?.notify('error');
             } finally {
                 isSaving = false;
                 saveButton.disabled = false;
@@ -1260,6 +1262,7 @@
                     headers: requestHeaders
                 }));
                 beneficiaries = beneficiaries.filter(item => item.id !== beneficiary.id);
+                window.SiaDesktopNotifications?.notify('deleted');
                 currentSummary = result.summary;
                 if (result.report_deleted) {
                     activeReportId = null;
@@ -1270,6 +1273,7 @@
                 setMessage(entrySuccess, result.message);
             } catch (error) {
                 setMessage(entryError, error.message);
+                window.SiaDesktopNotifications?.notify('error');
             }
         }
         saveButton.addEventListener('click', saveBeneficiary);
@@ -1335,12 +1339,14 @@
                     body: data
                 }));
                 activeHeaderSignature = headerSignature();
+                window.SiaDesktopNotifications?.notify('updated');
                 ['evidence_1', 'evidence_2', 'evidence_3'].forEach(field => {
                     if (form.elements[field]) form.elements[field].value = '';
                 });
                 setMessage(entrySuccess, result.message);
             } catch (error) {
                 setMessage(entryError, error.message);
+                window.SiaDesktopNotifications?.notify('error');
             } finally {
                 isSaving = false;
                 saveReportChanges.disabled = false;

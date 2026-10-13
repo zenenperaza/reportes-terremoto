@@ -10,6 +10,15 @@
     margin: 4px 0 10px;
 }
 
+.maintenance-presence { display:flex; align-items:center; gap:32px; border-left:5px solid #1cabe2; }
+.maintenance-presence [data-connected-count] { font-size:42px; color:var(--navy); line-height:1; }
+.maintenance-presence small { color:var(--muted); }
+.maintenance-schedule { margin-top:24px; }
+.maintenance-schedule form + form { margin-top:14px; }
+.maintenance-schedule [data-maintenance-deadline] { font-weight:700; color:#9a6000; }
+.maintenance-schedule textarea { width:100%; }
+@media(max-width:700px){.maintenance-presence{align-items:flex-start;flex-direction:column;gap:16px}}
+
 .maintenance-control .button-danger {
     border-color: #b42318;
     background: #b42318;

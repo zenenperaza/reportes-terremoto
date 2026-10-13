@@ -102,9 +102,11 @@
                     });
                 }
                 status.textContent = `Exportación preparada: ${body.length.toLocaleString('es-VE')} registros.`;
+                window.SiaDesktopNotifications?.notify('exported');
             } catch (error) {
                 if (popup && !popup.closed) popup.close();
                 status.textContent = error.message || 'No se pudo completar la exportación. Inténtelo nuevamente.';
+                window.SiaDesktopNotifications?.notify('error');
             } finally {
                 dt.buttons().enable();
                 if (typeof done === 'function') done();

@@ -13,6 +13,7 @@ class PermissionController extends Controller
 {
     private const PROTECTED_PERMISSIONS = [
         'administrar sistema',
+        'Recibir notificaciones',
         'coordinar registros',
         'registrar actividad',
         'manejar lugares',

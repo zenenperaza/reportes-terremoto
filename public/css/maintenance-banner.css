@@ -23,6 +23,14 @@
     box-shadow: 0 3px 10px rgba(0, 0, 0, .2);
 }
 .system-maintenance-banner > i { font-size: 32px; flex: 0 0 auto; }
+.system-maintenance-banner[hidden] { display:none; }
+.system-live-notice { background:#fff2cc; color:#593d00; border-color:#e3a008; }
+.system-live-notice > a { border-color:currentColor; color:inherit; }
+.system-live-notice.is-blocked { background:#a51d24; color:#fff; }
+.system-live-notice [data-live-countdown] { font-size:19px; font-weight:800; font-variant-numeric:tabular-nums; }
+.footer-connected-users { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border:1px solid #b9dfcf; border-radius:20px; background:#eaf7f0; color:#176344; font-size:12px; line-height:1.4; white-space:nowrap; }
+.footer-connected-users strong { font-variant-numeric:tabular-nums; }
+@media(max-width:575.98px){.footer-connected-users{margin-top:6px}}
 .system-maintenance-banner__message { display: grid; gap: 4px; }
 .system-maintenance-banner__message strong { font-size: 24px; line-height: 1.2; letter-spacing: .04em; }
 .system-maintenance-banner__message span { font-size: 15px; line-height: 1.4; }
