@@ -25,6 +25,7 @@ use Tests\TestCase;
 class TeamNotificationsTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\CreatesReportProjectContext;
 
     private function member(UserGroup $group, string $role = 'reporter'): User
     {
@@ -200,7 +201,8 @@ class TeamNotificationsTest extends TestCase
             'reporter_email' => $actor->email, 'organization' => 'ASONACOP', 'state_id' => $state->id,
             'municipality_id' => $municipality->id, 'parish_id' => $parish->id,
             'installation_type' => 'Comunidad / Espacio Comunitario', 'place_name' => 'Comunidad',
-            'sector_id' => $sector->id, 'activity_id' => $activity->id];
+            'sector_id' => $sector->id, 'activity_id' => $activity->id]
+            + $this->reportProjectContext($actor, $state, $sector);
         $person = ['has_informed_consent' => true, 'full_name' => 'PERSONA PRIVADA', 'age' => 12, 'sex' => 'Mujer',
             'national_id' => 'V12345678', 'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'N/A', 'is_recurrent' => false];
         $this->actingAs($actor)->postJson(route('beneficiaries.store'), $header + ['beneficiary' => []])->assertUnprocessable();

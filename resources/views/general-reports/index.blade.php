@@ -13,10 +13,9 @@
         <h1>Informes Generales</h1>
         <p class="muted">Analice la poblaci&oacute;n atendida mediante filtros y gr&aacute;ficos interactivos.</p>
     </div>
-    @include('general-reports.partials.excel-export', ['exportRoute' => 'general-reports.export'])
 </section>
 
-@include('general-reports.partials.filters-and-summary')
+@include('general-reports.partials.filters-and-summary', ['exportRoute' => 'general-reports.export'])
 
 @if($summary['beneficiaries'] === 0)
 <section class="card"><div class="card-body general-empty"><i class="ri-bar-chart-box-line"></i><h2>Sin resultados</h2><p>Modifique los filtros para visualizar informaci&oacute;n.</p></div></section>

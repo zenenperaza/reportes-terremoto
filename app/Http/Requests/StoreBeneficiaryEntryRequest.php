@@ -54,7 +54,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             'altitude' => ['nullable', 'numeric', 'between:-500,10000'],
             'gps_accuracy' => ['nullable', 'numeric', 'min:0', 'max:100000'],
 
-            'proyecto_id' => ['nullable', 'required_without:sector_id', 'integer', 'exists:proyectos,id'],
+            'proyecto_id' => ['nullable', $this->isMethod('post') ? 'required' : 'required_without:sector_id', 'integer', 'exists:proyectos,id'],
             'sector_proyecto_id' => ['nullable', 'required_with:proyecto_id', 'integer', 'exists:sector_proyecto,id'],
             'indicador_proyecto_id' => ['nullable', 'required_with:proyecto_id', 'integer', 'exists:indicador_proyecto,id'],
             'actividad_indicador_id' => ['nullable', 'integer', 'exists:actividad_indicador,id'],
@@ -110,6 +110,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'proyecto_id.required' => 'Seleccione un proyecto para registrar la actividad.',
             'required' => 'El campo :attribute es obligatorio.',
             'accepted' => 'Debe confirmar el :attribute.',
             'required_if' => 'El campo :attribute es obligatorio.',

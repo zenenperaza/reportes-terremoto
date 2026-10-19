@@ -98,7 +98,7 @@ class ReportController extends Controller
     {
         ReportPeriod::assertOpen(ReportPeriod::current());
         $projects = $this->availableProjects($request);
-        $selectedProjectId = old('proyecto_id', $projects->first()?->id);
+        $selectedProjectId = old('proyecto_id', $projects->count() === 1 ? $projects->first()->id : null);
         $locations = $this->availableLocations($request, $projects);
 
         return view('reports.create', [

@@ -49,9 +49,10 @@
                 ])
             </div>
 
-            <div class="col-12 d-flex flex-wrap justify-content-end gap-2 pt-2">
+            <div class="col-12 d-flex flex-wrap justify-content-end align-items-center gap-2 pt-2 report-filter-actions">
                 <a class="btn btn-light" href="{{ url()->current().'?'.http_build_query(['reported' => $filters['reported'] ?? '']) }}"><i class="ri-refresh-line me-1"></i>Limpiar</a>
                 <button class="btn btn-primary" type="submit"><i class="ri-filter-3-line me-1"></i>Aplicar filtros</button>
+                @include('general-reports.partials.excel-export')
             </div>
         </form>
     </div>

@@ -140,7 +140,7 @@ class BeneficiaryReportController extends Controller
             'ID', 'Estado', 'Municipio', 'Parroquia', 'Tipo de instalación', 'Nombre específico del lugar',
             'Latitud', 'Longitud', 'Código del proyecto', 'Sector programático', 'Código del indicador', 'Indicador a reportar',
             'Detalles adicionales de la actividad', 'Fecha de atención', 'Edad', 'Sexo', 'Discapacidad', 'Indígena',
-            'Embarazada o lactante', 'Recurrente', 'Fecha de reporte', 'Fecha de inclusión', 'Usuario',
+            'Embarazada o lactante', 'Recurrente', 'Fecha de reporte', 'Fecha de inclusión', 'Usuario', 'Período',
         ];
         $lastColumn = Coordinate::stringFromColumnIndex(count($headers));
 
@@ -162,7 +162,7 @@ class BeneficiaryReportController extends Controller
             'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF8DA99D']]],
         ]);
 
-        $widths = [8, 18, 20, 18, 26, 30, 13, 13, 22, 24, 24, 48, 48, 16, 10, 16, 18, 18, 22, 14, 18, 20, 28];
+        $widths = [8, 18, 20, 18, 26, 30, 13, 13, 22, 24, 24, 48, 48, 16, 10, 16, 18, 18, 22, 14, 18, 20, 28, 24];
         foreach ($widths as $index => $width) {
             $worksheet->getColumnDimension(Coordinate::stringFromColumnIndex($index + 1))->setWidth($width);
         }
@@ -193,6 +193,7 @@ class BeneficiaryReportController extends Controller
                 $this->excelDate($beneficiary->reported_at),
                 $this->excelDate($beneficiary->beneficiary_created_at, true),
                 $beneficiary->user_name ?: trim("{$beneficiary->reporter_first_name} {$beneficiary->reporter_last_name}"),
+                ReportPeriod::label($beneficiary->reporting_period),
             ];
 
             foreach ($values as $index => $value) {
@@ -493,7 +494,7 @@ class BeneficiaryReportController extends Controller
                 'export_indicators.codigo as indicator_code',
                 DB::raw('COALESCE(export_indicators.descripcion, export_activities.title) as activity_title'),
                 'export_reports.activity_details', 'export_reports.report_date', 'export_users.name as user_name',
-                'export_reports.reporter_first_name', 'export_reports.reporter_last_name',
+                'export_reports.reporter_first_name', 'export_reports.reporter_last_name', 'export_reports.reporting_period',
             ])
             ->orderByDesc('export_reports.report_date')
             ->orderBy('export_states.name')

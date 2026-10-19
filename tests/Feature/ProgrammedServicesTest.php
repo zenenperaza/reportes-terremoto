@@ -99,7 +99,7 @@ class ProgrammedServicesTest extends TestCase
             ->assertDontSee('PERSONA CONFIDENCIAL')->assertDontSee('Servicio de catálogo no programado')
             ->assertSee('id="service-report-table"', false)->assertSee('js/service-report-table.js', false)
             ->assertSee('responsive.dataTables.min.css')->assertSee('dataTables.responsive.min.js')
-            ->assertSee('button-excel-export')->assertSee('programmed-service-table-wrap')
+            ->assertSee('button-excel')->assertSee('programmed-service-table-wrap')
             ->assertSee('Exportar Excel')
             ->assertViewHas('asignaciones', fn ($items) => $items->count() === 2);
         $items = $response->viewData('asignaciones')->keyBy('id');
@@ -658,6 +658,37 @@ class ProgrammedServicesTest extends TestCase
                 ->assertUnprocessable()->assertJsonValidationErrors('row_keys_json');
         }
         $this->getJson(route('servicios-programados.index', ['vista' => 'unknown']))->assertUnprocessable()->assertJsonValidationErrors('vista');
+    }
+
+    public function test_export_button_is_next_to_filters_and_downloads_the_generated_service_view(): void
+    {
+        $this->multiServiceRecord($this->admin);
+        foreach (['beneficiario', 'servicio', 'resumen'] as $mode) {
+            $page = $this->get(route('servicios-programados.index', [
+                'vista' => $mode, 'reporting_period' => ['2026-10'],
+            ]))->assertOk()->assertSee('css/report-excel-button.css');
+            $dom = new \DOMDocument;
+            @$dom->loadHTML('<?xml encoding="UTF-8">'.$page->getContent());
+            $xpath = new \DOMXPath($dom);
+            $button = '//form[contains(@class,"programmed-service-filters")]/div[contains(@class,"programmed-service-filter-actions")]/a[@id="service-report-export"]';
+            $this->assertSame(1, $xpath->query($button)->length);
+            $this->assertSame(1, $xpath->query($button.'/preceding-sibling::*[1][self::button and @type="submit"]')->length);
+            $this->assertSame(1, $xpath->query($button.'[contains(@class,"button-excel")]/svg[contains(@class,"excel-icon")]')->length);
+            $this->assertSame(1, $xpath->query('//*[@id="service-report-export"]')->length);
+            // The POST selection form must remain separate, never nested in the GET filters.
+            $this->assertSame(1, $xpath->query('//form[@id="service-report-export-form" and @method="post" and not(ancestor::form)]')->length);
+            $this->assertSame($mode, $xpath->evaluate('string(//form[@id="service-report-export-form"]/input[@name="vista"]/@value)'));
+            $this->assertSame('2026-10', $xpath->evaluate('string(//form[@id="service-report-export-form"]/input[@name="reporting_period[]"]/@value)'));
+            $exportUrl = $xpath->evaluate('string('.$button.'/@href)');
+            $this->assertSame(route('servicios-programados.export', $page->viewData('filters')), $exportUrl);
+            $book = $this->load($this->get($exportUrl)->assertOk()->assertDownload());
+            try {
+                $count = $page->viewData($mode === 'resumen' ? 'asignaciones' : 'entregas')->count();
+                $this->assertSame(3 + $count, $book->getActiveSheet()->getHighestDataRow());
+            } finally {
+                $book->disconnectWorksheets();
+            }
+        }
     }
 
     public function test_default_view_and_excel_are_per_beneficiary_and_explicit_modes_are_preserved(): void

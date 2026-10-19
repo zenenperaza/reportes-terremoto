@@ -13,10 +13,9 @@
         <h1>Informe por Indicadores</h1>
         <p class="muted">Analice la poblaci&oacute;n atendida mediante los mismos filtros y resumen base del consolidado general.</p>
     </div>
-    @include('general-reports.partials.excel-export', ['exportRoute' => 'indicator-reports.export'])
 </section>
 
-@include('general-reports.partials.filters-and-summary')
+@include('general-reports.partials.filters-and-summary', ['exportRoute' => 'indicator-reports.export'])
 
 <section class="card general-chart-card indicator-groups-section">
     <div class="card-header">

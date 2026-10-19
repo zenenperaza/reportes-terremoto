@@ -78,11 +78,20 @@ class ReportSummaryExcelExportTest extends TestCase
     {
         $this->fixture();
         $params = ['reported' => '', 'reporting_period' => [''], 'attention_from' => '2026-09-01', 'attention_to' => '2026-09-30'];
-        $page = $this->get(route($route.'.index', $params))->assertOk()->assertSee('Exportar a Excel');
+        $page = $this->get(route($route.'.index', $params))->assertOk()->assertSee('Exportar Excel');
         $data = $page->viewData('summary');
         $this->assertSame(6, $data['beneficiaries']);
-        $this->assertStringContainsString(e(route($route.'.export', $page->viewData('filters'))), $page->getContent());
-        $response = $this->get(route($route.'.export', $params))->assertOk()->assertDownload()
+        $dom = new \DOMDocument;
+        @$dom->loadHTML('<?xml encoding="UTF-8">'.$page->getContent());
+        $xpath = new \DOMXPath($dom);
+        $button = '//*[@id="general-report-filters"]//*[contains(concat(" ", normalize-space(@class), " "), " report-filter-actions ")]/a[@id="general-report-export"]';
+        $this->assertSame(1, $xpath->query($button)->length);
+        $this->assertSame(1, $xpath->query($button.'/preceding-sibling::*[1][self::button and @type="submit"]')->length);
+        $this->assertSame(1, $xpath->query($button.'[contains(@class,"button-excel")]/svg[contains(@class,"excel-icon")]')->length);
+        $this->assertSame(0, $xpath->query('//section[contains(@class,"page-heading")]//*[@id="general-report-export"]')->length);
+        $exportUrl = $xpath->evaluate('string('.$button.'/@href)');
+        $this->assertSame(route($route.'.export', $page->viewData('filters')), $exportUrl);
+        $response = $this->get($exportUrl)->assertOk()->assertDownload()
             ->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         $workbook = $this->load($response);
         try {
@@ -170,10 +179,10 @@ class ReportSummaryExcelExportTest extends TestCase
         $restrictedRole = Role::findOrCreate('excel-reviewer', 'web');
         $viewer = User::factory()->create(['role' => $restrictedRole->name, 'countrywide_access' => true]);
         $this->record($viewer, 'A', '2026-09-01', '2026-09', $this->assignment, [['age' => 10, 'sex' => 'Mujer']]);
-        $this->actingAs($viewer)->get(route($route.'.index'))->assertOk()->assertDontSee('Exportar a Excel');
+        $this->actingAs($viewer)->get(route($route.'.index'))->assertOk()->assertDontSee('Exportar Excel');
         $this->get(route($route.'.export'))->assertForbidden();
         $viewer->givePermissionTo('exportar registros excel');
-        $this->actingAs($viewer->fresh())->get(route($route.'.index'))->assertSee('Exportar a Excel');
+        $this->actingAs($viewer->fresh())->get(route($route.'.index'))->assertSee('Exportar Excel');
         $this->get(route($route.'.export'))->assertOk();
 
         $group = UserGroup::create(['name' => 'Equipo visible', 'is_active' => true]);

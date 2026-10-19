@@ -35,7 +35,7 @@
             </div>
             <div class="form-grid ">
                 <label>Proyecto *<select name="proyecto_id" id="proyecto_id" required>
-                        <option value="">Seleccione un proyecto</option>
+                        <option value="" @selected(blank($selectedProjectId))>Seleccione un proyecto</option>
                         @foreach ($projects as $project)
                             <option value="{{ $project->id }}" @selected((string) $selectedProjectId === (string) $project->id)>{{ $project->codigo }} — {{ $project->descripcion }}</option>
                         @endforeach

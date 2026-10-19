@@ -38,6 +38,9 @@ class DashboardController extends Controller
             ->select([
                 DB::raw("COALESCE(dashboard_projects.codigo, dashboard_sectors.name, 'Sin proyecto') as sector"),
                 DB::raw("COALESCE(dashboard_indicators.descripcion, dashboard_activities.title, 'Sin indicador') as activity"),
+                // Change display labels only; keep the original grouping and counts.
+                DB::raw("MAX(NULLIF(TRIM(dashboard_projects.nombre_alias), '')) as project_short_name"),
+                DB::raw("MAX(NULLIF(TRIM(dashboard_indicators.nombre_corto), '')) as indicator_short_name"),
                 DB::raw('COUNT(beneficiaries.id) as beneficiary_count'),
             ])
             ->groupByRaw("COALESCE(dashboard_projects.codigo, dashboard_sectors.name, 'Sin proyecto'), COALESCE(dashboard_indicators.descripcion, dashboard_activities.title, 'Sin indicador')")

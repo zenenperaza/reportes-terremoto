@@ -16,7 +16,7 @@ class TemporaryMaintenanceController extends Controller
         abort_if($token === '', 503, 'Falta configurar SERVER_MAINTENANCE_TOKEN en el archivo .env.');
         abort_unless(hash_equals($token, (string) request('token')), 403);
 
-        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia'], true),
+        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes'], true),
             422, 'Modo de mantenimiento no reconocido.');
         $permissionsOnly = request('only') === 'permisos-beneficiarios';
         $groupEditingOnly = request('only') === 'edicion-cruzada-grupos';
@@ -26,6 +26,9 @@ class TemporaryMaintenanceController extends Controller
         $liveMaintenanceOnly = request('only') === 'mantenimiento-en-vivo';
         $notificationsOnly = request('only') === 'notificaciones';
         $siaUpdateOnly = request('only') === 'actualizacion-sia';
+        $reportUpdateOnly = request('only') === 'actualizacion-informes';
+        abort_if($reportUpdateOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
+            422, 'El modo actualizacion-informes no se puede combinar con opciones de caché o importación.');
         abort_if($siaUpdateOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
             422, 'El modo actualizacion-sia no se puede combinar con opciones de caché o importación.');
         abort_if($notificationsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
@@ -188,6 +191,33 @@ class TemporaryMaintenanceController extends Controller
             ] as $file) {
                 abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
             }
+        }
+
+        if ($reportUpdateOnly) {
+            foreach ([
+                'app/Http/Controllers/TemporaryMaintenanceController.php',
+                'app/Http/Controllers/BeneficiaryReportController.php',
+                'app/Http/Controllers/DashboardController.php',
+                'app/Http/Controllers/ReportController.php',
+                'app/Http/Requests/StoreReportRequest.php',
+                'app/Http/Requests/StoreBeneficiaryEntryRequest.php',
+                'app/Services/ReportSummaryExcelExport.php',
+                'app/Services/ProgrammedServicesExcelExport.php',
+                'public/css/report-excel-button.css', 'public/css/programmed-services.css',
+                'public/js/general-report-locations.js', 'public/js/service-report-table.js',
+                'resources/views/dashboard.blade.php',
+                'resources/views/general-reports/index.blade.php',
+                'resources/views/general-reports/partials/excel-export.blade.php',
+                'resources/views/general-reports/partials/filters-and-summary.blade.php',
+                'resources/views/indicator-reports/index.blade.php',
+                'resources/views/reports/create.blade.php',
+                'resources/views/servicios/programados.blade.php',
+                'routes/web.php', 'routes/maintenance.php',
+            ] as $file) {
+                abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
+            }
+            abort_unless(class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class), 422,
+                'Falta PhpSpreadsheet. Instale las dependencias de Composer del proyecto antes de continuar.');
         }
 
         $cacheCommands = [
@@ -353,6 +383,7 @@ class TemporaryMaintenanceController extends Controller
         $includeExcel = $excelOnly || request()->boolean('import_excel');
 
         $selectedMigrations = match (true) {
+            $reportUpdateOnly => [],
             $siaUpdateOnly => array_merge([$presenceMigration], $notificationMigrations),
             $notificationsOnly => $notificationMigrations,
             $liveMaintenanceOnly => [$presenceMigration],
@@ -378,6 +409,15 @@ class TemporaryMaintenanceController extends Controller
             'EDICIÓN CRUZADA DE GRUPOS: se ejecutará únicamente la migración que agrega la columna allow_member_editing a user_groups y se reconstruirán las cachés. No se importarán ni modificarán registros o beneficiarios.',
             'Luego de aplicar esta migración, active "Edición cruzada entre miembros" en el grupo de usuarios correspondiente para permitir que los coordinadores editen registros de sus compañeros de grupo.',
         ] : []);
+        if ($reportUpdateOnly) {
+            $results = [
+                'ACTUALIZACIÓN DE INFORMES, PANEL Y REGISTROS: se comprueban los archivos y se reconstruyen únicamente las cachés.',
+                'Incluye período en el Excel de beneficiarios, botones verdes de exportación junto a los filtros, etiquetas cortas del panel y selección obligatoria del proyecto al registrar.',
+                'No se ejecutan migraciones, seeders ni importaciones. La parroquia 23 de Enero ya fue corregida manualmente en el servidor y no se modifica.',
+                'No se modifican registros, beneficiarios, proyectos, asignaciones, permisos, períodos, cierres, bloqueos ni avisos programados.',
+                'Al finalizar, recargue SIA con Ctrl + F5 para cargar los archivos actualizados.',
+            ];
+        }
         if ($siaUpdateOnly) {
             $results = [
                 'ACTUALIZACIÓN SIA: se ejecutan únicamente las tres migraciones de presencia y notificaciones, en orden, y se reconstruyen las cachés.',

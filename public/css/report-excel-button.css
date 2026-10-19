@@ -1,0 +1,6 @@
+.button-excel{background:#217346;border-color:#217346;color:#fff;flex-shrink:0}
+.button-excel:hover,.button-excel:focus{background:#185c37;border-color:#185c37;color:#fff}
+.button-excel:focus-visible{outline:3px solid #217346;outline-offset:3px}
+.button-excel[aria-disabled="true"]{opacity:.6;cursor:wait}
+.button-excel .excel-icon{width:19px;height:19px;margin-right:7px;flex:0 0 auto}
+@media(max-width:560px){.report-filter-actions>.btn,.report-filter-actions>.button{flex:1 1 100%}}

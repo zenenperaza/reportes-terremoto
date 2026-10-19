@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const parish = document.getElementById(prefix + '_parish_id');
     const error = document.getElementById(prefix + '-locations-error');
     const retry = document.getElementById(prefix + '-locations-retry');
-    const exportButton = document.getElementById('beneficiary-export-button');
+    const exportButton = document.getElementById('general-report-export') || document.getElementById('beneficiary-export-button');
     const submit = form.querySelector('[type="submit"]');
     let controller;
     let sequence = 0;

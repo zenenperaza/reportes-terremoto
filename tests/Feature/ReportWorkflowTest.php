@@ -29,6 +29,7 @@ use Tests\TestCase;
 class ReportWorkflowTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\CreatesReportProjectContext;
 
     protected function setUp(): void
     {
@@ -614,6 +615,7 @@ class ReportWorkflowTest extends TestCase
             'sector_id' => $sector->id, 'activity_id' => $activity->id,
         ];
 
+        $header += $this->reportProjectContext($user, $state, $sector);
         $first = $this->actingAs($user)->postJson('/beneficiarios', $header + ['beneficiary' => [
             'has_informed_consent' => true,
             'full_name' => 'María Gómez', 'age' => 8, 'sex' => 'Mujer', 'national_id' => 'V12345678', 'phone' => null,

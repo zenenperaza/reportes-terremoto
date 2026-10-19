@@ -53,7 +53,7 @@ class StoreReportRequest extends FormRequest
             'altitude' => ['nullable', 'numeric', 'between:-500,10000'],
             'gps_accuracy' => ['nullable', 'numeric', 'min:0', 'max:100000'],
 
-            'proyecto_id' => ['nullable', 'required_without:sector_id', 'integer', 'exists:proyectos,id'],
+            'proyecto_id' => ['nullable', $this->isMethod('post') ? 'required' : 'required_without:sector_id', 'integer', 'exists:proyectos,id'],
             'sector_proyecto_id' => ['nullable', 'required_with:proyecto_id', 'integer', 'exists:sector_proyecto,id'],
             'indicador_proyecto_id' => ['nullable', 'required_with:proyecto_id', 'integer', 'exists:indicador_proyecto,id'],
             'actividad_indicador_id' => ['nullable', 'integer', 'exists:actividad_indicador,id'],
@@ -208,6 +208,11 @@ class StoreReportRequest extends FormRequest
         if ($state && $municipality && $reverseGeocoder->matchesAdministrativeLocation($address, $state->name, $municipality->name) === false) {
             $validator->errors()->add('latitude', 'LAS COORDENADAS NO COINCIDEN CON EL ESTADO Y MUNICIPIO QUE DESEA REGISTRAR');
         }
+    }
+
+    public function messages(): array
+    {
+        return ['proyecto_id.required' => 'Seleccione un proyecto para registrar la actividad.'];
     }
 
     public function attributes(): array

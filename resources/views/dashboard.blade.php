@@ -226,7 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
             plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '58%', distributed: false}},
             dataLabels: {enabled: true, formatter: value => Number(value).toLocaleString('es-VE'), style: {fontSize: '11px'}},
             colors: ['#405189'],
-            xaxis: {categories: activityData.map(item => `${item.sector} — ${item.activity}`), labels: {formatter: value => Number(value).toLocaleString('es-VE')}},
+            xaxis: {categories: activityData.map(item => `${item.project_short_name || item.sector} — ${item.indicator_short_name || item.activity}`), labels: {formatter: value => Number(value).toLocaleString('es-VE')}},
             yaxis: {labels: {maxWidth: 480}},
             grid: {borderColor: '#e9ebec', strokeDashArray: 3},
             tooltip: {y: {formatter: value => `${Number(value).toLocaleString('es-VE')} beneficiarios`}},

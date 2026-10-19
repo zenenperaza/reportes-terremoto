@@ -59,6 +59,11 @@
         <div class="programmed-service-filter-actions">
             <a class="button button-secondary" href="{{ route('servicios-programados.index') }}">Limpiar filtros</a>
             <button class="button button-primary" type="submit"><i class="ri-filter-3-line" aria-hidden="true"></i> Aplicar filtros</button>
+            @include('general-reports.partials.excel-export', [
+                'exportRoute' => 'servicios-programados.export',
+                'exportPermission' => 'exportar informes por servicios excel',
+                'exportId' => 'service-report-export',
+            ])
         </div>
     </form>
 </section>
@@ -72,7 +77,6 @@
             @endif
         </div>
         @can('exportar informes por servicios excel')
-            <a id="service-report-export" class="button button-excel-export" data-period-date-export href="{{ route('servicios-programados.export', $filters) }}"><i class="ri-file-excel-2-line" aria-hidden="true"></i> Exportar Excel</a>
             <form id="service-report-export-form" method="post" action="{{ route('servicios-programados.export') }}" hidden>
                 @csrf
                 @foreach($filters as $field => $value)

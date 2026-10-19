@@ -22,8 +22,10 @@ function harness(useSelect2 = false, beneficiary = false) {
     const elements = {'general-report-filters': form, 'general_state_id': state, 'general_municipality_id': municipality,
         'general_parish_id': parish, 'general-locations-error': error, 'general-locations-retry': retry};
     const exportButton = element();
+    elements['general-report-export'] = exportButton;
     const reported = element('1');
     if (beneficiary) {
+        delete elements['general-report-export'];
         delete elements['general-report-filters'];
         Object.assign(elements, {'beneficiary-report-filters': form, 'summary_state_id': state,
             'summary_municipality_id': municipality, 'summary_parish_id': parish,
@@ -99,6 +101,19 @@ test('multiple states are sent together and dependent selections are reset', asy
     assert.equal(h.municipality.options.length, 3);
     assert.equal(h.parish.options.length, 3);
     assert.equal(h.submit.disabled, false);
+});
+
+test('general and indicator report export is blocked while dependent locations are loading', async () => {
+    const h = harness();
+    const pending = h.state.handlers.change();
+    let prevented = 0;
+    const event = {preventDefault() {prevented++;}, stopImmediatePropagation() {}};
+    h.exportButton.handlers.click(event);
+    assert.equal(prevented, 1);
+    h.requests[0].finish(all);
+    await pending;
+    h.exportButton.handlers.click(event);
+    assert.equal(prevented, 1);
 });
 
 test('municipality narrows parishes and is preserved while parish selection is cleared', async () => {

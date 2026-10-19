@@ -65,6 +65,12 @@ class ReferenceDataSeeder extends Seeder
                 continue;
             }
 
+            // The reference workbook may interpret "23 de Enero" as an Excel
+            // date/serial. Keep the canonical name for this exact location.
+            if ($municipalityCode === 'VE0101' && $parishCode === 'VE010122') {
+                $parishName = '23 de Enero';
+            }
+
             Parish::updateOrCreate(
                 ['code' => $parishCode],
                 [

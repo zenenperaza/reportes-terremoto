@@ -10,6 +10,7 @@ use Tests\TestCase;
 class ReportPeriodTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\CreatesReportProjectContext;
 
     private function period(string $value): void
     {
@@ -24,11 +25,13 @@ class ReportPeriodTest extends TestCase
         $sector = Sector::create(['name' => 'Sector', 'slug' => 'sector', 'sort_order' => 1]);
         $activity = Activity::create(['sector_id' => $sector->id, 'code' => 'ACT-01', 'title' => 'Actividad', 'sort_order' => 1]);
         PlaceName::create(['name' => 'Lugar de prueba']);
-        $this->actingAs(User::factory()->create(['role' => 'admin', 'is_active' => true, 'can_mark_reported' => true]));
+        $user = User::factory()->create(['role' => 'admin', 'is_active' => true, 'can_mark_reported' => true]);
+        $this->actingAs($user);
 
         return ['report_date' => today()->toDateString(), 'organization' => 'ASONACOP', 'state_id' => $state->id,
             'municipality_id' => $municipality->id, 'parish_id' => $parish->id, 'installation_type' => 'Comunidad / Espacio Comunitario',
-            'place_name' => 'Lugar de prueba', 'sector_id' => $sector->id, 'activity_id' => $activity->id];
+            'place_name' => 'Lugar de prueba', 'sector_id' => $sector->id, 'activity_id' => $activity->id]
+            + $this->reportProjectContext($user, $state, $sector);
     }
 
     private function person(): array
