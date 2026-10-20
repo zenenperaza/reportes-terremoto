@@ -16,6 +16,71 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ProgrammedServicesExcelExport
 {
+    public function downloadGrouped(Collection $rows, array $filters): StreamedResponse
+    {
+        return response()->streamDownload(function () use ($rows, $filters): void {
+            $book = new Spreadsheet;
+            try {
+                $book->getProperties()->setCreator('SIA - ASONACOP')->setTitle('Servicios entregados agrupados');
+                $sheet = $book->getActiveSheet()->setTitle('Agrupado por servicio');
+                $sheet->mergeCells('A1:H1')->setCellValueExplicit('A1', 'Una fila por servicio. Cada beneficiario cuenta una vez por registro y servicio; no representa personas únicas ni unidades entregadas.', DataType::TYPE_STRING);
+                $headers = ['ID servicio', 'Servicio entregado', 'Descripción', 'Atenciones con servicio', 'Registros con servicio', 'Proyectos', 'Primera atención', 'Última atención'];
+                foreach ($headers as $column => $label) {
+                    $sheet->setCellValueExplicit(Coordinate::stringFromColumnIndex($column + 1).'3', $label, DataType::TYPE_STRING);
+                }
+                $line = 4;
+                foreach ($rows as $row) {
+                    $values = [(int) $row->service_id, $row->service_name, $row->service_description ?? '',
+                        (int) $row->beneficiaries_count, (int) $row->reports_count, (int) $row->projects_count,
+                        $row->first_attention ? Carbon::parse($row->first_attention)->format('Y-m-d') : '',
+                        $row->last_attention ? Carbon::parse($row->last_attention)->format('Y-m-d') : ''];
+                    foreach ($values as $column => $value) {
+                        $sheet->setCellValueExplicit(Coordinate::stringFromColumnIndex($column + 1).$line, $value,
+                            is_int($value) ? DataType::TYPE_NUMERIC : DataType::TYPE_STRING);
+                    }
+                    $line++;
+                }
+                $sheet->freezePane('A4')->setAutoFilter('A3:H'.max(3, $line - 1));
+                $sheet->getStyle('A3:H3')->applyFromArray([
+                    'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF0B3B60']],
+                ]);
+                $sheet->getStyle('A1:H'.max(3, $line - 1))->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_TOP);
+                foreach ([14, 32, 45, 24, 24, 16, 20, 20] as $column => $width) {
+                    $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($column + 1))->setWidth($width);
+                }
+                $sheet->getRowDimension(1)->setRowHeight(32);
+                $sheet->getRowDimension(3)->setRowHeight(32);
+                $filterSheet = $book->createSheet()->setTitle('Filtros');
+                $filterSheet->setCellValue('A1', 'Filtro')->setCellValue('B1', 'Valor / ID seleccionado');
+                $labels = ['vista' => 'Vista', 'proyecto_id' => 'Proyecto', 'sector_id' => 'Sector', 'indicador_id' => 'Indicador',
+                    'actividad_id' => 'Actividad', 'servicio_id' => 'Servicio', 'estatus' => 'Estado de la asignación',
+                    'reporting_period' => 'Períodos', 'from' => 'Fecha de atención desde', 'to' => 'Fecha de atención hasta'];
+                $line = 2;
+                foreach ($labels as $field => $label) {
+                    $value = $field === 'vista' ? 'Agrupado por servicio' : ($filters[$field] ?? '');
+                    if ($field === 'reporting_period') {
+                        $value = implode(', ', array_map(fn ($period) => ReportPeriod::label($period), ReportPeriod::selection($value)));
+                    }
+                    $value = ! filled($value) ? 'Todos' : ($field === 'estatus' ? ((string) $value === '1' ? 'Activo' : 'Inactivo') : (string) $value);
+                    $filterSheet->setCellValueExplicit('A'.$line, $label, DataType::TYPE_STRING);
+                    $filterSheet->setCellValueExplicit('B'.$line, $value, DataType::TYPE_STRING);
+                    $line++;
+                }
+                $filterSheet->getColumnDimension('A')->setWidth(28);
+                $filterSheet->getColumnDimension('B')->setWidth(38);
+                $book->setActiveSheetIndex(0);
+                $writer = new Xlsx($book);
+                $writer->setPreCalculateFormulas(false);
+                $writer->save('php://output');
+            } finally {
+                $book->disconnectWorksheets();
+            }
+        }, 'servicios-agrupados-'.now()->format('Ymd-His').'.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
     public function downloadDeliveries(Collection $rows, array $filters): StreamedResponse
     {
         return response()->streamDownload(function () use ($rows, $filters): void {

@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -40,7 +41,8 @@ class ServicioProgramadoController extends Controller
             'dateBounds' => $dateBounds,
             // DataTable paginates/searches all filtered assignments, not a Laravel page.
             'asignaciones' => $assignments,
-            'entregas' => $filters['vista'] === 'resumen' ? collect() : $this->deliveryRows($request, $filters, $assignments->modelKeys()),
+            'entregas' => in_array($filters['vista'], ['resumen', 'agrupado'], true) ? collect() : $this->deliveryRows($request, $filters, $assignments->modelKeys()),
+            'serviciosAgrupados' => $filters['vista'] === 'agrupado' ? $this->groupedServices($request, $filters, $assignments->modelKeys()) : collect(),
             'periodOptions' => ReportPeriod::options($request->user()->constrainVisibleReports(Report::query())
                 ->whereHas('serviciosActividad')->whereHas('beneficiaries')),
             // Include inactive assignments because historical deliveries remain valid.
@@ -56,6 +58,24 @@ class ServicioProgramadoController extends Controller
     {
         $filters = $this->validatedFilters($request);
         ReportPeriodDates::validate($filters, $this->dateBounds($request, $filters), ['from' => 'attention', 'to' => 'attention']);
+        if ($filters['vista'] === 'agrupado') {
+            $rows = $this->groupedServices($request, $filters, $this->query($request, $filters)->get()->modelKeys());
+            $selection = $request->validate([
+                'table_selection' => ['nullable', 'boolean'],
+                'service_ids_json' => ['nullable', 'string', 'json', 'max:1000000'],
+            ]);
+            if ($request->boolean('table_selection')) {
+                $ids = json_decode($selection['service_ids_json'] ?? '[]', true);
+                if (! is_array($ids) || ! array_is_list($ids)) {
+                    throw ValidationException::withMessages(['service_ids_json' => 'La selección de servicios no es válida.']);
+                }
+                validator(['ids' => $ids], ['ids' => ['array'], 'ids.*' => ['required', 'integer', 'min:1', 'distinct']])->validate();
+                // Only narrow the authorized, filtered summary; never trust client IDs as access grants.
+                $rows = $rows->whereIn('service_id', $ids);
+            }
+
+            return app(ProgrammedServicesExcelExport::class)->downloadGrouped($rows, $filters);
+        }
         if ($filters['vista'] !== 'resumen') {
             $rows = $this->deliveryRows($request, $filters, $this->query($request, $filters)->get()->modelKeys());
             $selection = $request->validate([
@@ -117,7 +137,7 @@ class ServicioProgramadoController extends Controller
     private function validatedFilters(Request $request): array
     {
         $validated = $request->validate([
-            'vista' => ['nullable', Rule::in(['resumen', 'beneficiario', 'servicio'])],
+            'vista' => ['nullable', Rule::in(['resumen', 'agrupado', 'beneficiario', 'servicio'])],
             'proyecto_id' => ['nullable', 'integer', 'exists:proyectos,id'],
             'sector_id' => ['nullable', 'integer', 'exists:sectors,id'],
             'indicador_id' => ['nullable', 'integer', 'exists:indicadores,id'],
@@ -136,7 +156,7 @@ class ServicioProgramadoController extends Controller
         unset($validated['page']);
         $canViewBeneficiaries = $request->user()->can('solo ver registros') && $request->user()->can('ver detalle de registros');
         $validated['vista'] = ($validated['vista'] ?? null) ?: ($canViewBeneficiaries ? 'beneficiario' : 'resumen');
-        if ($validated['vista'] !== 'resumen') {
+        if (! in_array($validated['vista'], ['resumen', 'agrupado'], true)) {
             abort_unless($canViewBeneficiaries, 403);
         }
 
@@ -173,6 +193,26 @@ class ServicioProgramadoController extends Controller
                 'key' => $person->id.':'.$service->id, 'beneficiary' => $person, 'services' => collect([$service]),
             ])->all();
         });
+    }
+
+    private function groupedServices(Request $request, array $filters, array $assignmentIds): Collection
+    {
+        return DB::table('report_servicio_actividad as grouped_deliveries')
+            ->join('servicio_actividad as grouped_assignments', 'grouped_assignments.id', '=', 'grouped_deliveries.servicio_actividad_id')
+            ->join('servicios as grouped_services', 'grouped_services.id', '=', 'grouped_assignments.servicio_id')
+            ->join('reports as grouped_reports', 'grouped_reports.id', '=', 'grouped_deliveries.report_id')
+            ->join('beneficiaries as grouped_people', 'grouped_people.report_id', '=', 'grouped_reports.id')
+            ->whereIn('grouped_assignments.id', $assignmentIds)
+            ->whereIn('grouped_reports.id', $this->deliveredReports($request, $filters)->select('reports.id'))
+            ->select(['grouped_services.id as service_id', 'grouped_services.nombre as service_name', 'grouped_services.descripcion as service_description'])
+            // One attendance per beneficiary row and catalog service, even if two assignments share that service.
+            ->selectRaw('COUNT(DISTINCT grouped_people.id) as beneficiaries_count')
+            ->selectRaw('COUNT(DISTINCT grouped_reports.id) as reports_count')
+            ->selectRaw('COUNT(DISTINCT grouped_reports.proyecto_id) as projects_count')
+            ->selectRaw('MIN(grouped_reports.report_date) as first_attention')
+            ->selectRaw('MAX(grouped_reports.report_date) as last_attention')
+            ->groupBy('grouped_services.id', 'grouped_services.nombre', 'grouped_services.descripcion')
+            ->orderBy('grouped_services.nombre')->orderBy('grouped_services.id')->get();
     }
 
     private function query(Request $request, array $filters): Builder

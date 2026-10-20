@@ -4,10 +4,10 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync('public/js/service-report-table.js', 'utf8');
 
-function harness({ids = ['3', '8'], canExport = true, hasTable = true, hasLibrary = true, deliveryRows = false} = {}) {
+function harness({ids = ['3', '8'], canExport = true, hasTable = true, hasLibrary = true, deliveryRows = false, groupedServices = false} = {}) {
     const state = {submitted: 0, inputs: [], options: null};
     const nodes = {
-        'service-report-table': hasTable ? {dataset: {deliveryRows: deliveryRows ? '1' : ''}} : null,
+        'service-report-table': hasTable ? {dataset: {deliveryRows: deliveryRows ? '1' : '', groupedServices: groupedServices ? '1' : ''}} : null,
         'service-report-export': canExport ? {addEventListener: (_, handler) => {state.click = handler;}} : null,
         'service-report-export-form': {submit: () => {state.submitted++;}},
         'service-report-export-selection': {
@@ -23,7 +23,7 @@ function harness({ids = ['3', '8'], canExport = true, hasTable = true, hasLibrar
         return {rows: selector => {
             assert.equal(selector.search, 'applied');
             assert.equal(selector.page, 'all');
-            return {nodes: () => ({toArray: () => ids.map(id => ({dataset: {serviceAssignment: id, deliveryKey: id}}))})};
+            return {nodes: () => ({toArray: () => ids.map(id => ({dataset: {serviceAssignment: id, deliveryKey: id, serviceId: id}}))})};
         }};
     };
     vm.runInNewContext(source, context);
@@ -38,7 +38,7 @@ test('table enables Spanish search, paging and sorting, excluding actions', () =
     assert.equal(state.options.columnDefs[0].searchable, false);
     assert.equal(state.options.responsive.details.type, 'inline');
     assert.equal(state.options.responsive.details.target, 0);
-    assert.equal(state.options.columnDefs[1].className, 'dtr-control');
+    assert.equal(state.options.columnDefs[1].className, 'all');
 });
 
 test('Excel submits all matching pages and replaces previous IDs on each click', () => {
@@ -77,8 +77,21 @@ test('delivery modes export beneficiary or beneficiary-service keys from every m
     for (const ids of [['12', '25'], ['12:3', '12:8', '25:3'], []]) {
         const state = harness({ids, deliveryRows: true});
         assert.equal(state.options.language.lengthMenu, 'Mostrar _MENU_ filas');
+        assert.equal(state.options.columnDefs.find(column => column.targets === 2).className, 'all');
         state.click({preventDefault() {}});
         assert.deepEqual(state.inputs.map(input => [input.name, input.value]), [['row_keys_json', JSON.stringify(ids)]]);
+        assert.equal(state.submitted, 1);
+    }
+});
+
+test('grouped view keeps service visible and exports matching service IDs across pages', () => {
+    for (const ids of [['3', '8'], [], Array.from({length: 1500}, (_, index) => String(index + 1))]) {
+        const state = harness({ids, groupedServices: true});
+        assert.equal(state.options.columnDefs.some(column => column.targets === 10), false);
+        assert.equal(state.options.columnDefs.find(column => column.targets === 0).className, 'all');
+        assert.equal(state.options.columnDefs.some(column => column.className === 'dtr-control'), false);
+        state.click({preventDefault() {}});
+        assert.deepEqual(state.inputs.map(input => [input.name, input.value]), [['service_ids_json', JSON.stringify(ids)]]);
         assert.equal(state.submitted, 1);
     }
 });

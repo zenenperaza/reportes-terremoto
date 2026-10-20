@@ -24,9 +24,10 @@
                     <option value="beneficiario" @selected($filters['vista'] === 'beneficiario')>Por beneficiario</option>
                     <option value="servicio" @selected($filters['vista'] === 'servicio')>Por servicio</option>
                 @endif
-                <option value="resumen" @selected($filters['vista'] === 'resumen')>Resumen por servicio</option>
+                <option value="agrupado" @selected($filters['vista'] === 'agrupado')>Agrupado por servicio</option>
+                <option value="resumen" @selected($filters['vista'] === 'resumen')>Resumen por proyecto y actividad</option>
             </select>
-            <small>Por beneficiario: reúne sus servicios. Por servicio: una fila por cada entrega.</small>
+            <small>Agrupado por servicio: una fila por servicio con sus totales. Por servicio: detalle de cada entrega.</small>
         </label>
         <label for="programmed_project">Proyecto
             <select id="programmed_project" name="proyecto_id"><option value="">Todos los proyectos</option>@foreach($proyectos as $project)<option value="{{ $project->id }}" @selected((string) $filters['proyecto_id'] === (string) $project->id)>{{ $project->codigo }}{{ $project->nombre_alias ? ' — '.$project->nombre_alias : '' }}</option>@endforeach</select>
@@ -70,7 +71,9 @@
 <section class="content-card programmed-service-results">
     <div class="card-heading">
         <div><h2>Servicios entregados</h2>
-            @if($filters['vista'] === 'resumen')
+            @if($filters['vista'] === 'agrupado')
+                <p class="muted">{{ number_format($serviciosAgrupados->count()) }} servicio(s) entregado(s). Una fila por servicio, sumando los registros que coinciden con los filtros.</p>
+            @elseif($filters['vista'] === 'resumen')
                 <p class="muted">{{ number_format($asignaciones->count()) }} servicio(s) con registros de beneficiarios. Cada fila resume un servicio dentro de un proyecto, indicador y actividad.</p>
             @else
                 <p class="muted">{{ number_format($entregas->count()) }} fila(s) · {{ $filters['vista'] === 'beneficiario' ? 'Por beneficiario: una fila por beneficiario de cada registro, con sus servicios.' : 'Por servicio: una fila por servicio y beneficiario; un beneficiario puede aparecer varias veces.' }}</p>
@@ -88,7 +91,26 @@
         @endcan
     </div>
     <p class="programmed-service-note">Solo se muestran servicios seleccionados en registros con beneficiarios. Las atenciones cuentan filas de beneficiarios: no son personas únicas ni unidades entregadas. SIA no registra la cantidad de unidades entregadas por servicio. El estado indica si la asignación está activa, no si hubo entrega.</p>
-    @if($filters['vista'] !== 'resumen')
+    @if($filters['vista'] === 'agrupado')
+        <p class="muted">Cada beneficiario cuenta una vez por registro y servicio. Puede figurar en varios servicios; estos totales no son unidades entregadas ni personas únicas entre registros.</p>
+        <div class="table-wrap programmed-service-table-wrap">
+            <table id="service-report-table" class="programmed-services-table display responsive" data-grouped-services="1" style="width:100%">
+                <thead><tr><th class="all" data-priority="1">Servicio entregado</th><th data-priority="2">Atenciones con servicio</th><th data-priority="3">Registros con servicio</th><th>Proyectos</th><th>Primera atención</th><th>Última atención</th></tr></thead>
+                <tbody>
+                @foreach($serviciosAgrupados as $service)
+                    <tr data-service-id="{{ $service->service_id }}">
+                        <td><strong>{{ $service->service_name }}</strong>@if($service->service_description)<small>{{ $service->service_description }}</small>@endif</td>
+                        <td class="programmed-service-quantity" data-order="{{ $service->beneficiaries_count }}">{{ number_format($service->beneficiaries_count) }}</td>
+                        <td data-order="{{ $service->reports_count }}">{{ number_format($service->reports_count) }}</td>
+                        <td data-order="{{ $service->projects_count }}">{{ number_format($service->projects_count) }}</td>
+                        <td data-order="{{ $service->first_attention }}">{{ \Illuminate\Support\Carbon::parse($service->first_attention)->format('d/m/Y') }}</td>
+                        <td data-order="{{ $service->last_attention }}">{{ \Illuminate\Support\Carbon::parse($service->last_attention)->format('d/m/Y') }}</td>
+                    </tr>
+                @endforeach
+                </tbody>
+            </table>
+        </div>
+    @elseif($filters['vista'] !== 'resumen')
         @include('servicios.partials.entregas')
     @else
     @if($asignaciones->isEmpty())
@@ -97,7 +119,7 @@
         <p class="muted programmed-service-responsive-help">En pantallas pequeñas, pulse + junto al servicio para ver los demás datos y acceder a sus beneficiarios.</p>
         <div class="table-wrap programmed-service-table-wrap">
             <table id="service-report-table" class="programmed-services-table display responsive" style="width:100%">
-                <thead><tr><th data-priority="1">Servicio</th><th data-priority="5">Proyecto</th><th>Sector</th><th>Indicador</th><th>Actividad</th><th data-priority="2">Atenciones con servicio</th><th data-priority="3">Registros con servicio</th><th>Primera atención</th><th data-priority="6">Última atención</th><th>Estado de la asignación</th><th data-priority="4">Acciones</th></tr></thead>
+                <thead><tr><th class="all" data-priority="1">Servicio</th><th data-priority="5">Proyecto</th><th>Sector</th><th>Indicador</th><th>Actividad</th><th data-priority="2">Atenciones con servicio</th><th data-priority="3">Registros con servicio</th><th>Primera atención</th><th data-priority="6">Última atención</th><th>Estado de la asignación</th><th data-priority="4">Acciones</th></tr></thead>
                 <tbody>
                 @foreach($asignaciones as $asignacion)
                     @php

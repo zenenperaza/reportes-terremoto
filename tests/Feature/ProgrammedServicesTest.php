@@ -663,7 +663,7 @@ class ProgrammedServicesTest extends TestCase
     public function test_export_button_is_next_to_filters_and_downloads_the_generated_service_view(): void
     {
         $this->multiServiceRecord($this->admin);
-        foreach (['beneficiario', 'servicio', 'resumen'] as $mode) {
+        foreach (['beneficiario', 'servicio', 'resumen', 'agrupado'] as $mode) {
             $page = $this->get(route('servicios-programados.index', [
                 'vista' => $mode, 'reporting_period' => ['2026-10'],
             ]))->assertOk()->assertSee('css/report-excel-button.css');
@@ -683,7 +683,9 @@ class ProgrammedServicesTest extends TestCase
             $this->assertSame(route('servicios-programados.export', $page->viewData('filters')), $exportUrl);
             $book = $this->load($this->get($exportUrl)->assertOk()->assertDownload());
             try {
-                $count = $page->viewData($mode === 'resumen' ? 'asignaciones' : 'entregas')->count();
+                $count = $page->viewData(match ($mode) {
+                    'resumen' => 'asignaciones', 'agrupado' => 'serviciosAgrupados', default => 'entregas',
+                })->count();
                 $this->assertSame(3 + $count, $book->getActiveSheet()->getHighestDataRow());
             } finally {
                 $book->disconnectWorksheets();
@@ -731,6 +733,151 @@ class ProgrammedServicesTest extends TestCase
                 $book->disconnectWorksheets();
             }
         }
+    }
+
+    public function test_grouped_services_combine_projects_and_keep_the_service_column_visible(): void
+    {
+        $page = $this->get(route('servicios-programados.index', ['vista' => 'agrupado']))->assertOk()
+            ->assertSee('Agrupado por servicio')->assertSee('Resumen por proyecto y actividad')
+            ->assertSee('Kit compartido')->assertSee('data-grouped-services="1"', false)
+            ->assertDontSee('PERSONA CONFIDENCIAL')->assertDontSee('Servicio de catálogo no programado');
+        $rows = $page->viewData('serviciosAgrupados');
+        $this->assertCount(1, $rows);
+        $this->assertSame('Kit compartido', $rows->first()->service_name);
+        $this->assertSame(5, (int) $rows->first()->beneficiaries_count);
+        $this->assertSame(3, (int) $rows->first()->reports_count);
+        $this->assertSame(2, (int) $rows->first()->projects_count);
+        $dom = new \DOMDocument;
+        @$dom->loadHTML('<?xml encoding="UTF-8">'.$page->getContent());
+        $xpath = new \DOMXPath($dom);
+        $this->assertSame(1, $xpath->query('//table[@id="service-report-table"]/thead/tr/th[1][contains(@class,"all")]')->length);
+        $this->assertSame('Servicio entregado', trim($xpath->evaluate('string(//table[@id="service-report-table"]/thead/tr/th[1])')));
+        $this->assertCount(0, $page->viewData('entregas'));
+    }
+
+    public function test_grouped_services_respect_every_filter_and_actual_attention_dates(): void
+    {
+        $a = $this->items['A'];
+        foreach (['proyecto_id' => 'project', 'sector_id' => 'sector', 'indicador_id' => 'indicator', 'actividad_id' => 'activity'] as $field => $key) {
+            $row = $this->get(route('servicios-programados.index', ['vista' => 'agrupado', $field => $a[$key]->id]))
+                ->assertOk()->viewData('serviciosAgrupados')->sole();
+            $this->assertSame(3, (int) $row->beneficiaries_count);
+            $this->assertSame(2, (int) $row->reports_count);
+            $this->assertSame(1, (int) $row->projects_count);
+        }
+        $row = $this->get(route('servicios-programados.index', ['vista' => 'agrupado', 'estatus' => '0']))
+            ->assertOk()->viewData('serviciosAgrupados')->sole();
+        $this->assertSame(2, (int) $row->beneficiaries_count);
+        $this->get(route('servicios-programados.index', ['vista' => 'agrupado', 'servicio_id' => $this->items['C']['assignment']->servicio_id]))
+            ->assertOk()->assertViewHas('serviciosAgrupados', fn ($rows) => $rows->isEmpty());
+        $report = $this->multiServiceRecord($this->admin);
+        $report->update(['report_date' => '2026-11-04']);
+        $params = ['vista' => 'agrupado', 'reporting_period' => ['2026-10'], 'from' => '2026-11-04', 'to' => '2026-11-04'];
+        $rows = $this->get(route('servicios-programados.index', $params))->assertOk()->viewData('serviciosAgrupados');
+        $this->assertCount(3, $rows);
+        foreach ($rows as $row) {
+            $this->assertSame(2, (int) $row->beneficiaries_count);
+            $this->assertSame(1, (int) $row->reports_count);
+            $this->assertSame('2026-11-04', substr($row->first_attention, 0, 10));
+            $this->assertSame('2026-11-04', substr($row->last_attention, 0, 10));
+        }
+        $row = $this->get(route('servicios-programados.index', ['vista' => 'agrupado', 'reporting_period' => ['2026-09', '2026-10'],
+            'servicio_id' => $a['assignment']->servicio_id]))->assertOk()->viewData('serviciosAgrupados')->sole();
+        $this->assertSame(7, (int) $row->beneficiaries_count);
+        $this->assertSame('2026-09-15', substr($row->first_attention, 0, 10));
+        $this->assertSame('2026-11-04', substr($row->last_attention, 0, 10));
+    }
+
+    public function test_grouped_services_do_not_double_count_a_catalog_service_on_one_report(): void
+    {
+        $activity = Actividad::create(['codigo' => 'OTHER', 'descripcion' => 'Otra actividad']);
+        $assignedActivity = ActividadIndicador::create(['indicador_proyecto_id' => $this->items['A']['assignedIndicator']->id,
+            'actividad_id' => $activity->id, 'estatus' => true]);
+        $assignment = ServicioActividad::create(['actividad_indicador_id' => $assignedActivity->id,
+            'servicio_id' => $this->items['A']['assignment']->servicio_id, 'estatus' => true]);
+        Report::where('proyecto_id', $this->items['A']['project']->id)->first()->serviciosActividad()->attach($assignment);
+        $row = $this->get(route('servicios-programados.index', ['vista' => 'agrupado']))->assertOk()->viewData('serviciosAgrupados')->sole();
+        $this->assertSame(5, (int) $row->beneficiaries_count);
+        $this->assertSame(3, (int) $row->reports_count);
+    }
+
+    public function test_grouped_excel_matches_totals_search_selection_and_filtered_scope(): void
+    {
+        $service = $this->items['A']['assignment']->servicio;
+        $service->update(['nombre' => '=1+1']);
+        $params = ['vista' => 'agrupado'];
+        $book = $this->load($this->get(route('servicios-programados.export', $params))->assertOk());
+        try {
+            $sheet = $book->getActiveSheet();
+            $this->assertSame(4, $sheet->getHighestDataRow());
+            $this->assertSame('=1+1', $sheet->getCell('B4')->getValue());
+            $this->assertSame(DataType::TYPE_STRING, $sheet->getCell('B4')->getDataType());
+            $this->assertSame(5, $sheet->getCell('D4')->getValue());
+            $this->assertSame(3, $sheet->getCell('E4')->getValue());
+            $this->assertSame(2, $sheet->getCell('F4')->getValue());
+            $this->assertSame('2026-09-15', $sheet->getCell('G4')->getValue());
+            $this->assertSame('A3:H4', $sheet->getAutoFilter()->getRange());
+            $this->assertSame('Agrupado por servicio', $book->getSheetByName('Filtros')->getCell('B2')->getValue());
+        } finally {
+            $book->disconnectWorksheets();
+        }
+        foreach ([[$service->id], [], [999999]] as $ids) {
+            $book = $this->load($this->post(route('servicios-programados.export'), $params + [
+                'table_selection' => '1', 'service_ids_json' => json_encode($ids),
+            ])->assertOk());
+            try {
+                $this->assertSame($ids === [$service->id] ? 4 : 3, $book->getActiveSheet()->getHighestDataRow());
+            } finally {
+                $book->disconnectWorksheets();
+            }
+        }
+        foreach (['bad json', '{"id":1}', '["bad"]', '[-1]', '[1,1]'] as $json) {
+            $this->postJson(route('servicios-programados.export'), $params + ['table_selection' => '1', 'service_ids_json' => $json])->assertUnprocessable();
+        }
+        $this->multiServiceRecord($this->admin);
+        $selected = $this->items['C']['assignment']->servicio_id;
+        foreach ([[], ['proyecto_id' => $this->items['B']['project']->id]] as $extra) {
+            $book = $this->load($this->post(route('servicios-programados.export'), $params + $extra + [
+                'table_selection' => '1', 'service_ids_json' => json_encode([$selected]),
+            ])->assertOk());
+            try {
+                $sheet = $book->getActiveSheet();
+                $this->assertSame($extra ? 3 : 4, $sheet->getHighestDataRow());
+                if (! $extra) {
+                    $this->assertSame($selected, $sheet->getCell('A4')->getValue());
+                    $this->assertSame(2, $sheet->getCell('D4')->getValue());
+                }
+            } finally {
+                $book->disconnectWorksheets();
+            }
+        }
+    }
+
+    public function test_grouped_summary_does_not_expose_private_deliveries_or_require_beneficiary_detail_access(): void
+    {
+        $owner = User::factory()->create(['role' => 'reporter']);
+        $owner->givePermissionTo(['ver informes por servicios', 'exportar informes por servicios excel']);
+        $this->record($this->items['A']['assignment'], $owner, 1);
+        $row = $this->actingAs($owner->fresh())->get(route('servicios-programados.index', ['vista' => 'agrupado']))
+            ->assertOk()->assertDontSee('PERSONA CONFIDENCIAL')->viewData('serviciosAgrupados')->sole();
+        $this->assertSame(1, (int) $row->beneficiaries_count);
+        $this->assertSame(1, (int) $row->reports_count);
+        $book = $this->load($this->get(route('servicios-programados.export', ['vista' => 'agrupado']))->assertOk());
+        try {
+            $this->assertSame(1, $book->getActiveSheet()->getCell('D4')->getValue());
+            $this->assertSame(1, $book->getActiveSheet()->getCell('E4')->getValue());
+        } finally {
+            $book->disconnectWorksheets();
+        }
+        $role = Role::findOrCreate('grouped-summary-reader', 'web');
+        $viewer = User::factory()->create(['role' => $role->name, 'countrywide_access' => true]);
+        $viewer->givePermissionTo('ver informes por servicios');
+        $this->actingAs($viewer->fresh())->get(route('servicios-programados.index', ['vista' => 'agrupado']))
+            ->assertOk()->assertDontSee('PERSONA CONFIDENCIAL');
+        $this->get(route('servicios-programados.index', ['vista' => 'servicio']))->assertForbidden();
+        $this->get(route('servicios-programados.export', ['vista' => 'agrupado']))->assertForbidden();
+        $viewer->givePermissionTo('exportar informes por servicios excel');
+        $this->actingAs($viewer->fresh())->get(route('servicios-programados.export', ['vista' => 'agrupado']))->assertOk()->assertDownload();
     }
 
     private function load(TestResponse $response): Spreadsheet
