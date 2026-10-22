@@ -82,17 +82,20 @@ test('associated selections are part of the group signature and use the submitte
     assert.ok(view.includes('associatedPrincipal === activity.value ? associatedPicker.selectedIds() : []'));
 });
 
-test('associated indicators are excluded from principal choices, including sector counts and searches', () => {
+test('associated indicators remain selectable as principals in their own sector', () => {
     const {window} = fixture();
     const catalog = [
         {id: 1, sectorProjectId: 10, isAssociated: false},
         {id: 2, sectorProjectId: 10, isAssociated: true},
-        {id: 3, sectorProjectId: 20, isAssociated: false},
+        {id: 3, sectorProjectId: 20, isAssociated: true},
+        {id: 4, sectorProjectId: 20, isAssociated: true},
     ];
-    assert.equal(window.primaryIndicatorOptions(catalog, '10').map(item => item.id).join(','), '1');
-    // A saved associated record remains editable without revealing other associated choices.
-    assert.equal(window.primaryIndicatorOptions(catalog, '10', 2).map(item => item.id).join(','), '1,2');
-    assert.equal(window.primaryIndicatorOptions(catalog, '20').map(item => item.id).join(','), '3');
+    assert.equal(window.primaryIndicatorOptions(catalog, '10').map(item => item.id).join(','), '1,2');
+    assert.equal(window.primaryIndicatorOptions(catalog, '20').map(item => item.id).join(','), '3,4');
+    assert.equal(window.primaryIndicatorOptions(catalog, '').length, 0);
+    assert.equal(window.primaryIndicatorOptions([], '20').length, 0);
+    // Catalogs without the old global classification behave identically.
+    assert.equal(window.primaryIndicatorOptions([{id: 5, sectorProjectId: 20}], '20')[0].id, 5);
 });
 
 test('primary clicks reveal associates; deselecting or changing the primary clears all selections', () => {

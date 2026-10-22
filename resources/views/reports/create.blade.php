@@ -435,7 +435,7 @@
             return [...unique.values()];
         };
         const selectedSectorIndicators = () => window.primaryIndicatorOptions(
-            projectIndicators[project.value] || [], projectSector.value, @json($editing ? $report->indicador_proyecto_id : null)
+            projectIndicators[project.value] || [], projectSector.value
         );
         const selectedIndicator = () => selectedSectorIndicators().find(item => String(item.id) === String(activity.value));
         const associatedPicker = window.createAssociatedIndicatorPicker(select('associated-indicators'));

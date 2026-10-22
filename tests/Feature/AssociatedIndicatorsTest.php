@@ -73,12 +73,54 @@ class AssociatedIndicatorsTest extends TestCase
             ->assertViewHas('projectIndicatorOptions', function ($options) {
                 $catalog = collect($options[$this->principal->proyecto_id])->keyBy('id');
                 return $catalog[$this->principal->id]['associatedIds'] === [$this->first->id]
-                    && !$catalog[$this->principal->id]['isAssociated'] && $catalog[$this->first->id]['isAssociated'];
+                    && $catalog->has($this->first->id) && ! $catalog->has($this->second->id);
             });
         $this->principal->update(['estatus' => false]);
         $this->get(route('reports.create'))->assertOk()->assertViewHas('projectIndicatorOptions', function ($options) {
-            return collect($options[$this->principal->proyecto_id])->firstWhere('id', $this->first->id)['isAssociated'];
+            $catalog = collect($options[$this->principal->proyecto_id])->keyBy('id');
+            return $catalog->has($this->first->id) && ! $catalog->has($this->principal->id);
         });
+    }
+
+    public function test_transversal_indicators_can_be_principals_without_removing_their_protection_associations(): void
+    {
+        $sector = Sector::create(['name' => 'Transversales', 'slug' => 'transversales', 'sort_order' => 2]);
+        $assignment = SectorProyecto::create(['proyecto_id' => $this->principal->proyecto_id, 'sector_id' => $sector->id]);
+        $this->first->update(['sector_proyecto_id' => $assignment->id]);
+        $this->second->update(['sector_proyecto_id' => $assignment->id]);
+        $this->get(route('reports.create'))->assertOk()->assertViewHas('projectIndicatorOptions', function ($options) use ($assignment) {
+            $catalog = collect($options[$this->principal->proyecto_id]);
+            return $catalog->where('sectorProjectId', $assignment->id)->pluck('id')->all() === [$this->first->id, $this->second->id]
+                && $catalog->firstWhere('id', $this->principal->id)['associatedIds'] === [$this->first->id, $this->second->id];
+        });
+        $independent = array_replace($this->payload, ['sector_proyecto_id' => (string) $assignment->id,
+            'indicador_proyecto_id' => (string) $this->first->id, 'beneficiary' => $this->person()]);
+        $response = $this->postJson(route('beneficiaries.store'), $independent)->assertCreated()->assertJsonCount(0, 'associated_reports');
+        $this->assertDatabaseHas('reports', ['id' => $response->json('report.id'), 'indicador_proyecto_id' => $this->first->id,
+            'proyecto_id' => $this->principal->proyecto_id]);
+        $this->assertSame($sector->id, Report::findOrFail($response->json('report.id'))->indicadorProyecto->asignacionSector->sector_id);
+        $this->assertDatabaseCount('reports', 1);
+        $this->assertDatabaseCount('report_indicator_copies', 0);
+
+        // Selecting the original principal still offers/copies the same associates.
+        $this->postJson(route('beneficiaries.store'), $this->payload + ['beneficiary' => $this->person(),
+            'associated_indicator_ids' => [$this->first->id, $this->second->id]])->assertCreated()->assertJsonCount(2, 'associated_reports');
+        $this->assertDatabaseCount('reports', 4);
+        $this->assertDatabaseCount('report_indicator_copies', 2);
+
+        // The batch save path also accepts an associate as an independent principal.
+        $this->post(route('reports.store'), array_replace($this->payload, ['sector_proyecto_id' => (string) $assignment->id,
+            'indicador_proyecto_id' => (string) $this->second->id, 'beneficiaries' => [$this->person()]]))->assertSessionHasNoErrors()->assertRedirect();
+        $this->assertDatabaseCount('reports', 5);
+        $this->assertDatabaseCount('beneficiaries', 5);
+        $this->assertSame([$this->first->id, $this->second->id], $this->principal->indicadoresAsociados()->get()->modelKeys());
+
+        // Direct selection must still belong to the posted project and sector.
+        $this->postJson(route('beneficiaries.store'), array_replace($independent, ['sector_proyecto_id' => $this->principal->sector_proyecto_id]))
+            ->assertUnprocessable()->assertJsonValidationErrors('indicador_proyecto_id');
+        $this->first->update(['estatus' => false]);
+        $this->postJson(route('beneficiaries.store'), $independent)->assertUnprocessable()->assertJsonValidationErrors('indicador_proyecto_id');
+        $this->assertDatabaseCount('reports', 5);
     }
 
     public function test_individual_save_creates_three_reports_and_reuses_them_for_next_person(): void

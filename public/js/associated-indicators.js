@@ -1,8 +1,9 @@
 (function (root) {
     'use strict';
-    function primaryIndicatorOptions(items, sectorId, retainedId = null) {
-        return items.filter(item => String(item.sectorProjectId) === String(sectorId)
-            && (!item.isAssociated || (retainedId != null && String(item.id) === String(retainedId))));
+    function primaryIndicatorOptions(items, sectorId) {
+        // Being associated to another indicator does not prevent direct reporting
+        // in this assignment's own sector. Associations belong to each selection.
+        return items.filter(item => String(item.sectorProjectId) === String(sectorId));
     }
     function togglePrimaryIndicator(select, id) {
         select.value = String(select.value) === String(id) ? '' : String(id);
