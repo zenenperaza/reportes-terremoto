@@ -16,29 +16,32 @@ test('project configuration filters places by states and optional municipalities
     ];
     const places = {
         options: [...all],
+        get 0() {return this;},
         val() {return this.options.filter(option => option.selected).map(option => option.value);},
-        empty() {this.options = [];}, append(option) {this.options.push(option);},
+        empty() {this.options = [];}, append(option) {this.options.push(option);}, prepend(option) {this.options.unshift(option);},
         prop(name, value) {this[name] = value; return this;}, trigger() {return this;},
     };
     let sync;
     vm.runInNewContext(projectView.slice(start, end) + '\nexpose(syncPlaces);', {
         states: {val: () => selectedStates}, municipalities: {val: () => selectedMunicipalities}, places,
+        selectAllPlacesValue: '__all_project_places__',
+        Option: function (text, value) {return {text, value, selected: false};},
         allPlaces: {each(handler) {all.forEach(option => handler.call(option));}},
         $(option) {return {clone() {return {value: option.value, dataset: {...option.dataset}, selected: option.selected,
             prop(name, value) {this[name] = value; return this;}};}};},
         expose(value) {sync = value;},
     });
     sync();
-    assert.deepEqual(places.options.map(option => option.value), ['10', '20']);
+    assert.deepEqual(places.options.map(option => option.value), ['__all_project_places__', '10', '20']);
     assert.deepEqual(places.val(), ['10', '20']);
     selectedMunicipalities.push('11');
     sync();
     assert.deepEqual(places.val(), ['10']);
-    assert.deepEqual(places.options.map(option => option.value), ['10']);
+    assert.deepEqual(places.options.map(option => option.value), ['__all_project_places__', '10']);
     selectedStates.splice(0, 1, '2');
     selectedMunicipalities.length = 0;
     sync();
-    assert.deepEqual(places.options.map(option => option.value), ['30']);
+    assert.deepEqual(places.options.map(option => option.value), ['__all_project_places__', '30']);
     assert.deepEqual(places.val(), []);
     selectedStates.length = 0;
     sync();
@@ -46,6 +49,46 @@ test('project configuration filters places by states and optional municipalities
     assert.equal(places.disabled, true);
     assert.ok(projectView.includes("municipalities.on('change', syncPlaces)"));
     assert.ok(projectView.includes('syncPlaces();'));
+});
+
+test('select all is a one-time action on available places and individual removals remain removed', () => {
+    const start = projectView.indexOf('const selectAllAvailablePlaces =');
+    const end = projectView.indexOf('const syncPlaces =', start);
+    const sentinel = '__all_project_places__';
+    const changes = [];
+    let closed = 0;
+    const places = {
+        options: [
+            {value: sentinel, selected: true}, {value: '10'}, {value: '20'},
+            {value: '30', disabled: true}, {value: ''},
+        ],
+        get 0() {return this;},
+        val(ids) {
+            if (ids === undefined) return this.options.filter(option => option.selected).map(option => option.value);
+            this.options.forEach(option => option.selected = ids.includes(option.value));
+            return this;
+        },
+        trigger(name) {changes.push(name); return this;},
+        select2(action) {assert.equal(action, 'close'); closed++;},
+        on(name, handler) {assert.equal(name, 'select2:select'); this.handler = handler;},
+    };
+    vm.runInNewContext(projectView.slice(start, end), {places, selectAllPlacesValue: sentinel});
+    places.handler({params: {data: {id: sentinel}}});
+    assert.deepEqual(places.val(), ['10', '20']);
+    assert.deepEqual(changes, ['change']);
+    assert.equal(closed, 1);
+    places.val(['20']); // Removing a chip / unselecting an individual place.
+    places.handler({params: {data: {id: '20'}}});
+    assert.deepEqual(places.val(), ['20']);
+    assert.deepEqual(changes, ['change']);
+    assert.equal(closed, 1);
+    // A subsequent action selects only the new geographically filtered options.
+    places.options = [{value: sentinel}, {value: '40'}];
+    places.handler({params: {data: {id: sentinel}}});
+    assert.deepEqual(places.val(), ['40']);
+    places.options = [];
+    places.handler({params: {data: {id: sentinel}}});
+    assert.deepEqual(places.val(), []);
 });
 
 function option(value, dataset = {}, selected = false) {

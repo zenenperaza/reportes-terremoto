@@ -92,7 +92,8 @@ class ProjectPlacesTest extends TestCase
 
     public function test_administrator_assigns_shared_places_on_create_edit_and_clears_without_deleting_catalog_entries(): void
     {
-        $this->get(route('proyectos.create'))->assertOk()->assertSee('Lugares del proyecto')->assertSee('project-place-ids');
+        $this->get(route('proyectos.create'))->assertOk()->assertSee('Lugares del proyecto')->assertSee('project-place-ids')
+            ->assertSee('Seleccionar todos los lugares disponibles');
         $this->post(route('proyectos.store'), $this->configuration() + ['place_name_ids' => [(string) $this->places['A']->id,
             (string) $this->places['shared']->id]])->assertSessionHasNoErrors()->assertRedirect(route('proyectos.index'));
         $project = Proyecto::where('codigo', 'NEW')->firstOrFail();
@@ -103,6 +104,8 @@ class ProjectPlacesTest extends TestCase
         @$dom->loadHTML('<?xml encoding="UTF-8">'.$page->getContent());
         $xpath = new \DOMXPath($dom);
         $this->assertSame(2, $xpath->query('//select[@name="place_name_ids[]" and @multiple]/option[@selected]')->length);
+        // The action is injected by JavaScript, never rendered as a persisted place ID.
+        $this->assertSame(0, $xpath->query('//select[@name="place_name_ids[]"]/option[@value="__all_project_places__"]')->length);
         $this->get(route('proyectos.show', $project))->assertOk()->assertSee('Lugares asignados')->assertSee('Lugar A');
         $this->put(route('proyectos.update', $project), $this->configuration() + ['place_name_ids' => [$this->places['B']->id]])
             ->assertSessionHasNoErrors()->assertRedirect();
@@ -130,6 +133,14 @@ class ProjectPlacesTest extends TestCase
             'place_name_id' => $this->places['otherMunicipality']->id]);
         $this->actingAs(User::factory()->create(['role' => 'reporter']))->putJson(route('proyectos.update', $this->projects['A']),
             $this->configuration('PROY-A'))->assertForbidden();
+    }
+
+    public function test_select_all_action_cannot_be_submitted_as_a_place_id(): void
+    {
+        $this->putJson(route('proyectos.update', $this->projects['A']), $this->configuration('PROY-A') + [
+            'place_name_ids' => ['__all_project_places__', $this->places['A']->id],
+        ])->assertUnprocessable()->assertJsonValidationErrors('place_name_ids.0');
+        $this->assertSame([$this->places['A']->id, $this->places['shared']->id], $this->projects['A']->lugares()->get()->modelKeys());
     }
 
     public function test_report_form_only_includes_assigned_places_and_provides_project_specific_membership(): void

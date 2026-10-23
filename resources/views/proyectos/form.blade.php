@@ -47,6 +47,7 @@
                     @selected(in_array((string) $place->id, $selectedPlaces, true))>{{ $place->name }} — {{ $place->state?->name }} / {{ $place->municipality?->name }} / {{ $place->parish?->name }}</option>
             @endforeach
         </select>
+        <small>Use «Seleccionar todos los lugares disponibles» para marcarlos y luego quite individualmente los que no necesite.</small>
         <small>Solo se ofrecen lugares dentro de la ubicación del proyecto. Sin selección, no se ofrecerán lugares del catálogo al registrar. La atención comunitaria por parroquia mantiene su funcionamiento actual.</small>
         @can('manejar lugares')<small>Los lugares se siguen creando y modificando en <a href="{{ route('place-names.index') }}" target="_blank" rel="noopener">Nombres del lugar</a>.</small>@endcan
     </label>
@@ -61,10 +62,23 @@ $(function () {
     const initialMunicipalities = @json($selectedMunicipalities);
     const places = $('#project-place-ids');
     const allPlaces = places.find('option').clone();
+    const selectAllPlacesValue = '__all_project_places__';
 
     states.select2({width: '100%', closeOnSelect: false, placeholder: states.data('placeholder')});
     municipalities.select2({width: '100%', closeOnSelect: false, placeholder: municipalities.data('placeholder')});
     places.select2({width: '100%', closeOnSelect: false, placeholder: places.data('placeholder')});
+
+    const selectAllAvailablePlaces = () => {
+        const ids = Array.from(places[0].options)
+            .filter(option => option.value && option.value !== selectAllPlacesValue && !option.disabled)
+            .map(option => option.value);
+        // This is a one-time action, not a saved value or a permanent all-selected mode.
+        places.val(ids).trigger('change');
+        places.select2('close');
+    };
+    places.on('select2:select', event => {
+        if (event.params.data.id === selectAllPlacesValue) selectAllAvailablePlaces();
+    });
 
     const syncPlaces = () => {
         const stateIds = new Set((states.val() || []).map(String));
@@ -78,6 +92,9 @@ $(function () {
                 places.append(option);
             }
         });
+        if (places[0].options.length > 0) {
+            places.prepend(new Option('Seleccionar todos los lugares disponibles', selectAllPlacesValue));
+        }
         places.prop('disabled', stateIds.size === 0).trigger('change.select2');
     };
 
