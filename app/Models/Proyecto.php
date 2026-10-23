@@ -59,6 +59,11 @@ class Proyecto extends Model
         return $this->belongsToMany(Municipality::class, 'municipio_proyecto', 'proyecto_id', 'municipio_id')->withTimestamps();
     }
 
+    public function lugares(): BelongsToMany
+    {
+        return $this->belongsToMany(PlaceName::class, 'lugar_proyecto', 'proyecto_id', 'place_name_id')->withTimestamps();
+    }
+
     public function coversLocation(int $stateId, int $municipalityId): bool
     {
         $this->loadMissing(['estados:id', 'municipios:id']);

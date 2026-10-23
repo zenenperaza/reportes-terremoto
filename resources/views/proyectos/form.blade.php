@@ -9,6 +9,7 @@
 @php
     $selectedStates = array_map('strval', old('state_ids', $proyecto?->estados()->pluck('states.id')->all() ?? []));
     $selectedMunicipalities = array_map('strval', old('municipality_ids', $proyecto?->municipios()->pluck('municipalities.id')->all() ?? []));
+    $selectedPlaces = array_map('strval', old('place_name_ids', session()->hasOldInput() ? [] : ($proyecto?->lugares()->pluck('place_names.id')->all() ?? [])));
 @endphp
 <div class="span-two project-location-assignments">
     <div>
@@ -36,6 +37,20 @@
         </label>
     </div>
 </div>
+<div class="span-two project-location-assignments">
+    <h3>Lugares del proyecto</h3>
+    <p class="muted">Seleccione los lugares del catálogo que podrán utilizarse al registrar actividades de este proyecto. Un lugar puede pertenecer a varios proyectos.</p>
+    <label>Lugares asignados
+        <select name="place_name_ids[]" id="project-place-ids" multiple data-placeholder="Seleccione uno o varios lugares">
+            @foreach($placeNames as $place)
+                <option value="{{ $place->id }}" data-state-id="{{ $place->state_id }}" data-municipality-id="{{ $place->municipality_id }}"
+                    @selected(in_array((string) $place->id, $selectedPlaces, true))>{{ $place->name }} — {{ $place->state?->name }} / {{ $place->municipality?->name }} / {{ $place->parish?->name }}</option>
+            @endforeach
+        </select>
+        <small>Solo se ofrecen lugares dentro de la ubicación del proyecto. Sin selección, no se ofrecerán lugares del catálogo al registrar. La atención comunitaria por parroquia mantiene su funcionamiento actual.</small>
+        @can('manejar lugares')<small>Los lugares se siguen creando y modificando en <a href="{{ route('place-names.index') }}" target="_blank" rel="noopener">Nombres del lugar</a>.</small>@endcan
+    </label>
+</div>
 </div>
 @push('scripts')
 <script>
@@ -44,9 +59,27 @@ $(function () {
     const municipalities = $('#project-municipality-ids');
     const allMunicipalities = municipalities.find('option').clone();
     const initialMunicipalities = @json($selectedMunicipalities);
+    const places = $('#project-place-ids');
+    const allPlaces = places.find('option').clone();
 
     states.select2({width: '100%', closeOnSelect: false, placeholder: states.data('placeholder')});
     municipalities.select2({width: '100%', closeOnSelect: false, placeholder: municipalities.data('placeholder')});
+    places.select2({width: '100%', closeOnSelect: false, placeholder: places.data('placeholder')});
+
+    const syncPlaces = () => {
+        const stateIds = new Set((states.val() || []).map(String));
+        const municipalityIds = new Set((municipalities.val() || []).map(String));
+        const selected = new Set((places.val() || []).map(String));
+        places.empty();
+        allPlaces.each(function () {
+            if (stateIds.has(String(this.dataset.stateId)) && (!municipalityIds.size || municipalityIds.has(String(this.dataset.municipalityId)))) {
+                const option = $(this).clone();
+                option.prop('selected', selected.has(String(this.value)));
+                places.append(option);
+            }
+        });
+        places.prop('disabled', stateIds.size === 0).trigger('change.select2');
+    };
 
     const syncMunicipalities = (preserveSelection = true) => {
         const stateIds = new Set((states.val() || []).map(String));
@@ -60,9 +93,11 @@ $(function () {
             }
         });
         municipalities.prop('disabled', stateIds.size === 0).trigger('change.select2');
+        syncPlaces();
     };
 
     states.on('change', () => syncMunicipalities(false));
+    municipalities.on('change', syncPlaces);
     syncMunicipalities(true);
 });
 </script>

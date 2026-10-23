@@ -15,6 +15,7 @@
         <div><dt>Indicadores</dt><dd>{{ $proyecto->asignacionesSectores->sum(fn ($sector) => $sector->asignacionesIndicadores->count()) }}</dd></div>
         <div><dt>Estados</dt><dd>{{ $proyecto->estados->pluck('name')->join(', ') ?: 'Sin estados asignados' }}</dd></div>
         <div><dt>Municipios</dt><dd>{{ $proyecto->municipios->isEmpty() ? 'Todos los municipios de los estados seleccionados' : $proyecto->municipios->map(fn($municipio) => $municipio->state->name.' / '.$municipio->name)->join(', ') }}</dd></div>
+        <div><dt>Lugares asignados</dt><dd>{{ $proyecto->lugares->pluck('name')->join(', ') ?: 'Sin lugares del catálogo asignados' }}</dd></div>
     </dl>
 </section>
 

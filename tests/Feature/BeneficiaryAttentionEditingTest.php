@@ -49,7 +49,8 @@ class BeneficiaryAttentionEditingTest extends TestCase
             $projectActivity = ActividadIndicador::create(['indicador_proyecto_id' => $assignment->id, 'actividad_id' => $activity->id, 'estatus' => true]);
             $service = Servicio::create(['nombre' => 'Servicio '.$number, 'estatus' => true]);
             $serviceAssignment = ServicioActividad::create(['actividad_indicador_id' => $projectActivity->id, 'servicio_id' => $service->id, 'estatus' => true]);
-            PlaceName::create(['name' => 'Lugar '.$number, 'state_id' => $state->id, 'municipality_id' => $municipality->id, 'parish_id' => $parish->id, 'installation_type' => 'Comunidad / Espacio Comunitario']);
+            $place = PlaceName::create(['name' => 'Lugar '.$number, 'state_id' => $state->id, 'municipality_id' => $municipality->id, 'parish_id' => $parish->id, 'installation_type' => 'Comunidad / Espacio Comunitario']);
+            $project->lugares()->attach($place);
             $payloads[] = [
                 'report_date' => today()->toDateString(), 'reporter_first_name' => 'Original', 'reporter_last_name' => 'Persona', 'reporter_email' => $owner->email,
                 'organization' => 'ASONACOP', 'state_id' => $state->id, 'municipality_id' => $municipality->id, 'parish_id' => $parish->id,

@@ -21,6 +21,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
 {
     use \App\Http\Requests\Concerns\ValidatesAssociatedIndicators;
     use \App\Http\Requests\Concerns\PreservesReportLocation;
+    use \App\Http\Requests\Concerns\ValidatesProjectPlaces;
     public function authorize(): bool
     {
         return $this->user() !== null;
@@ -175,6 +176,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             }
 
             $project = Proyecto::find($this->integer('proyecto_id'));
+            $this->validateProjectPlace($validator, $project, $preserveLocation);
             if ($project && ! $this->user()->isAdministrator() && ! $this->user()->projects()->whereKey($project->id)->exists()) {
                 $validator->errors()->add('proyecto_id', 'El proyecto no está asignado a su usuario.');
             }

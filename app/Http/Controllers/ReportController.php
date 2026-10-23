@@ -579,7 +579,7 @@ class ReportController extends Controller
     private function availableProjects(Request $request, ?int $includeProjectId = null)
     {
         return Proyecto::query()
-            ->with(['donante', 'estados:id', 'municipios:id', 'asignacionesIndicadores' => fn ($query) => $query
+            ->with(['donante', 'estados:id', 'municipios:id', 'lugares:id', 'asignacionesIndicadores' => fn ($query) => $query
                 ->with([
                     'indicador.indicatorGroup',
                     'indicadoresAsociados' => fn ($associated) => $associated->where('indicador_proyecto.estatus', true)->whereNotNull('sector_proyecto_id'),
@@ -607,10 +607,7 @@ class ReportController extends Controller
         if ($projects->isEmpty()) {
             return [
                 'states' => State::orderBy('name')->get(['id', 'name']),
-                'placeNames' => $basePlaces->get([
-                    'id', 'name', 'state_id', 'municipality_id', 'parish_id', 'installation_type',
-                    'latitude', 'longitude', 'altitude', 'gps_accuracy',
-                ]),
+                'placeNames' => collect(),
             ];
         }
 
@@ -634,6 +631,7 @@ class ReportController extends Controller
         }
 
         $placeNames = $basePlaces
+            ->whereHas('proyectos', fn ($query) => $query->whereIn('proyectos.id', $projects->modelKeys()))
             ->whereIn('state_id', $projectStateIds)
             ->whereIn('municipality_id', $projectMunicipalityIds)
             ->get([
@@ -653,6 +651,7 @@ class ReportController extends Controller
             'states' => $project->estados->pluck('id')->values()->all(),
             'municipalities' => $project->municipios->pluck('id')->values()->all(),
             'allStateMunicipalities' => $project->municipios->isEmpty(),
+            'places' => $project->lugares->modelKeys(),
         ]])->all();
     }
 

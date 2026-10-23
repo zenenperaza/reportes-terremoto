@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Donante;
 use App\Models\Municipality;
+use App\Models\PlaceName;
 use App\Models\Proyecto;
 use App\Models\State;
 use Illuminate\Support\Facades\DB;
@@ -33,6 +34,7 @@ class ProyectoController extends Controller
             'donante',
             'estados',
             'municipios.state',
+            'lugares',
             'asignacionesSectores' => fn ($query) => $query->with([
                 'sector',
                 'asignacionesIndicadores' => fn ($indicators) => $indicators->with([
@@ -52,9 +54,10 @@ class ProyectoController extends Controller
     {
         $data = $this->validated($request);
         DB::transaction(function () use ($data): void {
-            $proyecto = Proyecto::create(collect($data)->except(['state_ids', 'municipality_ids'])->all());
+            $proyecto = Proyecto::create(collect($data)->except(['state_ids', 'municipality_ids', 'place_name_ids'])->all());
             $proyecto->estados()->sync($data['state_ids']);
             $proyecto->municipios()->sync($data['municipality_ids'] ?? []);
+            $proyecto->lugares()->sync($data['place_name_ids'] ?? []);
         });
         return redirect()->route('proyectos.index')->with('success', 'Proyecto creado correctamente.');
     }
@@ -68,9 +71,10 @@ class ProyectoController extends Controller
     {
         $data = $this->validated($request, $proyecto);
         DB::transaction(function () use ($data, $proyecto): void {
-            $proyecto->update(collect($data)->except(['state_ids', 'municipality_ids'])->all());
+            $proyecto->update(collect($data)->except(['state_ids', 'municipality_ids', 'place_name_ids'])->all());
             $proyecto->estados()->sync($data['state_ids']);
             $proyecto->municipios()->sync($data['municipality_ids'] ?? []);
+            $proyecto->lugares()->sync($data['place_name_ids'] ?? []);
         });
         return redirect()->route('proyectos.index')->with('success', 'Proyecto actualizado correctamente.');
     }
@@ -86,6 +90,9 @@ class ProyectoController extends Controller
         return [
             'donantes' => Donante::orderBy('nombre')->get(),
             'states' => State::with(['municipalities' => fn ($query) => $query->orderBy('name')])->orderBy('name')->get(),
+            'placeNames' => PlaceName::with(['state:id,name', 'municipality:id,name', 'parish:id,name'])
+                ->whereNotNull('state_id')->whereNotNull('municipality_id')->whereNotNull('parish_id')
+                ->whereNotNull('installation_type')->orderBy('name')->get(),
         ];
     }
 
@@ -103,6 +110,8 @@ class ProyectoController extends Controller
             'state_ids.*' => ['integer', 'distinct', 'exists:states,id'],
             'municipality_ids' => ['nullable', 'array'],
             'municipality_ids.*' => ['integer', 'distinct', 'exists:municipalities,id'],
+            'place_name_ids' => ['nullable', 'array'],
+            'place_name_ids.*' => ['required', 'integer', 'distinct', 'exists:place_names,id'],
         ]);
 
         $data['nombre_alias'] = filled($data['nombre_alias'] ?? null)
@@ -113,6 +122,16 @@ class ProyectoController extends Controller
         if (collect($data['municipality_ids'] ?? [])->map(fn ($id) => (int) $id)->diff($validMunicipalityIds)->isNotEmpty()) {
             throw ValidationException::withMessages([
                 'municipality_ids' => 'Uno de los municipios no pertenece a los estados seleccionados.',
+            ]);
+        }
+
+        $validPlaces = PlaceName::whereIn('state_id', $data['state_ids'])
+            ->whereNotNull('municipality_id')->whereNotNull('parish_id')->whereNotNull('installation_type')
+            ->when(filled($data['municipality_ids'] ?? []), fn ($query) => $query->whereIn('municipality_id', $data['municipality_ids']))
+            ->pluck('id');
+        if (collect($data['place_name_ids'] ?? [])->map(fn ($id) => (int) $id)->diff($validPlaces)->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'place_name_ids' => 'Seleccione lugares con ubicación completa dentro de los estados y municipios del proyecto.',
             ]);
         }
 

@@ -6,6 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class PlaceName extends Model
 {
+    public function proyectos(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Proyecto::class, 'lugar_proyecto', 'place_name_id', 'proyecto_id')->withTimestamps();
+    }
+
     protected $fillable = [
         'name', 'state_id', 'municipality_id', 'parish_id', 'installation_type',
         'latitude', 'longitude', 'altitude', 'gps_accuracy', 'created_by',

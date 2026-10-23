@@ -288,6 +288,7 @@ class ReportWorkflowTest extends TestCase
         ]);
         $donante = Donante::create(['nombre' => 'UNICEF', 'estatus' => true]);
         $proyecto = Proyecto::create(['donante_id' => $donante->id, 'estatus' => true, 'codigo' => 'PROY-LARA', 'descripcion' => 'Proyecto Lara']);
+        $proyecto->lugares()->attach(PlaceName::where('name', 'Lugar de Ana')->firstOrFail());
         $proyecto->estados()->attach($lara);
         $user->projects()->attach($proyecto);
         $user->assignedStates()->attach($lara);

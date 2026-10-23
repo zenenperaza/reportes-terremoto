@@ -16,7 +16,7 @@ class TemporaryMaintenanceController extends Controller
         abort_if($token === '', 503, 'Falta configurar SERVER_MAINTENANCE_TOKEN en el archivo .env.');
         abort_unless(hash_equals($token, (string) request('token')), 403);
 
-        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes'], true),
+        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto'], true),
             422, 'Modo de mantenimiento no reconocido.');
         $permissionsOnly = request('only') === 'permisos-beneficiarios';
         $groupEditingOnly = request('only') === 'edicion-cruzada-grupos';
@@ -27,6 +27,9 @@ class TemporaryMaintenanceController extends Controller
         $notificationsOnly = request('only') === 'notificaciones';
         $siaUpdateOnly = request('only') === 'actualizacion-sia';
         $reportUpdateOnly = request('only') === 'actualizacion-informes';
+        $projectPlacesOnly = request('only') === 'lugares-proyecto';
+        abort_if($projectPlacesOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
+            422, 'El modo lugares-proyecto no se puede combinar con opciones de caché o importación.');
         abort_if($reportUpdateOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
             422, 'El modo actualizacion-informes no se puede combinar con opciones de caché o importación.');
         abort_if($siaUpdateOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
@@ -220,6 +223,34 @@ class TemporaryMaintenanceController extends Controller
                 'Falta PhpSpreadsheet. Instale las dependencias de Composer del proyecto antes de continuar.');
         }
 
+        $projectPlacesMigration = ['name' => 'migrate', 'parameters' => [
+            '--path' => 'database/migrations/2026_10_22_120000_create_project_place_assignments_table.php',
+            '--force' => true,
+        ]];
+        if ($projectPlacesOnly) {
+            // Validate the complete upload before changing caches or the schema.
+            foreach ([
+                $projectPlacesMigration['parameters']['--path'],
+                'app/Http/Controllers/TemporaryMaintenanceController.php',
+                'app/Http/Controllers/ProyectoController.php',
+                'app/Http/Controllers/ReportController.php',
+                'app/Http/Requests/StoreReportRequest.php',
+                'app/Http/Requests/StoreBeneficiaryEntryRequest.php',
+                'app/Http/Requests/Concerns/ValidatesProjectPlaces.php',
+                'app/Http/Requests/Concerns/PreservesReportLocation.php',
+                'app/Models/Proyecto.php', 'app/Models/PlaceName.php',
+                'resources/views/proyectos/create.blade.php',
+                'resources/views/proyectos/edit.blade.php',
+                'resources/views/proyectos/form.blade.php',
+                'resources/views/proyectos/show.blade.php',
+                'resources/views/reports/create.blade.php',
+                'public/js/associated-indicators.js',
+                'routes/web.php', 'routes/maintenance.php',
+            ] as $file) {
+                abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
+            }
+        }
+
         $cacheCommands = [
             ['name' => 'optimize:clear', 'parameters' => []],
             ['name' => 'cache:clear', 'parameters' => []],
@@ -383,6 +414,7 @@ class TemporaryMaintenanceController extends Controller
         $includeExcel = $excelOnly || request()->boolean('import_excel');
 
         $selectedMigrations = match (true) {
+            $projectPlacesOnly => [$projectPlacesMigration],
             $reportUpdateOnly => [],
             $siaUpdateOnly => array_merge([$presenceMigration], $notificationMigrations),
             $notificationsOnly => $notificationMigrations,
@@ -464,6 +496,16 @@ class TemporaryMaintenanceController extends Controller
                 'No se ejecutan seeders ni importaciones. No se modifican registros, beneficiarios, servicios entregados, períodos ni cierres.',
                 'Si la migración ya fue aplicada, se omite. Repetir este modo conserva los permisos y asignaciones guardados.',
                 'La consulta muestra servicios seleccionados en registros con beneficiarios. No se infieren entregas ni cantidades a partir de actividades.',
+            ];
+        }
+        if ($projectPlacesOnly) {
+            $results = [
+                'LUGARES POR PROYECTO: se ejecuta únicamente la migración que crea lugar_proyecto y se reconstruyen las cachés.',
+                'No se ejecutan seeders, importaciones ni correcciones de parroquias. No se modifican registros, beneficiarios ni el catálogo de lugares.',
+                'No se asignan lugares automáticamente. Antes de habilitar los registros, edite cada proyecto y seleccione sus Lugares del proyecto. Sin selección no se ofrecen lugares del catálogo.',
+                'Se conservan las ubicaciones históricas y la atención comunitaria por parroquia. Un indicador asociado puede seleccionarse también como principal en su sector.',
+                'No se modifican permisos, períodos, cierres, bloqueos ni avisos programados. Repetir este modo omite la migración ya aplicada y conserva las asignaciones guardadas.',
+                'Al finalizar, recargue SIA con Ctrl + F5 y configure los lugares de cada proyecto antes de retirar el mantenimiento manualmente.',
             ];
         }
         $exitCode = 1;

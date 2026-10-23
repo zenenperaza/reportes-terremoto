@@ -33,7 +33,8 @@ class AssociatedIndicatorsTest extends TestCase
             $this->{$key} = IndicadorProyecto::create(['proyecto_id' => $project->id, 'sector_proyecto_id' => $sectorProject->id, 'indicador_id' => $indicator->id, 'estatus' => true]);
         }
         $this->principal->indicadoresAsociados()->sync([$this->first->id, $this->second->id]);
-        PlaceName::create(['name' => 'Lugar de prueba']);
+        $place = PlaceName::create(['name' => 'Lugar de prueba']);
+        $project->lugares()->attach($place);
         SystemSetting::updateOrCreate(['key' => SystemSetting::CURRENT_PERIOD], ['value' => '2026-09']);
         $this->payload = ['report_date' => today()->toDateString(), 'organization' => 'ASONACOP',
             'state_id' => $state->id, 'municipality_id' => $municipality->id, 'parish_id' => $parish->id,

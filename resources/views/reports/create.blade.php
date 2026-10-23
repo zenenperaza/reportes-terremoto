@@ -152,8 +152,8 @@
                                 data-altitude="{{ $report->altitude }}" data-gps-accuracy="{{ $report->gps_accuracy }}"
                                 @selected(old('place_name', $report->place_name) === $report->place_name)>{{ $report->place_name }} (ubicación guardada)</option>
                         @endif
-                        @foreach ($placeNames->reject(fn ($place) => $editing && $place->name === $report->place_name) as $placeName)
-                            <option value="{{ $placeName->name }}" data-state-id="{{ $placeName->state_id }}"
+                        @foreach ($placeNames as $placeName)
+                            <option value="{{ $placeName->name }}" data-place-id="{{ $placeName->id }}" data-state-id="{{ $placeName->state_id }}"
                                 data-state-name="{{ $placeName->state?->name }}"
                                 data-municipality-id="{{ $placeName->municipality_id }}"
                                 data-municipality-name="{{ $placeName->municipality?->name }}"
@@ -167,6 +167,7 @@
                                 {{ $placeName->name }}</option>
                         @endforeach
                     </select>
+                    <small id="project-place-hint">Seleccione un proyecto para ver sus lugares asignados.</small>
                     @can('manejar lugares')
                         <small>¿No aparece? <a href="{{ route('place-names.index') }}" target="_blank" rel="noopener">Crear o
                                 administrar nombres de lugares</a>.</small>
@@ -663,14 +664,29 @@
         };
         const syncAvailableLocations = (preserveSelection = false) => {
             const selectedPlace = preserveSelection ? placeName.value : '';
+            const assignedPlaces = new Set((projectLocations[project.value]?.places || []).map(String));
+            const retainOriginal = project.value === @json($editing ? (string) $report->proyecto_id : '') && @json($editing);
+            const originalName = @json($editing ? $report->place_name : null);
             placeName.replaceChildren();
             allPlaceOptions.forEach(option => {
-                if (!option.value || (option.dataset.originalLocation && project.value === @json($editing ? (string) $report->proyecto_id : '')) || locationBelongsToProject(option.dataset.stateId, option.dataset.municipalityId)) {
+                const available = option.dataset.originalLocation
+                    ? retainOriginal
+                    : assignedPlaces.has(String(option.dataset.placeId))
+                        && locationBelongsToProject(option.dataset.stateId, option.dataset.municipalityId)
+                        && !(retainOriginal && option.value === originalName);
+                if (!option.value || available) {
                     const copy = option.cloneNode(true);
                     copy.selected = copy.value === selectedPlace;
                     placeName.append(copy);
                 }
             });
+            select('project-place-hint').textContent = !project.value
+                ? 'Seleccione un proyecto para ver sus lugares asignados.'
+                : retainOriginal
+                    ? 'Se conserva la ubicación guardada del registro. Los demás lugares corresponden al proyecto y a su usuario.'
+                    : placeName.options.length > 1
+                    ? 'Solo se muestran los lugares asignados al proyecto y disponibles para su usuario.'
+                    : 'Este proyecto no tiene lugares del catálogo disponibles para su usuario. Solicite al administrador que los configure.';
 
             const selectedState = preserveSelection ? communityState.value : '';
             communityState.replaceChildren();

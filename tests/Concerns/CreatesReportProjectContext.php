@@ -5,6 +5,7 @@ namespace Tests\Concerns;
 use App\Models\Donante;
 use App\Models\Indicador;
 use App\Models\IndicadorProyecto;
+use App\Models\PlaceName;
 use App\Models\Proyecto;
 use App\Models\Sector;
 use App\Models\SectorProyecto;
@@ -21,6 +22,8 @@ trait CreatesReportProjectContext
         $project = Proyecto::create(['donante_id' => $donor->id, 'codigo' => 'TEST-PROJECT-'.$number,
             'descripcion' => 'Proyecto de prueba', 'estatus' => true]);
         $project->estados()->attach($state);
+        // Fixtures explicitly grant their catalog places; production never defaults to all.
+        $project->lugares()->sync(PlaceName::pluck('id')->all());
         $owner->projects()->attach($project);
         $owner->assignedStates()->syncWithoutDetaching([$state->id]);
         $projectSector = SectorProyecto::create(['proyecto_id' => $project->id, 'sector_id' => $sector->id]);
