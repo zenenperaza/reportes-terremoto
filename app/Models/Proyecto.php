@@ -64,6 +64,11 @@ class Proyecto extends Model
         return $this->belongsToMany(PlaceName::class, 'lugar_proyecto', 'proyecto_id', 'place_name_id')->withTimestamps();
     }
 
+    public function buzonEntries(): HasMany
+    {
+        return $this->hasMany(BuzonEntry::class);
+    }
+
     public function coversLocation(int $stateId, int $municipalityId): bool
     {
         $this->loadMissing(['estados:id', 'municipios:id']);

@@ -12,6 +12,7 @@ use Spatie\Permission\PermissionRegistrar;
 class PermissionController extends Controller
 {
     private const PROTECTED_PERMISSIONS = [
+        'Buzon',
         'administrar sistema',
         'Recibir notificaciones',
         'coordinar registros',

@@ -1,0 +1,7 @@
+.buzon-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;margin:1rem 0}
+.buzon-summary .content-card{margin:0}.buzon-summary strong{font-size:1.8rem}.buzon-summary p{margin:0 0 .5rem}
+.buzon-fieldset{border:0;padding:0;margin:0;min-width:0}.buzon-options{border:1px solid var(--border-color,#d2deeb);border-radius:.5rem;padding:1rem;min-width:0}
+.buzon-options legend{float:none;width:auto;font-size:1rem;font-weight:600;padding:0 .4rem}.buzon-options label{display:inline-flex;align-items:center;gap:.5rem;margin:.25rem 1rem .25rem 0}.buzon-options input{width:auto;min-height:0}.buzon-options small{display:block}
+.buzon-notice{padding:1rem;border-left:4px solid #12aedf;background:rgba(18,174,223,.08);border-radius:.25rem}
+.buzon-table td{vertical-align:top;overflow-wrap:anywhere}.buzon-table{min-width:850px}.buzon-fieldset:disabled{opacity:1}.buzon-fieldset textarea{min-height:7rem}
+@media(max-width:800px){.buzon-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:480px){.buzon-summary{grid-template-columns:1fr}}

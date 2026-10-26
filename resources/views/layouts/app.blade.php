@@ -109,6 +109,7 @@
             <li class="menu-title"><span>Principal</span></li>
             <li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}"><i class="ri-dashboard-2-line"></i><span>Panel</span></a></li>
             @can('solo ver registros')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('reports.index', 'reports.show', 'reports.edit', 'reports.create') ? 'active' : '' }}" href="{{ route('reports.index') }}"><i class="ri-file-list-3-line"></i><span>Registros</span></a></li>@endcan
+            @can('Buzon')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('buzon.*') ? 'active' : '' }}" href="{{ route('buzon.index') }}"><i class="ri-inbox-line" aria-hidden="true"></i><span>Buzón</span></a></li>@endcan
             @php($reportsMenuOpen = request()->routeIs('beneficiaries.summary', 'general-reports.*', 'indicator-reports.*', 'servicios-programados.*'))
             @if(Route::has('cases.index'))
                 @can('ver casos')

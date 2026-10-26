@@ -18,6 +18,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class BeneficiaryExcelExportTest extends TestCase
@@ -80,6 +81,7 @@ class BeneficiaryExcelExportTest extends TestCase
             'ethnicity' => 'Ninguna',
             'pregnant_lactating' => 'N/A',
             'is_recurrent' => false,
+            'national_id' => '001234567',
         ]);
 
         $response = $this->actingAs($administrator)->get(route('beneficiaries.export', ['reported' => '']));
@@ -105,7 +107,14 @@ class BeneficiaryExcelExportTest extends TestCase
             $this->assertSame('Período', $worksheet->getCell('X1')->getValue());
             $this->assertSame('Octubre 2026', $worksheet->getCell('X2')->getValue());
             $this->assertSame(DataType::TYPE_STRING, $worksheet->getCell('X2')->getDataType());
-            $this->assertSame('A1:X1', $worksheet->getAutoFilter()->getRange());
+            $this->assertSame('A1:Y1', $worksheet->getAutoFilter()->getRange());
+            $this->assertSame('Cédula', $worksheet->getCell('Y1')->getValue());
+            $this->assertSame('001234567', $worksheet->getCell('Y2')->getValue());
+            $this->assertSame(DataType::TYPE_STRING, $worksheet->getCell('Y2')->getDataType());
+            $this->assertSame('@', $worksheet->getStyle('Y2')->getNumberFormat()->getFormatCode());
+            $this->assertEquals(20, $worksheet->getColumnDimension('Y')->getWidth());
+            $this->assertSame($worksheet->getStyle('X1')->getFill()->getStartColor()->getARGB(),
+                $worksheet->getStyle('Y1')->getFill()->getStartColor()->getARGB());
             $this->assertSame('A2', $worksheet->getFreezePane());
             $this->assertEquals(24, $worksheet->getColumnDimension('X')->getWidth());
             $this->assertSame($worksheet->getStyle('W1')->getFill()->getStartColor()->getARGB(),
@@ -128,6 +137,7 @@ class BeneficiaryExcelExportTest extends TestCase
         $sector = Sector::create(['codigo' => 'CP', 'name' => 'Protección', 'slug' => 'proteccion', 'sort_order' => 1]);
         $activity = Activity::create(['sector_id' => $sector->id, 'code' => 'ACT-01', 'title' => 'Atención', 'sort_order' => 1]);
         $expected = [];
+        $nationalIds = [];
         foreach (['2026-09' => 'Septiembre 2026', '2026-10' => 'Octubre 2026', 'unassigned' => 'Sin período asignado'] as $period => $label) {
             $report = Report::create([
                 'reporting_period' => $period === 'unassigned' ? null : $period,
@@ -142,8 +152,10 @@ class BeneficiaryExcelExportTest extends TestCase
             $beneficiary = $report->beneficiaries()->create([
                 'has_informed_consent' => true, 'age' => 12, 'sex' => 'Mujer', 'disability' => 'Ninguna',
                 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'N/A', 'is_recurrent' => false,
+                'national_id' => 'DOC-'.$period,
             ]);
             $expected[$period] = [$beneficiary->id => $label];
+            $nationalIds[$beneficiary->id] = 'DOC-'.$period;
         }
 
         $this->actingAs($administrator);
@@ -162,11 +174,68 @@ class BeneficiaryExcelExportTest extends TestCase
                 $id = $worksheet->getCell('A'.$row)->getValue();
                 if ($id !== null) {
                     $rows[(int) $id] = $worksheet->getCell('X'.$row)->getValue();
+                    $this->assertSame($nationalIds[(int) $id], $worksheet->getCell('Y'.$row)->getValue());
                 }
             }
             ksort($rows);
             ksort($expectedRows);
             $this->assertSame($expectedRows, $rows);
+        }
+    }
+
+    private function reportWithNationalIds(User $owner): Report
+    {
+        $state = State::firstOrCreate(['code' => 'TEST'], ['name' => 'Estado de prueba']);
+        $municipality = Municipality::firstOrCreate(['code' => 'TEST01'], ['state_id' => $state->id, 'name' => 'Municipio']);
+        $parish = Parish::firstOrCreate(['code' => 'TEST0101'], ['municipality_id' => $municipality->id, 'name' => 'Parroquia']);
+        $sector = Sector::firstOrCreate(['slug' => 'test-export'], ['name' => 'Sector', 'sort_order' => 1]);
+        $activity = Activity::firstOrCreate(['code' => 'TEST-EXPORT'], ['sector_id' => $sector->id, 'title' => 'Actividad', 'sort_order' => 1]);
+        $report = Report::create(['user_id' => $owner->id, 'reporting_period' => '2026-10', 'report_date' => '2026-09-15',
+            'reporter_first_name' => 'Prueba', 'reporter_last_name' => 'Exportación', 'reporter_email' => $owner->email, 'organization' => 'ASONACOP',
+            'state_id' => $state->id, 'municipality_id' => $municipality->id, 'parish_id' => $parish->id,
+            'installation_type' => 'Comunidad / Espacio Comunitario', 'place_name' => 'Lugar de prueba',
+            'sector_id' => $sector->id, 'activity_id' => $activity->id, 'recurrence_status' => 'nuevo',
+            'total_beneficiaries' => 3, 'beneficiary_breakdown' => []]);
+        foreach (['000987654', null, '=1+1'] as $nationalId) {
+            $report->beneficiaries()->create(['has_informed_consent' => true, 'age' => 12, 'sex' => 'Mujer',
+                'national_id' => $nationalId, 'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'N/A', 'is_recurrent' => false]);
+        }
+        return $report;
+    }
+
+    public function test_admin_national_ids_preserve_leading_zeros_handle_missing_ids_and_never_become_formulas(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $report = $this->reportWithNationalIds($admin);
+        $this->actingAs($admin);
+        $sheet = $this->exportWorksheet(['reported' => '']);
+        $this->assertSame('Y', $sheet->getHighestDataColumn());
+        $this->assertSame('000987654', $sheet->getCell('Y2')->getValue());
+        $this->assertSame('', (string) $sheet->getCell('Y3')->getValue());
+        $this->assertSame("'=1+1", $sheet->getCell('Y4')->getValue());
+        foreach ([2, 4] as $row) $this->assertSame(DataType::TYPE_STRING, $sheet->getCell('Y'.$row)->getDataType());
+        $this->assertSame('@', $sheet->getStyle('Y3')->getNumberFormat()->getFormatCode());
+        $this->assertSame(3, $report->beneficiaries()->count());
+        $this->assertDatabaseCount('reports', 1);
+    }
+
+    public function test_non_admin_exports_have_no_national_id_column_even_with_export_and_detail_permissions(): void
+    {
+        foreach (['reporter', 'coordinator', 'export-auditor'] as $role) {
+            Role::findOrCreate($role, 'web');
+            $user = User::factory()->create(['role' => $role, 'countrywide_access' => true]);
+            $user->givePermissionTo(['exportar registros excel', 'ver detalle de registros']);
+            $this->reportWithNationalIds($user);
+            $this->actingAs($user);
+            $sheet = $this->exportWorksheet(['reported' => '', 'include_national_id' => '1', 'is_admin' => '1']);
+            $this->assertSame('X', $sheet->getHighestDataColumn());
+            $this->assertSame('A1:X1', $sheet->getAutoFilter()->getRange());
+            $this->assertSame('Período', $sheet->getCell('X1')->getValue());
+            $contents = json_encode($sheet->toArray(), JSON_UNESCAPED_UNICODE);
+            $this->assertStringNotContainsString('Cédula', $contents);
+            $this->assertStringNotContainsString('000987654', $contents);
+            $this->assertStringNotContainsString('=1+1', $contents);
+            $this->assertGreaterThan(1, $sheet->getHighestDataRow());
         }
     }
 

@@ -9,6 +9,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\BeneficiaryLookupController;
 use App\Http\Controllers\BeneficiaryReportController;
+use App\Http\Controllers\BuzonController;
 use App\Http\Controllers\CaseAttachmentController;
 use App\Http\Controllers\CaseRecordController;
 use App\Http\Controllers\DashboardController;
@@ -68,6 +69,14 @@ Route::middleware('guest')->group(function (): void {
 });
 
 Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'automatic.backup'])->group(function (): void {
+    Route::prefix('buzon')->name('buzon.')->middleware(['permission:Buzon', \App\Http\Middleware\PrivateBuzonResponse::class])->group(function (): void {
+        Route::get('/', [BuzonController::class, 'index'])->name('index');
+        Route::get('/nuevo', [BuzonController::class, 'create'])->name('create');
+        Route::post('/', [BuzonController::class, 'store'])->name('store');
+        Route::get('/{entry}/editar', [BuzonController::class, 'edit'])->name('edit');
+        Route::put('/{entry}', [BuzonController::class, 'update'])->name('update');
+        Route::get('/{entry}', [BuzonController::class, 'show'])->name('show');
+    });
     Route::get('/panel', DashboardController::class)->name('dashboard');
     Route::post('/salir', [AuthController::class, 'logout'])->name('logout');
     Route::get('/mi-perfil', [ProfileController::class, 'show'])->name('profile.show');

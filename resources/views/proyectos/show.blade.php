@@ -7,6 +7,7 @@
 </section>
 
 <section class="content-card project-summary-card">
+    @can('Buzon')<p><a class="button button-secondary" href="{{ route('buzon.index', ['project_ids' => [$proyecto->id]]) }}">Buzón del proyecto</a> <a class="button button-primary" href="{{ route('buzon.create', ['proyecto_id' => $proyecto->id]) }}">Registrar opinión</a></p>@endcan
     <dl class="project-summary-grid">
         <div><dt>Donante</dt><dd>{{ $proyecto->donante->nombre }}</dd></div>
         <div><dt>Periodo</dt><dd>{{ $proyecto->inicio?->format('d/m/Y') ?? 'Sin fecha' }} &mdash; {{ $proyecto->fin?->format('d/m/Y') ?? 'Sin fecha' }}</dd></div>

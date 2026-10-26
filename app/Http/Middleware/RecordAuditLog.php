@@ -108,6 +108,7 @@ class RecordAuditLog
             'dashboard' => 'el panel',
             'reports' => 'registros de actividades',
             'cases' => 'expedientes de gestión de casos',
+            'buzon' => 'el Buzón',
             'families' => 'grupos familiares de gestión de casos',
             'beneficiaries' => 'beneficiarios',
             'general-reports' => 'informes generales',
@@ -136,7 +137,7 @@ class RecordAuditLog
     {
         // El historial del expediente conserva la acción y los campos modificados.
         // No duplicar datos personales ni búsquedas de casos en la bitácora general.
-        if ($request->routeIs('cases.*', 'families.*')) {
+        if ($request->routeIs('cases.*', 'families.*', 'buzon.*')) {
             return null;
         }
 

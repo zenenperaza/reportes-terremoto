@@ -16,7 +16,7 @@ class TemporaryMaintenanceController extends Controller
         abort_if($token === '', 503, 'Falta configurar SERVER_MAINTENANCE_TOKEN en el archivo .env.');
         abort_unless(hash_equals($token, (string) request('token')), 403);
 
-        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto'], true),
+        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto', 'actualizacion-buzon'], true),
             422, 'Modo de mantenimiento no reconocido.');
         $permissionsOnly = request('only') === 'permisos-beneficiarios';
         $groupEditingOnly = request('only') === 'edicion-cruzada-grupos';
@@ -28,6 +28,9 @@ class TemporaryMaintenanceController extends Controller
         $siaUpdateOnly = request('only') === 'actualizacion-sia';
         $reportUpdateOnly = request('only') === 'actualizacion-informes';
         $projectPlacesOnly = request('only') === 'lugares-proyecto';
+        $buzonUpdateOnly = request('only') === 'actualizacion-buzon';
+        abort_if($buzonUpdateOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
+            422, 'El modo actualizacion-buzon no se puede combinar con opciones de caché o importación.');
         abort_if($projectPlacesOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
             422, 'El modo lugares-proyecto no se puede combinar con opciones de caché o importación.');
         abort_if($reportUpdateOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
@@ -251,6 +254,37 @@ class TemporaryMaintenanceController extends Controller
             }
         }
 
+        $buzonMigration = ['name' => 'migrate', 'parameters' => [
+            '--path' => 'database/migrations/2026_10_23_120000_create_buzon_entries_table.php',
+            '--force' => true,
+        ]];
+        if ($buzonUpdateOnly) {
+            // Check every runtime file before any cache clear or schema change.
+            foreach ([
+                $buzonMigration['parameters']['--path'],
+                'app/Http/Controllers/TemporaryMaintenanceController.php',
+                'app/Http/Controllers/BuzonController.php',
+                'app/Http/Controllers/BeneficiaryReportController.php',
+                'app/Http/Controllers/PermissionController.php',
+                'app/Http/Controllers/ProyectoController.php',
+                'app/Http/Middleware/PrivateBuzonResponse.php',
+                'app/Http/Middleware/RecordAuditLog.php',
+                'app/Http/Requests/SaveBuzonEntryRequest.php',
+                'app/Models/BuzonEntry.php', 'app/Models/Proyecto.php',
+                'public/css/buzon.css', 'public/js/buzon.js',
+                'resources/views/buzon/form.blade.php',
+                'resources/views/buzon/index.blade.php',
+                'resources/views/layouts/app.blade.php',
+                'resources/views/proyectos/show.blade.php',
+                'resources/views/beneficiaries/summary.blade.php',
+                'routes/web.php', 'routes/maintenance.php',
+            ] as $file) {
+                abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
+            }
+            abort_unless(class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class), 422,
+                'Falta PhpSpreadsheet. Instale las dependencias de Composer del proyecto antes de continuar.');
+        }
+
         $cacheCommands = [
             ['name' => 'optimize:clear', 'parameters' => []],
             ['name' => 'cache:clear', 'parameters' => []],
@@ -414,6 +448,7 @@ class TemporaryMaintenanceController extends Controller
         $includeExcel = $excelOnly || request()->boolean('import_excel');
 
         $selectedMigrations = match (true) {
+            $buzonUpdateOnly => [$buzonMigration],
             $projectPlacesOnly => [$projectPlacesMigration],
             $reportUpdateOnly => [],
             $siaUpdateOnly => array_merge([$presenceMigration], $notificationMigrations),
@@ -506,6 +541,17 @@ class TemporaryMaintenanceController extends Controller
                 'Se conservan las ubicaciones históricas y la atención comunitaria por parroquia. Un indicador asociado puede seleccionarse también como principal en su sector.',
                 'No se modifican permisos, períodos, cierres, bloqueos ni avisos programados. Repetir este modo omite la migración ya aplicada y conserva las asignaciones guardadas.',
                 'Al finalizar, recargue SIA con Ctrl + F5 y configure los lugares de cada proyecto antes de retirar el mantenimiento manualmente.',
+            ];
+        }
+        if ($buzonUpdateOnly) {
+            $results = [
+                'ACTUALIZACIÓN BUZÓN Y EXCEL DE BENEFICIARIOS: se ejecuta únicamente la migración del Buzón y se reconstruyen las cachés.',
+                'Se crea buzon_entries y el permiso Buzon, asignado inicialmente al rol Administrador. Cada formulario permanece separado de los beneficiarios y no genera copias de otros indicadores.',
+                'Incluye la columna Cédula en el Excel del informe de beneficiarios solo para administradores; no se incluye para coordinadores ni registradores.',
+                'No se ejecutan seeders, importaciones ni correcciones de parroquias. No se modifican registros, beneficiarios, catálogos, asignaciones de proyectos, períodos ni cierres existentes.',
+                'No se activa ni se cancela el mantenimiento: se conservan los bloqueos y avisos programados.',
+                'La migración ya aplicada se omite. Repetir este modo conserva los formularios y los permisos que haya concedido o retirado después de instalar el Buzón.',
+                'Al finalizar, recargue SIA con Ctrl + F5. Revise el permiso Buzon en Roles o Usuarios antes de dar acceso a otras personas.',
             ];
         }
         $exitCode = 1;

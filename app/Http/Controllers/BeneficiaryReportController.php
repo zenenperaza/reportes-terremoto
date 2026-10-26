@@ -133,6 +133,7 @@ class BeneficiaryReportController extends Controller
 
         $filters = $this->validatedFilters($request);
         $spreadsheet = new Spreadsheet;
+        $includeNationalId = $request->user()->isAdministrator();
         $worksheet = $spreadsheet->getActiveSheet();
         $worksheet->setTitle('Beneficiarios');
 
@@ -142,6 +143,9 @@ class BeneficiaryReportController extends Controller
             'Detalles adicionales de la actividad', 'Fecha de atención', 'Edad', 'Sexo', 'Discapacidad', 'Indígena',
             'Embarazada o lactante', 'Recurrente', 'Fecha de reporte', 'Fecha de inclusión', 'Usuario', 'Período',
         ];
+        if ($includeNationalId) {
+            $headers[] = 'Cédula';
+        }
         $lastColumn = Coordinate::stringFromColumnIndex(count($headers));
 
         foreach ($headers as $index => $header) {
@@ -163,6 +167,9 @@ class BeneficiaryReportController extends Controller
         ]);
 
         $widths = [8, 18, 20, 18, 26, 30, 13, 13, 22, 24, 24, 48, 48, 16, 10, 16, 18, 18, 22, 14, 18, 20, 28, 24];
+        if ($includeNationalId) {
+            $widths[] = 20;
+        }
         foreach ($widths as $index => $width) {
             $worksheet->getColumnDimension(Coordinate::stringFromColumnIndex($index + 1))->setWidth($width);
         }
@@ -195,6 +202,9 @@ class BeneficiaryReportController extends Controller
                 $beneficiary->user_name ?: trim("{$beneficiary->reporter_first_name} {$beneficiary->reporter_last_name}"),
                 ReportPeriod::label($beneficiary->reporting_period),
             ];
+            if ($includeNationalId) {
+                $values[] = $beneficiary->national_id;
+            }
 
             foreach ($values as $index => $value) {
                 $cell = Coordinate::stringFromColumnIndex($index + 1).$rowNumber;
@@ -218,6 +228,9 @@ class BeneficiaryReportController extends Controller
         $worksheet->getStyle("N2:N{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
         $worksheet->getStyle("U2:U{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
         $worksheet->getStyle("V2:V{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy hh:mm');
+        if ($includeNationalId) {
+            $worksheet->getStyle("Y2:Y{$lastDataRow}")->getNumberFormat()->setFormatCode('@');
+        }
 
         $writer = new Xlsx($spreadsheet);
         $fileName = 'beneficiarios-'.now()->format('Ymd-His').'.xlsx';
@@ -227,7 +240,7 @@ class BeneficiaryReportController extends Controller
                 $writer->save('php://output');
             },
             $fileName,
-            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Cache-Control' => 'no-store, private'],
         );
     }
 
@@ -483,7 +496,7 @@ class BeneficiaryReportController extends Controller
             ->leftJoin('users as export_users', 'export_reports.user_id', '=', 'export_users.id')
             ->select([
                 'beneficiaries.id as beneficiary_id', 'beneficiaries.full_name', 'beneficiaries.age', 'beneficiaries.sex',
-                'beneficiaries.national_id', 'beneficiaries.phone', 'beneficiaries.disability', 'beneficiaries.ethnicity',
+                'beneficiaries.phone', 'beneficiaries.disability', 'beneficiaries.ethnicity',
                 'beneficiaries.pregnant_lactating', 'beneficiaries.is_recurrent', 'beneficiaries.reported_at',
                 'beneficiaries.created_at as beneficiary_created_at', 'export_states.name as state_name',
                 'export_municipalities.name as municipality_name', 'export_parishes.name as parish_name',
@@ -496,6 +509,7 @@ class BeneficiaryReportController extends Controller
                 'export_reports.activity_details', 'export_reports.report_date', 'export_users.name as user_name',
                 'export_reports.reporter_first_name', 'export_reports.reporter_last_name', 'export_reports.reporting_period',
             ])
+            ->when($request->user()->isAdministrator(), fn (Builder $query) => $query->addSelect('beneficiaries.national_id'))
             ->orderByDesc('export_reports.report_date')
             ->orderBy('export_states.name')
             ->orderBy('export_municipalities.name')
