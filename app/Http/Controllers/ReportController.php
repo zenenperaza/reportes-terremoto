@@ -19,6 +19,7 @@ use App\Models\Proyecto;
 use App\Models\User;
 use App\Services\ReportDataTable;
 use App\Support\ReportPeriod;
+use App\Support\SummaryIndicatorFilter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
@@ -34,6 +35,7 @@ class ReportController extends Controller
     public function index(Request $request): View|JsonResponse|StreamedResponse
     {
         $this->normalizeStateFilter($request);
+        $request->merge(['summary_indicator_ids' => SummaryIndicatorFilter::selection($request)]);
         $request->validate(['user_id' => ['nullable', 'integer', 'min:1'], 'reporting_period' => ReportPeriod::rules(),
             'servicio_actividad_id' => ['nullable', 'integer', 'exists:servicio_actividad,id']]);
         // The service drilldown exposes beneficiaries, not just delivery totals.
@@ -89,7 +91,8 @@ class ReportController extends Controller
             'canViewPersonalData' => $request->user()->isAdministrator(),
             'registeringUsers' => User::withTrashed()->whereIn('id', $request->user()->constrainVisibleReports(Report::query())->select('reports.user_id'))
                 ->orderBy('name')->orderBy('id')->get(['id', 'name']),
-            'filters' => $request->only(['state_id', 'reported', 'from', 'to', 'user_id', 'reporting_period', 'servicio_actividad_id']),
+            'filters' => $request->only(['state_id', 'reported', 'from', 'to', 'user_id', 'reporting_period', 'servicio_actividad_id', 'summary_indicator_ids']),
+            'summaryIndicatorOptions' => SummaryIndicatorFilter::options($request->user()),
             'periodOptions' => ReportPeriod::options($request->user()->constrainVisibleReports(Report::query())),
         ]);
     }
@@ -709,6 +712,7 @@ class ReportController extends Controller
     {
         $query = Report::query();
         $request->user()->constrainVisibleReports($query);
+        SummaryIndicatorFilter::apply($query, SummaryIndicatorFilter::selection($request));
 
         $reported = $request->input('reported');
         if ($reported === '1') {
@@ -731,10 +735,12 @@ class ReportController extends Controller
     private function filteredBeneficiaries(Request $request): Builder
     {
         $reported = (string) $request->input('reported', '');
+        $summaryIds = SummaryIndicatorFilter::selection($request);
 
         return Beneficiary::query()
-            ->whereHas('report', function (Builder $reports) use ($request): void {
+            ->whereHas('report', function (Builder $reports) use ($request, $summaryIds): void {
                 $request->user()->constrainVisibleReports($reports);
+                SummaryIndicatorFilter::apply($reports, $summaryIds);
                 $reports->serviceAssignment($request->integer('servicio_actividad_id'))
                     ->when($request->integer('user_id'), fn (Builder $query, int $userId) => $query->where('user_id', $userId))
                     ->reportingPeriod($request->input('reporting_period'))

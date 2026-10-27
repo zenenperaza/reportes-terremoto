@@ -81,7 +81,7 @@ class ProyectoController extends Controller
 
     public function destroy(Proyecto $proyecto): RedirectResponse
     {
-        if ($proyecto->buzonEntries()->exists()) {
+        if ($proyecto->buzonEntries()->exists() || $proyecto->summaryIndicators()->exists()) {
             return back()->with('error', 'El proyecto tiene información vinculada y no se puede eliminar. Puede desactivarlo para conservar su historial.');
         }
         $proyecto->delete();

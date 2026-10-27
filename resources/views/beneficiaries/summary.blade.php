@@ -44,6 +44,7 @@
 <section class="content-card filter-card">
     <form method="get" class="beneficiary-report-filters" id="beneficiary-report-filters" data-period-dates data-date-bounds-url="{{ route('beneficiaries.dates') }}" data-locations-url="{{ route('beneficiaries.locations') }}">
         <input type="hidden" name="reported" value="{{ $filters['reported'] ?? '' }}">
+        <div class="span-two">@include('reports.partials.summary-indicator-filter')</div>
         @foreach(['from' => ['attention', 'Fecha de atención desde'], 'to' => ['attention', 'Fecha de atención hasta'], 'included_from' => ['registered', 'Fecha de registro (inclusión) desde'], 'included_to' => ['registered', 'Fecha de registro (inclusión) hasta']] as $field => [$dateGroup, $label])
             @php
                 $bounds = $dateBounds[$dateGroup];

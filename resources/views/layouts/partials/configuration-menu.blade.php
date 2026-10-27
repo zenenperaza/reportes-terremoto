@@ -16,6 +16,7 @@
                 ['Gestión de proyectos', 'proyectos.index', ['proyectos.*', 'sector-proyecto.*', 'indicador-proyecto.*', 'actividad-indicador.*', 'servicio-actividad.*']],
                 ['Sectores', 'sectores.index', ['sectores.*']],
                 ['Grupos de indicadores', 'indicator-groups.index', ['indicator-groups.*']],
+                ['Indicadores Resumen', 'summary-indicators.index', ['summary-indicators.*']],
                 ['Indicadores', 'indicadores.index', ['indicadores.*']],
                 ['Actividades', 'actividades.index', ['actividades.*']],
                 ['Servicios', 'servicios.index', ['servicios.*']],

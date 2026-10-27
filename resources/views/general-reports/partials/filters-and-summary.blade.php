@@ -4,6 +4,7 @@
     <div class="card-body">
         <form method="get" id="general-report-filters" class="row g-3" data-period-dates data-date-bounds-url="{{ $dateBoundsRoute }}" data-locations-url="{{ $locationsRoute }}">
             <input type="hidden" name="reported" value="{{ $filters['reported'] ?? '' }}">
+            <div class="col-12">@include('reports.partials.summary-indicator-filter')</div>
             <div class="col-12 report-period-row">@include('reports.partials.period-filter')</div>
             @foreach(['attention_from' => ['attention', 'Fecha de atención desde'], 'attention_to' => ['attention', 'Fecha de atención hasta'], 'registered_from' => ['registered', 'Fecha de registro desde'], 'registered_to' => ['registered', 'Fecha de registro hasta']] as $field => [$dateGroup, $label])
                 @php($bounds = $dateBounds[$dateGroup])

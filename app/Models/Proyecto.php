@@ -69,6 +69,11 @@ class Proyecto extends Model
         return $this->hasMany(BuzonEntry::class);
     }
 
+    public function summaryIndicators(): HasMany
+    {
+        return $this->hasMany(SummaryIndicator::class);
+    }
+
     public function coversLocation(int $stateId, int $municipalityId): bool
     {
         $this->loadMissing(['estados:id', 'municipios:id']);

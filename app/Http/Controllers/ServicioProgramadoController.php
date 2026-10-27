@@ -13,6 +13,7 @@ use App\Models\ServicioActividad;
 use App\Services\ProgrammedServicesExcelExport;
 use App\Support\ReportPeriod;
 use App\Support\ReportPeriodDates;
+use App\Support\SummaryIndicatorFilter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Http\JsonResponse;
@@ -38,6 +39,7 @@ class ServicioProgramadoController extends Controller
 
         return view('servicios.programados', [
             'filters' => $filters,
+            'summaryIndicatorOptions' => SummaryIndicatorFilter::options($request->user()),
             'dateBounds' => $dateBounds,
             // DataTable paginates/searches all filtered assignments, not a Laravel page.
             'asignaciones' => $assignments,
@@ -154,6 +156,7 @@ class ServicioProgramadoController extends Controller
             'to.date_format' => 'Ingrese una fecha de atención hasta válida.',
         ]);
         unset($validated['page']);
+        $validated['summary_indicator_ids'] = SummaryIndicatorFilter::selection($request);
         $canViewBeneficiaries = $request->user()->can('solo ver registros') && $request->user()->can('ver detalle de registros');
         $validated['vista'] = ($validated['vista'] ?? null) ?: ($canViewBeneficiaries ? 'beneficiario' : 'resumen');
         if (! in_array($validated['vista'], ['resumen', 'agrupado'], true)) {
@@ -165,7 +168,7 @@ class ServicioProgramadoController extends Controller
 
     private function deliveredReports(Request $request, array $filters, ?Builder $query = null): Builder
     {
-        return $request->user()->constrainVisibleReports($query ?? Report::query())
+        return SummaryIndicatorFilter::apply($request->user()->constrainVisibleReports($query ?? Report::query()), $filters['summary_indicator_ids'] ?? [])
             ->whereHas('beneficiaries')
             ->reportingPeriod($filters['reporting_period'])
             ->when(filled($filters['from']), fn (Builder $reports) => $reports->whereDate('reports.report_date', '>=', $filters['from']))

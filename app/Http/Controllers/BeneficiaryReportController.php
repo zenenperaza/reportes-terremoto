@@ -8,6 +8,7 @@ use App\Models\Sector;
 use App\Services\ReportLocationOptions;
 use App\Support\ReportPeriod;
 use App\Support\ReportPeriodDates;
+use App\Support\SummaryIndicatorFilter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -76,6 +77,7 @@ class BeneficiaryReportController extends Controller
 
         return view('beneficiaries.summary', [
             'filters' => $filters,
+            'summaryIndicatorOptions' => SummaryIndicatorFilter::options($request->user()),
             'dateBounds' => $this->dateBounds($request, $filters),
             'periodOptions' => ReportPeriod::options($this->optionReports($request, $filters), true),
             'summary' => $this->summary($beneficiaries),
@@ -247,6 +249,7 @@ class BeneficiaryReportController extends Controller
     /** @param array<string, mixed> $filters */
     private function applyReportFilters(Builder $query, array $filters): Builder
     {
+        SummaryIndicatorFilter::apply($query, $filters['summary_indicator_ids'] ?? []);
         $query->reportingPeriod($filters['reporting_period'] ?? null);
         return $query
             ->when($filters['from'] ?? null, fn (Builder $query, string $from) => $query->whereDate('report_date', '>=', $from))
@@ -419,6 +422,8 @@ class BeneficiaryReportController extends Controller
         if (isset($filters['indicator_filter'])) {
             $filters['indicator_filter'] = array_values(array_unique($filters['indicator_filter']));
         }
+
+        $filters['summary_indicator_ids'] = SummaryIndicatorFilter::selection($request);
 
         if (! $request->exists('reported')) {
             $filters['reported'] = '0';

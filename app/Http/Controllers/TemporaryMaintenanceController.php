@@ -16,7 +16,7 @@ class TemporaryMaintenanceController extends Controller
         abort_if($token === '', 503, 'Falta configurar SERVER_MAINTENANCE_TOKEN en el archivo .env.');
         abort_unless(hash_equals($token, (string) request('token')), 403);
 
-        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto', 'actualizacion-buzon'], true),
+        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto', 'actualizacion-buzon', 'indicadores-resumen'], true),
             422, 'Modo de mantenimiento no reconocido.');
         $permissionsOnly = request('only') === 'permisos-beneficiarios';
         $groupEditingOnly = request('only') === 'edicion-cruzada-grupos';
@@ -29,6 +29,9 @@ class TemporaryMaintenanceController extends Controller
         $reportUpdateOnly = request('only') === 'actualizacion-informes';
         $projectPlacesOnly = request('only') === 'lugares-proyecto';
         $buzonUpdateOnly = request('only') === 'actualizacion-buzon';
+        $summaryIndicatorsOnly = request('only') === 'indicadores-resumen';
+        abort_if($summaryIndicatorsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
+            422, 'El modo indicadores-resumen no se puede combinar con opciones de caché o importación.');
         abort_if($buzonUpdateOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
             422, 'El modo actualizacion-buzon no se puede combinar con opciones de caché o importación.');
         abort_if($projectPlacesOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
@@ -285,6 +288,45 @@ class TemporaryMaintenanceController extends Controller
                 'Falta PhpSpreadsheet. Instale las dependencias de Composer del proyecto antes de continuar.');
         }
 
+        $summaryIndicatorMigrations = array_map(fn (string $path): array => [
+            'name' => 'migrate', 'parameters' => ['--path' => $path, '--force' => true],
+        ], [
+            'database/migrations/2026_10_26_140000_create_summary_indicators_tables.php',
+            'database/migrations/2026_10_26_150000_scope_summary_indicators_to_projects.php',
+        ]);
+        if ($summaryIndicatorsOnly) {
+            // Check the entire upload before clearing caches or running either migration.
+            foreach (array_merge(array_column(array_column($summaryIndicatorMigrations, 'parameters'), '--path'), [
+                'app/Http/Controllers/TemporaryMaintenanceController.php',
+                'app/Http/Controllers/SummaryIndicatorController.php',
+                'app/Http/Controllers/BeneficiaryReportController.php',
+                'app/Http/Controllers/GeneralReportController.php',
+                'app/Http/Controllers/ReportController.php',
+                'app/Http/Controllers/ServicioProgramadoController.php',
+                'app/Http/Controllers/ProyectoController.php',
+                'app/Models/SummaryIndicator.php', 'app/Models/Proyecto.php',
+                'app/Support/SummaryIndicatorFilter.php',
+                'app/Services/ReportSummaryExcelExport.php',
+                'app/Services/ProgrammedServicesExcelExport.php',
+                'resources/views/summary-indicators/index.blade.php',
+                'resources/views/summary-indicators/form.blade.php',
+                'resources/views/summary-indicators/assignments.blade.php',
+                'resources/views/reports/partials/summary-indicator-filter.blade.php',
+                'resources/views/reports/index.blade.php',
+                'resources/views/beneficiaries/summary.blade.php',
+                'resources/views/general-reports/partials/filters-and-summary.blade.php',
+                'resources/views/servicios/programados.blade.php',
+                'resources/views/layouts/app.blade.php',
+                'resources/views/layouts/partials/configuration-menu.blade.php',
+                'public/js/summary-indicator-filter.js',
+                'routes/web.php', 'routes/maintenance.php',
+            ]) as $file) {
+                abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
+            }
+            abort_unless(class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class), 422,
+                'Falta PhpSpreadsheet. Instale las dependencias de Composer del proyecto antes de continuar.');
+        }
+
         $cacheCommands = [
             ['name' => 'optimize:clear', 'parameters' => []],
             ['name' => 'cache:clear', 'parameters' => []],
@@ -448,6 +490,7 @@ class TemporaryMaintenanceController extends Controller
         $includeExcel = $excelOnly || request()->boolean('import_excel');
 
         $selectedMigrations = match (true) {
+            $summaryIndicatorsOnly => $summaryIndicatorMigrations,
             $buzonUpdateOnly => [$buzonMigration],
             $projectPlacesOnly => [$projectPlacesMigration],
             $reportUpdateOnly => [],
@@ -552,6 +595,18 @@ class TemporaryMaintenanceController extends Controller
                 'No se activa ni se cancela el mantenimiento: se conservan los bloqueos y avisos programados.',
                 'La migración ya aplicada se omite. Repetir este modo conserva los formularios y los permisos que haya concedido o retirado después de instalar el Buzón.',
                 'Al finalizar, recargue SIA con Ctrl + F5. Revise el permiso Buzon en Roles o Usuarios antes de dar acceso a otras personas.',
+            ];
+        }
+        if ($summaryIndicatorsOnly) {
+            $results = [
+                'INDICADORES RESUMEN POR PROYECTO: se ejecutan únicamente las dos migraciones de Indicadores Resumen, en orden, y se reconstruyen las cachés.',
+                'Se crean summary_indicators y summary_indicator_assignments y se añade el proyecto del resumen. No se crean asignaciones automáticas ni se deducen proyectos de pruebas anteriores.',
+                'Los resúmenes anteriores conservan sus asignaciones y quedan con proyecto pendiente hasta confirmarlo en Editar. Los nuevos requieren proyecto y solo admiten indicadores de ese proyecto.',
+                'Incluye el filtro Indicadores Resumen en Registros, Beneficiarios, Informes generales, por indicadores y por servicios, con sus exportaciones y permisos existentes.',
+                'No se ejecutan seeders, importaciones ni correcciones de parroquias. No se modifican registros, beneficiarios, indicadores originales, Buzón, permisos, períodos ni cierres existentes.',
+                'No se modifica el formulario /reportes/nuevo. No se activa ni se cancela el mantenimiento: se conservan los bloqueos y avisos programados.',
+                'Las migraciones ya aplicadas se omiten. Repetir este modo conserva los resúmenes, sus proyectos y asignaciones guardadas.',
+                'Al finalizar, recargue SIA con Ctrl + F5. Configure los resúmenes desde Configuración → Proyectos → Indicadores Resumen antes de retirar el mantenimiento manualmente.',
             ];
         }
         $exitCode = 1;

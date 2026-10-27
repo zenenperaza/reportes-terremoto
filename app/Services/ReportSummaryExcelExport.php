@@ -204,6 +204,7 @@ class ReportSummaryExcelExport
         $rows[] = ['Tipo de atención', ($filters['installation_type'] ?? '') ?: 'Todos'];
         $rows[] = ['Nombre del lugar', ($filters['place_name'] ?? '') ?: 'Todos'];
         $rows[] = ['Recurrente', filled($filters['is_recurrent'] ?? null) ? ((string) $filters['is_recurrent'] === '1' ? 'Sí' : 'No') : 'Todos'];
+        $rows[] = ['Indicadores Resumen', \App\Support\SummaryIndicatorFilter::labels($filters['summary_indicator_ids'] ?? [])];
 
         return $rows;
     }

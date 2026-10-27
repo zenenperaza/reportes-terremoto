@@ -139,6 +139,7 @@
             </li>
             @if(auth()->user()->isAdministrator())
                 @php($catalogOpen = request()->routeIs('users.*', 'user-groups.*', 'roles.*', 'permissions.*', 'place-names.*', 'donantes.*', 'proyectos.*', 'sector-proyecto.*', 'indicador-proyecto.*', 'actividad-indicador.*', 'servicio-actividad.*', 'sectores.*', 'indicator-groups.*', 'indicadores.*', 'actividades.*', 'servicios.*', 'system-maintenance.*', 'system-configuration.*', 'backups.*', 'audit-logs.*'))
+                @php($catalogOpen = $catalogOpen || request()->routeIs('summary-indicators.*'))
                 <li class="menu-title"><span>Administraci&oacute;n</span></li>
                 <li class="nav-item">
                     <a class="nav-link menu-link collapsed {{ $catalogOpen ? 'active' : '' }}" href="#sidebarConfiguration" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarConfiguration"><i class="ri-settings-3-line"></i><span>Configuraci&oacute;n</span></a>

@@ -12,10 +12,18 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ProgrammedServicesExcelExport
 {
+    private function appendSummaryFilter(Worksheet $sheet, array $filters): void
+    {
+        $row = $sheet->getHighestDataRow() + 1;
+        $sheet->setCellValueExplicit('A'.$row, 'Indicadores Resumen', DataType::TYPE_STRING);
+        $sheet->setCellValueExplicit('B'.$row, \App\Support\SummaryIndicatorFilter::labels($filters['summary_indicator_ids'] ?? []), DataType::TYPE_STRING);
+    }
+
     public function downloadGrouped(Collection $rows, array $filters): StreamedResponse
     {
         return response()->streamDownload(function () use ($rows, $filters): void {
@@ -69,6 +77,7 @@ class ProgrammedServicesExcelExport
                 }
                 $filterSheet->getColumnDimension('A')->setWidth(28);
                 $filterSheet->getColumnDimension('B')->setWidth(38);
+                $this->appendSummaryFilter($filterSheet, $filters);
                 $book->setActiveSheetIndex(0);
                 $writer = new Xlsx($book);
                 $writer->setPreCalculateFormulas(false);
@@ -142,6 +151,7 @@ class ProgrammedServicesExcelExport
                 }
                 $filterSheet->getColumnDimension('A')->setWidth(28);
                 $filterSheet->getColumnDimension('B')->setWidth(38);
+                $this->appendSummaryFilter($filterSheet, $filters);
                 $book->setActiveSheetIndex(0);
                 $writer = new Xlsx($book);
                 $writer->setPreCalculateFormulas(false);
@@ -218,6 +228,7 @@ class ProgrammedServicesExcelExport
                 }
                 $filterSheet->getColumnDimension('A')->setWidth(28);
                 $filterSheet->getColumnDimension('B')->setWidth(28);
+                $this->appendSummaryFilter($filterSheet, $filters);
                 $book->setActiveSheetIndex(0);
                 $writer = new Xlsx($book);
                 $writer->setPreCalculateFormulas(false);

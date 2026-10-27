@@ -48,6 +48,7 @@
             <select id="programmed_status" name="estatus"><option value="">Todos</option><option value="1" @selected((string) $filters['estatus'] === '1')>Activo</option><option value="0" @selected((string) $filters['estatus'] === '0')>Inactivo</option></select>
         </label>
         @include('reports.partials.period-filter')
+        @include('reports.partials.summary-indicator-filter')
         <label for="service_attention_from">Fecha de atención desde
             <input type="date" id="service_attention_from" name="from" value="{{ $filters['from'] }}" data-period-date data-date-group="attention" data-date-min="{{ $dateBounds['attention']['min'] }}" data-date-max="{{ $dateBounds['attention']['max'] }}" min="{{ $dateBounds['attention']['min'] }}" max="{{ $dateBounds['attention']['max'] }}" @disabled(!$dateBounds['attention']['min']) aria-describedby="service-from-help">
             <small id="service-from-help" data-period-date-help>@if($dateBounds['attention']['min'])Disponible: {{ \Illuminate\Support\Carbon::parse($dateBounds['attention']['min'])->format('d/m/Y') }} al {{ \Illuminate\Support\Carbon::parse($dateBounds['attention']['max'])->format('d/m/Y') }}.@else Sin fechas registradas disponibles.@endif</small>

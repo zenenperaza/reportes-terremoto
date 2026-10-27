@@ -1,0 +1,9 @@
+@extends('layouts.app')
+@section('title', 'Indicadores Resumen | SIA')
+@section('content')
+<section class="page-heading"><div><p class="eyebrow">Configuración</p><h1>Indicadores Resumen</h1><p class="muted">Cada resumen pertenece a un proyecto y agrupa únicamente sus indicadores para consultas y exportaciones.</p></div><div class="heading-actions"><a class="button button-secondary" href="{{ route('summary-indicators.assignments') }}">Asignar indicadores</a><a class="button button-primary" href="{{ route('summary-indicators.create') }}">+ Nuevo Indicador Resumen</a></div></section>
+<section class="content-card"><div class="table-wrap"><table><thead><tr><th>Proyecto</th><th>Código</th><th>Nombre</th><th>Descripción</th><th>Estado</th><th>Indicadores del proyecto</th><th>Acciones</th></tr></thead><tbody>
+@forelse($summaries as $summary)<tr><td>{{ $summary->proyecto?->codigo ?? 'Pendiente: seleccione proyecto en Editar' }}@if($summary->proyecto?->nombre_alias)<br><small>{{ $summary->proyecto->nombre_alias }}</small>@endif</td><td>{{ $summary->code }}</td><td>{{ $summary->name }}</td><td>{{ $summary->description ?: 'Sin descripción' }}</td><td>{{ $summary->is_active ? 'Activo' : 'Inactivo' }}</td><td>{{ $summary->assignments_count }}</td><td class="row-actions"><a href="{{ route('summary-indicators.assignments', ['summary_indicator_id' => $summary->id]) }}">Asignar indicadores</a><a href="{{ route('summary-indicators.edit', $summary) }}">Editar</a>@if(!$summary->assignments_count)<form method="post" action="{{ route('summary-indicators.destroy', $summary) }}" onsubmit="return confirm('¿Eliminar este Indicador Resumen vacío?');">@csrf @method('DELETE')<button class="danger-link" type="submit">Eliminar</button></form>@endif</td></tr>
+@empty<tr><td colspan="7">No hay Indicadores Resumen registrados.</td></tr>@endforelse
+</tbody></table></div>{{ $summaries->links() }}</section>
+@endsection

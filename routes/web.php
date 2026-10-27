@@ -21,6 +21,7 @@ use App\Http\Controllers\IndicadorProyectoActividadController;
 use App\Http\Controllers\IndicadorProyectoController;
 use App\Http\Controllers\IndicatorReportController;
 use App\Http\Controllers\IndicatorGroupController;
+use App\Http\Controllers\SummaryIndicatorController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\PermissionController;
@@ -134,6 +135,10 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
             ->parameters(['indicadores' => 'indicador'])->except('show');
         Route::resource('configuracion/grupos-indicadores', IndicatorGroupController::class)
             ->parameters(['grupos-indicadores' => 'indicatorGroup'])->names('indicator-groups')->except('show');
+        Route::get('configuracion/indicadores-resumen/asignaciones', [SummaryIndicatorController::class, 'assignments'])->name('summary-indicators.assignments');
+        Route::put('configuracion/indicadores-resumen/asignaciones', [SummaryIndicatorController::class, 'saveAssignments'])->name('summary-indicators.save-assignments');
+        Route::resource('configuracion/indicadores-resumen', SummaryIndicatorController::class)
+            ->parameters(['indicadores-resumen' => 'summaryIndicator'])->names('summary-indicators')->except('show');
         Route::resource('configuracion/actividades', ActividadController::class)
             ->parameters(['actividades' => 'actividad'])->names('actividades')->except('show');
         Route::resource('configuracion/servicios', ServicioController::class)

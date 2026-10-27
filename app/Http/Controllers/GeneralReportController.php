@@ -12,6 +12,7 @@ use App\Services\ReportLocationOptions;
 use App\Services\ReportSummaryExcelExport;
 use App\Support\ReportPeriod;
 use App\Support\ReportPeriodDates;
+use App\Support\SummaryIndicatorFilter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -107,6 +108,7 @@ class GeneralReportController extends Controller
 
         return [
             'filters' => $filters,
+            'summaryIndicatorOptions' => SummaryIndicatorFilter::options($request->user()),
             'periodOptions' => ReportPeriod::options(clone $optionReports, true),
             'dateBounds' => $dateBounds,
             'dateBoundsRoute' => route('general-reports.dates'),
@@ -187,6 +189,7 @@ class GeneralReportController extends Controller
             ->whereHas('report', function (Builder $query) use ($request, $filters): void {
                 $query->reportingPeriod($filters['reporting_period'] ?? null);
                 $request->user()->constrainVisibleReports($query);
+                SummaryIndicatorFilter::apply($query, $filters['summary_indicator_ids'] ?? []);
                 $query
                     ->when($filters['attention_from'] ?? null, fn (Builder $q, string $date) => $q->whereDate('report_date', '>=', $date))
                     ->when($filters['attention_to'] ?? null, fn (Builder $q, string $date) => $q->whereDate('report_date', '<=', $date))
@@ -272,6 +275,7 @@ class GeneralReportController extends Controller
 
         $filters['state_id'] = array_map('intval', $filters['state_id']);
         $filters['indicador_id'] = array_map('intval', $filters['indicador_id']);
+        $filters['summary_indicator_ids'] = SummaryIndicatorFilter::selection($request);
         if (! empty($filters['municipality_id']) && $filters['state_id'] && ! Municipality::query()
             ->whereKey($filters['municipality_id'])->whereIn('state_id', $filters['state_id'])->exists()) {
             throw ValidationException::withMessages(['municipality_id' => 'El municipio no pertenece a los estados seleccionados.']);
