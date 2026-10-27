@@ -48,14 +48,14 @@
         </p>
     @endif
     <form method="get" class="filters report-list-filters">
-        <div class="report-filter-field">@include('reports.partials.summary-indicator-filter')</div>
         @if(filled($filters['servicio_actividad_id'] ?? null))<input type="hidden" name="servicio_actividad_id" value="{{ $filters['servicio_actividad_id'] }}">@endif
-        <label class="report-filter-field report-filter-top">Reportados
+        <label class="report-filter-field report-filter-reported">Estado de reporte
             <select name="reported"><option value="">Todos</option><option value="1" @selected(($filters['reported'] ?? '') === '1')>Sí</option><option value="0" @selected(($filters['reported'] ?? '') === '0')>No</option></select>
         </label>
-        <div class="report-filter-field report-filter-top report-filter-period">
+        <div class="report-filter-field report-filter-period">
             @include('reports.partials.period-filter')
         </div>
+        <div class="report-filter-field report-filter-summary">@include('reports.partials.summary-indicator-filter')</div>
         <label class="report-filter-field report-filter-top" for="records-state-filter">Estado
             <select name="state_id[]" id="records-state-filter" multiple aria-describedby="records-state-help">@foreach($states as $state)<option value="{{ $state->id }}" @selected(in_array($state->id, $filters['state_id'] ?? [], true))>{{ $state->name }}</option>@endforeach</select>
             <small id="records-state-help">Seleccione uno o varios. Sin selección se incluyen todos los estados.</small>

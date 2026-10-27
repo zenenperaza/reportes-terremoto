@@ -1,9 +1,11 @@
 .report-table-card,.report-table-wrap{width:100%;min-width:0;max-width:100%}
 .report-list-filter-card .report-list-filters{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:22px 20px;align-items:start}
 .report-list-filters .report-filter-field{min-width:0;margin:0}
+.report-list-filters .report-filter-field.report-filter-reported,.report-list-filters .report-filter-field.report-filter-period,.report-list-filters .report-filter-field.report-filter-summary{grid-column:1/-1}
+.report-list-filters .summary-indicator-filter small{font-size:12px;font-weight:400;line-height:1.45;margin:0}
 .report-list-filters .report-filter-top{grid-column:span 4}
-.report-list-filters .report-filter-date{grid-column:span 3}
-.report-list-filters .report-filter-user{grid-column:span 4}
+.report-list-filters .report-filter-date{grid-column:span 4}
+.report-list-filters .report-filter-user{grid-column:span 10}
 .report-list-filters label{display:flex;flex-direction:column;gap:8px;line-height:1.4;margin:0;min-width:0}
 .report-list-filters select,.report-list-filters input[type="date"]{width:100%;min-width:0;min-height:44px;margin:0}
 .report-list-filters .select2-container{width:100%!important;max-width:100%;min-width:0}

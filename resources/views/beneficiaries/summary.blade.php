@@ -44,11 +44,12 @@
 <section class="content-card filter-card">
     <form method="get" class="beneficiary-report-filters" id="beneficiary-report-filters" data-period-dates data-date-bounds-url="{{ route('beneficiaries.dates') }}" data-locations-url="{{ route('beneficiaries.locations') }}">
         <input type="hidden" name="reported" value="{{ $filters['reported'] ?? '' }}">
-        <div class="span-two">@include('reports.partials.summary-indicator-filter')</div>
-        @foreach(['from' => ['attention', 'Fecha de atención desde'], 'to' => ['attention', 'Fecha de atención hasta'], 'included_from' => ['registered', 'Fecha de registro (inclusión) desde'], 'included_to' => ['registered', 'Fecha de registro (inclusión) hasta']] as $field => [$dateGroup, $label])
+        @foreach(['attention' => ['from' => 'Fecha de atención desde', 'to' => 'Fecha de atención hasta'], 'registered' => ['included_from' => 'Fecha de registro (inclusión) desde', 'included_to' => 'Fecha de registro (inclusión) hasta']] as $dateGroup => $dateFields)
+        <div class="beneficiary-date-range" role="group" aria-label="{{ $dateGroup === 'attention' ? 'Fechas de atención' : 'Fechas de registro (inclusión)' }}">
             @php
                 $bounds = $dateBounds[$dateGroup];
             @endphp
+            @foreach($dateFields as $field => $label)
             <label for="summary_{{ $field }}">{{ $label }}
                 <input id="summary_{{ $field }}" type="date" name="{{ $field }}" value="{{ $filters[$field] ?? '' }}"
                     data-period-date data-date-group="{{ $dateGroup }}" data-date-min="{{ $bounds['min'] ?? '' }}" data-date-max="{{ $bounds['max'] ?? '' }}"
@@ -62,7 +63,8 @@
                     @endif
                 </small>
             </label>
-            @if(in_array($field, ['to', 'included_to']))<br>@endif
+            @endforeach
+        </div>
         @endforeach
         @include('reports.partials.period-date-error')
         <label>Estado
@@ -83,6 +85,7 @@
         <label>Sector programático
             <select name="sector_id" id="summary_sector_id"><option value="">Todos</option>@foreach ($sectors as $sector)<option value="{{ $sector->id }}" @selected(($filters['sector_id'] ?? '') == $sector->id)>{{ $sector->name }}</option>@endforeach</select>
         </label>
+        <div class="beneficiary-summary-filter">@include('reports.partials.summary-indicator-filter')</div>
         @include('beneficiaries.partials.indicator-picker')
         <label>Recurrente
             <select name="is_recurrent"><option value="">Todos</option>@if(in_array('1', $recurrenceOptions, true))<option value="1" @selected(($filters['is_recurrent'] ?? '') === '1')>Sí</option>@endif @if(in_array('0', $recurrenceOptions, true))<option value="0" @selected(($filters['is_recurrent'] ?? '') === '0')>No</option>@endif</select>
