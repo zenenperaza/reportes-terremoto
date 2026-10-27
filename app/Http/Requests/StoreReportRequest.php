@@ -69,6 +69,7 @@ class StoreReportRequest extends FormRequest
             'beneficiaries.*.age' => ['required', 'integer', 'min:0', 'max:120'],
             'beneficiaries.*.sex' => ['required', Rule::in($beneficiaryOptions['sexes'])],
             'beneficiaries.*.national_id' => ['nullable', 'string', 'max:30'],
+            'beneficiaries.*.nationality' => ['nullable', 'string', 'max:80', Rule::in($beneficiaryOptions['nationalities'])],
             'beneficiaries.*.phone' => ['nullable', 'string', 'max:30'],
             'beneficiaries.*.disability' => ['required', Rule::in($beneficiaryOptions['disabilities'])],
             'beneficiaries.*.ethnicity' => ['required', Rule::in($beneficiaryOptions['ethnicities'])],
@@ -233,6 +234,7 @@ class StoreReportRequest extends FormRequest
             'beneficiaries' => 'beneficiarios',
             'beneficiaries.*.full_name' => 'nombre y apellido del beneficiario',
             'beneficiaries.*.national_id' => 'cédula del beneficiario',
+            'beneficiaries.*.nationality' => 'nacionalidad del beneficiario',
         ];
     }
 }

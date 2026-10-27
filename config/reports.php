@@ -78,6 +78,13 @@ return [
 
     'beneficiary_options' => [
         'sexes' => ['Hombre', 'Mujer'],
+        // Practical shortlist; not a ranking of current arrivals. See docs/nacionalidad-beneficiarios.md.
+        'nationalities' => [
+            'Venezolana', 'Colombiana', 'Peruana', 'Ecuatoriana', 'Brasileña',
+            'Cubana', 'Dominicana', 'Española', 'Portuguesa', 'Italiana',
+            'Argentina', 'Chilena', 'Boliviana', 'China', 'Libanesa', 'Siria',
+            'Guyanesa', 'Estadounidense', 'Otra',
+        ],
         'disabilities' => [
             'Ninguna', 'Discapacidad Física o Motora', 'Discapacidad Sensorial (auditiva y visual)',
             'Discapacidad Auditiva', 'Discapacidad Visual', 'Discapacidad Intelectual', 'Discapacidad Psíquica',

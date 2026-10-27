@@ -16,7 +16,7 @@ class TemporaryMaintenanceController extends Controller
         abort_if($token === '', 503, 'Falta configurar SERVER_MAINTENANCE_TOKEN en el archivo .env.');
         abort_unless(hash_equals($token, (string) request('token')), 403);
 
-        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto', 'actualizacion-buzon', 'indicadores-resumen'], true),
+        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto', 'actualizacion-buzon', 'indicadores-resumen', 'nacionalidad-beneficiarios'], true),
             422, 'Modo de mantenimiento no reconocido.');
         $permissionsOnly = request('only') === 'permisos-beneficiarios';
         $groupEditingOnly = request('only') === 'edicion-cruzada-grupos';
@@ -30,6 +30,9 @@ class TemporaryMaintenanceController extends Controller
         $projectPlacesOnly = request('only') === 'lugares-proyecto';
         $buzonUpdateOnly = request('only') === 'actualizacion-buzon';
         $summaryIndicatorsOnly = request('only') === 'indicadores-resumen';
+        $nationalityOnly = request('only') === 'nacionalidad-beneficiarios';
+        abort_if($nationalityOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
+            422, 'El modo nacionalidad-beneficiarios no se puede combinar con opciones de caché o importación.');
         abort_if($summaryIndicatorsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
             422, 'El modo indicadores-resumen no se puede combinar con opciones de caché o importación.');
         abort_if($buzonUpdateOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
@@ -327,6 +330,34 @@ class TemporaryMaintenanceController extends Controller
                 'Falta PhpSpreadsheet. Instale las dependencias de Composer del proyecto antes de continuar.');
         }
 
+        $nationalityMigration = ['name' => 'migrate', 'parameters' => [
+            '--path' => 'database/migrations/2026_10_27_120000_add_nationality_to_beneficiaries_table.php',
+            '--force' => true,
+        ]];
+        if ($nationalityOnly) {
+            // Preflight the full upload before any cache clear or schema change.
+            foreach ([
+                $nationalityMigration['parameters']['--path'],
+                'app/Http/Controllers/TemporaryMaintenanceController.php',
+                'app/Http/Controllers/ReportController.php',
+                'app/Http/Requests/StoreReportRequest.php',
+                'app/Http/Requests/StoreBeneficiaryEntryRequest.php',
+                'app/Http/Requests/UpdateBeneficiaryRequest.php',
+                'app/Http/Requests/UpdateBeneficiaryAttentionRequest.php',
+                'app/Models/Beneficiary.php', 'config/reports.php',
+                'resources/views/reports/create.blade.php',
+                'resources/views/reports/show.blade.php',
+                'resources/views/reports/index.blade.php',
+                'resources/views/beneficiaries/summary.blade.php',
+                'resources/views/reports/partials/summary-indicator-filter.blade.php',
+                'public/css/beneficiary-summary.css', 'public/css/report-datatable.css',
+                'public/js/summary-indicator-filter.js',
+                'routes/web.php', 'routes/maintenance.php',
+            ] as $file) {
+                abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
+            }
+        }
+
         $cacheCommands = [
             ['name' => 'optimize:clear', 'parameters' => []],
             ['name' => 'cache:clear', 'parameters' => []],
@@ -490,6 +521,7 @@ class TemporaryMaintenanceController extends Controller
         $includeExcel = $excelOnly || request()->boolean('import_excel');
 
         $selectedMigrations = match (true) {
+            $nationalityOnly => [$nationalityMigration],
             $summaryIndicatorsOnly => $summaryIndicatorMigrations,
             $buzonUpdateOnly => [$buzonMigration],
             $projectPlacesOnly => [$projectPlacesMigration],
@@ -607,6 +639,19 @@ class TemporaryMaintenanceController extends Controller
                 'No se modifica el formulario /reportes/nuevo. No se activa ni se cancela el mantenimiento: se conservan los bloqueos y avisos programados.',
                 'Las migraciones ya aplicadas se omiten. Repetir este modo conserva los resúmenes, sus proyectos y asignaciones guardadas.',
                 'Al finalizar, recargue SIA con Ctrl + F5. Configure los resúmenes desde Configuración → Proyectos → Indicadores Resumen antes de retirar el mantenimiento manualmente.',
+            ];
+        }
+        if ($nationalityOnly) {
+            $results = [
+                'NACIONALIDAD DE BENEFICIARIOS Y DISEÑO DE FILTROS: se ejecuta únicamente la migración de nacionalidad y se reconstruyen las cachés de configuración, rutas y vistas.',
+                'Se añade beneficiaries.nationality como columna opcional. No se rellena la nacionalidad de beneficiarios anteriores ni se deduce a partir de la cédula.',
+                'Incluye el selector de nacionalidad con Venezolana predeterminada para nuevos beneficiarios, otras nacionalidades frecuentes, Otra y Sin especificar. Se conservan los valores guardados al editar.',
+                'Actualiza el orden de los filtros en Registros, los pares de fechas en Beneficiarios y la opción Seleccionar todos del multiselect Indicadores Resumen.',
+                'No se ejecutan seeders, importaciones ni correcciones de parroquias. No se modifican registros, beneficiarios existentes, indicadores, resúmenes, asignaciones de proyectos, Buzón, permisos, períodos ni cierres.',
+                'No se activa ni se cancela el mantenimiento: se conservan los bloqueos y avisos programados.',
+                'La migración ya aplicada se omite. Repetir este modo conserva las nacionalidades registradas y las configuraciones guardadas.',
+                'Este modo no instala Indicadores Resumen: si esa actualización sigue pendiente, ejecute primero only=indicadores-resumen con el token correspondiente.',
+                'Al finalizar, recargue SIA con Ctrl + F5 y revise el formulario de registro y los filtros antes de retirar el mantenimiento manualmente.',
             ];
         }
         $exitCode = 1;

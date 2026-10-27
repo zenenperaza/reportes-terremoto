@@ -75,6 +75,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             'beneficiary.age' => ['required', 'integer', 'min:0', 'max:120'],
             'beneficiary.sex' => ['required', Rule::in($beneficiaryOptions['sexes'])],
             'beneficiary.national_id' => ['nullable', 'string', 'max:30'],
+            'beneficiary.nationality' => ['nullable', 'string', 'max:80', Rule::in(\App\Models\Beneficiary::nationalityOptions($this->route('beneficiary')?->nationality))],
             'beneficiary.phone' => ['nullable', 'string', 'max:30'],
             'beneficiary.disability' => ['nullable', Rule::in($beneficiaryOptions['disabilities'])],
             'beneficiary.ethnicity' => ['nullable', Rule::in($beneficiaryOptions['ethnicities'])],
@@ -147,6 +148,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             'beneficiary.has_informed_consent' => 'consentimiento informado del beneficiario',
             'beneficiary.age' => 'edad del beneficiario',
             'beneficiary.sex' => 'sexo del beneficiario',
+            'beneficiary.nationality' => 'nacionalidad del beneficiario',
             'beneficiary.is_recurrent' => 'condición recurrente',
         ];
     }

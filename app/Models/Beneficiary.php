@@ -10,9 +10,21 @@ class Beneficiary extends Model
 {
     use HasFactory;
 
+    public const DEFAULT_NATIONALITY = 'Venezolana';
+
+    /** Keep a previously recorded value editable without admitting new free-text nationalities. */
+    public static function nationalityOptions(?string $storedNationality = null): array
+    {
+        $options = config('reports.beneficiary_options.nationalities');
+        if ($storedNationality !== null && $storedNationality !== '' && ! in_array($storedNationality, $options, true)) {
+            $options[] = $storedNationality;
+        }
+        return $options;
+    }
+
     protected $fillable = [
         'report_id', 'has_informed_consent', 'full_name', 'age', 'sex', 'national_id', 'phone', 'disability',
-        'ethnicity', 'pregnant_lactating', 'is_recurrent',
+        'ethnicity', 'pregnant_lactating', 'is_recurrent', 'nationality',
     ];
 
     protected function casts(): array

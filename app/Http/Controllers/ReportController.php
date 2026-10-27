@@ -203,7 +203,7 @@ class ReportController extends Controller
         $associatedIds = $data['associated_indicator_ids'] ?? [];
         unset($data['associated_indicator_ids']);
         $data['reporting_period'] = ReportPeriod::forNewReport($request);
-        $beneficiaries = $data['beneficiaries'];
+        $beneficiaries = array_map(fn (array $person): array => $person + ['nationality' => Beneficiary::DEFAULT_NATIONALITY], $data['beneficiaries']);
         $serviceIds = $data['servicio_actividad_ids'] ?? [];
         unset($data['beneficiaries'], $data['servicio_actividad_ids'], $data['sector_proyecto_id'], $data['evidence_1'], $data['evidence_2'], $data['evidence_3']);
 
@@ -252,7 +252,7 @@ class ReportController extends Controller
         $data = $request->validated();
         $associatedIds = $data['associated_indicator_ids'] ?? [];
         unset($data['associated_indicator_ids']);
-        $beneficiaryData = $data['beneficiary'];
+        $beneficiaryData = $data['beneficiary'] + ['nationality' => Beneficiary::DEFAULT_NATIONALITY];
         $reportId = $data['report_id'] ?? null;
         $serviceIds = $data['servicio_actividad_ids'] ?? [];
         unset($data['beneficiary'], $data['report_id'], $data['servicio_actividad_ids'], $data['sector_proyecto_id'], $data['evidence_1'], $data['evidence_2'], $data['evidence_3']);
@@ -481,6 +481,7 @@ class ReportController extends Controller
                 'age' => $beneficiary->age,
                 'sex' => $beneficiary->sex,
                 'national_id' => $beneficiary->national_id,
+                'nationality' => $beneficiary->nationality,
                 'phone' => $beneficiary->phone,
                 'disability' => $beneficiary->disability ?: 'Ninguna',
                 'ethnicity' => $beneficiary->ethnicity ?: 'Ninguna',

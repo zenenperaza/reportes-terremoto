@@ -4,6 +4,9 @@
     $editing = isset($report);
     $editingBeneficiary = $editingBeneficiary ?? null;
     $initialBeneficiaries = $editingBeneficiary ? collect([$editingBeneficiary]) : ($editing ? $report->beneficiaries : collect());
+    $nationalityOptions = collect($beneficiaryOptions['nationalities'])
+        ->merge($initialBeneficiaries->pluck('nationality'))->push(old('beneficiary.nationality'))
+        ->filter(fn ($value) => is_string($value) && $value !== '')->unique()->values();
 @endphp
 
 @section('title', ($editing ? 'Editar registro #'.$report->id : 'Nuevo registro').' | SIA')
@@ -305,6 +308,12 @@
                                 <option value="{{ $option }}">{{ $option }}</option>
                             @endforeach
                         </select></label>
+                    <label>Nacionalidad<select id="beneficiary_nationality">
+                            <option value="">Sin especificar</option>
+                            @foreach ($nationalityOptions as $option)
+                                <option value="{{ $option }}" data-nationality-legacy="{{ in_array($option, $beneficiaryOptions['nationalities'], true) ? '0' : '1' }}" @disabled(!in_array($option, $beneficiaryOptions['nationalities'], true)) @selected($option === old('beneficiary.nationality', \App\Models\Beneficiary::DEFAULT_NATIONALITY))>{{ $option }}</option>
+                            @endforeach
+                        </select></label>
                 </div>
                 <div class="beneficiary-recurrence-field"><label>Recurrente *<select id="beneficiary_is_recurrent">
                             <option value="0" selected>No</option>
@@ -337,6 +346,7 @@
                                 <th>Consentimiento</th>
                                 <th>Edad</th>
                                 <th>Sexo</th>
+                                <th>Nacionalidad</th>
                                 <th>Cédula</th>
                                 <th>Teléfono</th>
                                 <th>Discapacidad</th>
@@ -790,11 +800,16 @@
         syncCommunityMode(initialCommunityCoordinates);
         const validateCoordinates = async () => true;
 
-        const beneficiaryFields = ['has_informed_consent', 'full_name', 'age', 'sex', 'national_id', 'phone', 'disability', 'ethnicity',
+        const beneficiaryFields = ['has_informed_consent', 'full_name', 'age', 'sex', 'national_id', 'nationality', 'phone', 'disability', 'ethnicity',
             'pregnant_lactating', 'is_recurrent'
         ];
         const beneficiaryInputs = Object.fromEntries(beneficiaryFields.map(field => [field, select(
             `beneficiary_${field}`)]));
+        const syncNationalityOptions = storedNationality => {
+            Array.from(beneficiaryInputs.nationality.options).forEach(option => {
+                if (option.dataset.nationalityLegacy === '1') option.disabled = option.value !== storedNationality;
+            });
+        };
         const pregnantLactatingField = select('beneficiary-pregnant-lactating-field');
         const syncPregnantLactatingField = () => {
             const isMan = beneficiaryInputs.sex.value === 'Hombre';
@@ -992,6 +1007,8 @@
             });
             beneficiaryInputs.disability.value = 'Ninguna';
             beneficiaryInputs.ethnicity.value = 'Ninguna';
+            beneficiaryInputs.nationality.value = @json(\App\Models\Beneficiary::DEFAULT_NATIONALITY);
+            syncNationalityOptions(null);
             beneficiaryInputs.pregnant_lactating.value = 'Ninguna';
             beneficiaryInputs.is_recurrent.value = '0';
             syncPregnantLactatingField();
@@ -1077,7 +1094,7 @@
             beneficiaryList.replaceChildren();
             beneficiaries.forEach((beneficiary, index) => {
                 const row = document.createElement('tr');
-                [beneficiary.full_name || 'Sin nombre registrado', beneficiary.has_informed_consent ? 'Sí' : 'No', beneficiary.age, beneficiary.sex, beneficiary
+                [beneficiary.full_name || 'Sin nombre registrado', beneficiary.has_informed_consent ? 'Sí' : 'No', beneficiary.age, beneficiary.sex, beneficiary.nationality || '—', beneficiary
                     .national_id || '—', beneficiary.phone || '—', beneficiary.disability || 'Ninguna',
                     beneficiary.ethnicity || 'Ninguna', beneficiary.pregnant_lactating || 'Ninguna',
                     beneficiary.is_recurrent ? 'Sí' : 'No'
@@ -1097,6 +1114,7 @@
                 edit.setAttribute('aria-label', 'Editar beneficiario');
                 edit.innerHTML = '<i class="ri-pencil-line" aria-hidden="true"></i>';
                 edit.addEventListener('click', () => {
+                    syncNationalityOptions(beneficiary.nationality);
                     beneficiaryFields.forEach(field => {
                         if (field === 'has_informed_consent') beneficiaryInputs[field].checked = Boolean(beneficiary[field]);
                         else beneficiaryInputs[field].value = field === 'is_recurrent'
