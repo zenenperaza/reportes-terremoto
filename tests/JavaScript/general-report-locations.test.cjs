@@ -12,7 +12,7 @@ function element(value = '') {
     };
 }
 
-function harness(useSelect2 = false, beneficiary = false) {
+function harness(useSelect2 = false, beneficiary = false, projects = []) {
     const state = element(), municipality = element('11'), parish = element('111');
     state.selectedOptions = [{value: '1'}, {value: '2'}];
     const submit = element(), error = element(), retry = element(), form = element();
@@ -31,6 +31,7 @@ function harness(useSelect2 = false, beneficiary = false) {
             'summary_municipality_id': municipality, 'summary_parish_id': parish,
             'summary-locations-error': error, 'summary-locations-retry': retry,
             'beneficiary-export-button': exportButton, 'summary_reported': reported});
+        elements['summary_project_ids'] = {selectedOptions: projects.map(value => ({value}))};
         form.dataset.locationsUrl = '/informe-beneficiarios/ubicaciones';
         state.value = '1';
     }
@@ -80,6 +81,15 @@ test('beneficiary report requests only saved locations using its single state an
     await cleared;
     assert.equal(h.municipality.options[0].text, 'Todos');
     assert.equal(h.parish.options[0].text, 'Todas');
+});
+
+test('beneficiary location requests always retain the selected projects', async () => {
+    const h = harness(false, true, ['11', '22']);
+    const pending = h.state.handlers.change();
+    const params = new URL(h.requests[0].url, 'https://app.test').searchParams;
+    assert.deepEqual(params.getAll('project_ids[]'), ['11', '22']);
+    h.requests[0].finish({municipalities: [], parishes: []});
+    await pending;
 });
 
 const all = {municipalities: [{id: 11, name: 'Municipio A'}, {id: 22, name: 'Municipio B'}],

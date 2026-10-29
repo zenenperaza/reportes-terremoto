@@ -20,7 +20,7 @@ function element() {
         reportValidity() {this.reportedInvalid = true;}, dispatchEvent(event) {this.events[event.type]?.(event);}};
 }
 
-function harness({periods = [], value = '', values = [], bounds = all, calendar = true, reported = '', beneficiary = false, services = false} = {}) {
+function harness({periods = [], value = '', values = [], bounds = all, calendar = true, reported = '', beneficiary = false, services = false, projects = null} = {}) {
     const select = {...element(), selectedOptions: periods.map(value => ({value}))};
     const error = {...element(), hidden: true};
     const retry = element();
@@ -37,7 +37,8 @@ function harness({periods = [], value = '', values = [], bounds = all, calendar 
         };
     });
     const form = {...element(), dataset: {dateBoundsUrl: '/fechas', dateAllowEqual: services ? '1' : '0'},
-        querySelectorAll: selector => selector === '[type="submit"]' ? [submit] : inputs,
+        querySelectorAll: selector => selector === '[type="submit"]' ? [submit]
+            : selector === 'input[name="project_ids[]"]' ? (projects || []).map(value => ({value})) : inputs,
         querySelector: () => ({value: reported}),
         checkValidity: () => inputs.every(input => !input.validity),
     };
@@ -80,6 +81,20 @@ test('initial dates use separate actual server bounds without an extra request',
     for (const picker of h.pickers) assert.equal(picker.config.enable[0](), true);
     assert.equal(h.pickers[0].altInput.attributes['aria-label'], 'Fecha');
     assert.match(h.inputs[0].help.textContent, /01\/06\/2026 al 20\/09\/2026/);
+});
+
+test('beneficiary period requests preserve the selected project scope', async () => {
+    const h = harness({beneficiary: true, projects: ['11', '22'], periods: ['2026-07'], value: '2026-09-01'});
+    const pending = h.change(['2026-07']);
+    const params = new URL(h.requests[0].url, 'https://example.test').searchParams;
+    assert.deepEqual(params.getAll('project_ids[]'), ['11', '22']);
+    assert.deepEqual(params.getAll('reporting_period[]'), ['2026-07']);
+    assert.equal(blockedClick(h), true);
+    h.respond(july);
+    await pending;
+    assert.equal(h.inputs[0].min, '2026-06-01');
+    assert.equal(h.inputs[0].max, '2026-07-27');
+    assert.equal(h.inputs[0].value, '');
 });
 
 test('service dates accept real October period spanning November and clear September input', async () => {

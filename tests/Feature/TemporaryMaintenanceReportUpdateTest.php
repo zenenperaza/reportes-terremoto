@@ -48,6 +48,8 @@ class TemporaryMaintenanceReportUpdateTest extends TestCase
         for ($run = 0; $run < 2; $run++) {
             $response = $this->get($this->endpoint())->assertOk()
                 ->assertSee('ACTUALIZACIÓN DE INFORMES, PANEL Y REGISTROS:')
+                ->assertSee('Proyectos aparece primero')
+                ->assertSee('respetando los permisos existentes')
                 ->assertSee('No se ejecutan migraciones, seeders ni importaciones.')
                 ->assertSee('ya fue corregida manualmente en el servidor y no se modifica.')
                 ->assertSee('PERMISSION CACHE:')->assertDontSee('test-report-update-token');
@@ -82,6 +84,12 @@ class TemporaryMaintenanceReportUpdateTest extends TestCase
             'app/Http/Requests/StoreBeneficiaryEntryRequest.php',
             'app/Services/ReportSummaryExcelExport.php',
             'app/Services/ProgrammedServicesExcelExport.php',
+            'app/Support/ReportPeriod.php', 'app/Support/ReportPeriodDates.php',
+            'app/Support/SummaryIndicatorFilter.php', 'app/Services/ReportLocationOptions.php',
+            'public/css/beneficiary-summary.css',
+            'public/js/beneficiary-project-filter.js', 'public/js/beneficiary-indicator-picker.js',
+            'public/js/report-period-dates.js', 'public/js/period-filter.js',
+            'public/js/summary-indicator-filter.js',
             'public/css/report-excel-button.css', 'public/css/programmed-services.css',
             'public/js/general-report-locations.js', 'public/js/service-report-table.js',
             'resources/views/dashboard.blade.php',
@@ -89,6 +97,12 @@ class TemporaryMaintenanceReportUpdateTest extends TestCase
             'resources/views/general-reports/partials/excel-export.blade.php',
             'resources/views/general-reports/partials/filters-and-summary.blade.php',
             'resources/views/indicator-reports/index.blade.php',
+            'resources/views/beneficiaries/summary.blade.php',
+            'resources/views/beneficiaries/partials/indicator-picker.blade.php',
+            'resources/views/reports/partials/period-filter.blade.php',
+            'resources/views/reports/partials/period-date-assets.blade.php',
+            'resources/views/reports/partials/period-date-error.blade.php',
+            'resources/views/reports/partials/summary-indicator-filter.blade.php',
             'resources/views/reports/create.blade.php',
             'resources/views/servicios/programados.blade.php',
             'routes/web.php', 'routes/maintenance.php',

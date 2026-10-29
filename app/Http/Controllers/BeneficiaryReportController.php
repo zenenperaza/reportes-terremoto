@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Beneficiary;
+use App\Models\Proyecto;
 use App\Models\Report;
 use App\Models\Sector;
 use App\Services\ReportLocationOptions;
@@ -77,9 +78,12 @@ class BeneficiaryReportController extends Controller
 
         return view('beneficiaries.summary', [
             'filters' => $filters,
-            'summaryIndicatorOptions' => SummaryIndicatorFilter::options($request->user()),
+            'projectOptions' => $this->projectOptions($request),
+            'summaryIndicatorOptions' => SummaryIndicatorFilter::options($request->user())
+                ->when($filters['project_ids'], fn (Collection $options) => $options->whereIn('proyecto_id', $filters['project_ids'])->values()),
             'dateBounds' => $this->dateBounds($request, $filters),
-            'periodOptions' => ReportPeriod::options($this->optionReports($request, $filters), true),
+            'periodOptions' => ReportPeriod::options($optionReports),
+            'includeUnassignedPeriod' => (clone $optionReports)->whereNull('reporting_period')->exists(),
             'summary' => $this->summary($beneficiaries),
             'summary345w' => $this->summary345w($beneficiaries),
             'reportCount' => $reports->count(),
@@ -94,7 +98,9 @@ class BeneficiaryReportController extends Controller
             'indicatorOptions' => $this->indicatorOptions($request, $filters),
             'installationTypes' => (clone $optionReports)->whereNotNull('installation_type')->distinct()->orderBy('installation_type')->pluck('installation_type'),
             'places' => (clone $optionReports)->whereNotNull('place_name')->distinct()->orderBy('place_name')->pluck('place_name'),
-            'recurrenceOptions' => $this->filteredBeneficiaries($request, ['reported' => $filters['reported'] ?? null])
+            'recurrenceOptions' => $this->filteredBeneficiaries($request, [
+                'reported' => $filters['reported'] ?? null, 'project_ids' => $filters['project_ids'],
+            ])
                 ->distinct()->pluck('is_recurrent')->map(fn ($value) => $value ? '1' : '0')->all(),
             'isConsolidated' => $request->user()->isCoordinator(),
         ]);
@@ -249,6 +255,7 @@ class BeneficiaryReportController extends Controller
     /** @param array<string, mixed> $filters */
     private function applyReportFilters(Builder $query, array $filters): Builder
     {
+        $query->when($filters['project_ids'] ?? [], fn (Builder $reports, array $ids) => $reports->whereIn('reports.proyecto_id', $ids));
         SummaryIndicatorFilter::apply($query, $filters['summary_indicator_ids'] ?? []);
         $query->reportingPeriod($filters['reporting_period'] ?? null);
         return $query
@@ -357,16 +364,18 @@ class BeneficiaryReportController extends Controller
         return $this->excludeFlaggedIndicators($query);
     }
 
-    /** Available filters depend on reporting status, not the other selected filters. */
+    /** Options depend on the selected projects and reporting status, never on their own selection. */
     private function optionReports(Request $request, array $filters): Builder
     {
         $reported = $this->booleanFilter($filters, 'reported');
 
-        return $this->visibleReports($request)->whereHas('beneficiaries', function (Builder $beneficiaries) use ($reported): void {
-            if ($reported !== null) {
-                $reported ? $beneficiaries->whereNotNull('reported_at') : $beneficiaries->whereNull('reported_at');
-            }
-        });
+        return $this->visibleReports($request)
+            ->when($filters['project_ids'] ?? [], fn (Builder $reports, array $ids) => $reports->whereIn('reports.proyecto_id', $ids))
+            ->whereHas('beneficiaries', function (Builder $beneficiaries) use ($reported): void {
+                if ($reported !== null) {
+                    $reported ? $beneficiaries->whereNotNull('reported_at') : $beneficiaries->whereNull('reported_at');
+                }
+            });
     }
 
     private function excludeFlaggedIndicators(Builder $query): Builder
@@ -377,10 +386,26 @@ class BeneficiaryReportController extends Controller
         );
     }
 
+    private function projectOptions(Request $request): Collection
+    {
+        $user = $request->user();
+
+        // Keep historical projects available and preserve the existing team visibility rules.
+        return Proyecto::query()
+            ->when(! $user->isAdministrator(), fn (Builder $projects) => $projects->where(function (Builder $available) use ($user): void {
+                $available->whereIn('id', $user->projects()->select('proyectos.id'))
+                    ->orWhereIn('id', $user->constrainVisibleReports(Report::query())->select('reports.proyecto_id'));
+            }))
+            ->orderBy('codigo')->get(['id', 'codigo', 'nombre_alias', 'descripcion']);
+    }
+
     /** @return array<string, mixed> */
     private function validatedFilters(Request $request): array
     {
         $input = $request->all() + ['reporting_period' => ''];
+        if (($input['project_ids'] ?? null) === null || $input['project_ids'] === '') {
+            $input['project_ids'] = [];
+        }
         // The explicit selector overrides old query-string filters, including "Todos".
         // Keep old single-selection links compatible with the new array selector.
         if ($request->exists('indicator_filter')) {
@@ -390,6 +415,8 @@ class BeneficiaryReportController extends Controller
         }
 
         $filters = Validator::make($input, [
+            'project_ids' => ['array', 'max:1000'],
+            'project_ids.*' => ['bail', 'required', 'integer', 'distinct', Rule::in($this->projectOptions($request)->pluck('id')->all())],
             'indicator_filter' => ['sometimes', 'array', 'max:1000'],
             'indicator_filter.*' => ['bail', 'required', 'string', 'regex:/\A(project|legacy):([1-9][0-9]*)\z/',
                 function (string $attribute, string $value, \Closure $fail): void {
@@ -415,9 +442,12 @@ class BeneficiaryReportController extends Controller
             'is_recurrent' => ['nullable', Rule::in(['0', '1', 0, 1])],
             'reported' => ['nullable', Rule::in(['0', '1', 0, 1])],
         ], [
+            'project_ids.*.in' => 'Seleccione un proyecto disponible para su usuario.',
             'to.after' => 'La fecha de atención «Desde» debe ser anterior a «Hasta».',
             'included_to.after' => 'La fecha de registro «Desde» debe ser anterior a «Hasta».',
         ])->validate();
+
+        $filters['project_ids'] = array_map('intval', $filters['project_ids']);
 
         if (isset($filters['indicator_filter'])) {
             $filters['indicator_filter'] = array_values(array_unique($filters['indicator_filter']));
@@ -480,6 +510,7 @@ class BeneficiaryReportController extends Controller
         return ReportPeriodDates::forBeneficiaries($this->filteredBeneficiaries($request, [
             'reporting_period' => $filters['reporting_period'] ?? '',
             'reported' => $filters['reported'] ?? '',
+            'project_ids' => $filters['project_ids'] ?? [],
         ]));
     }
 

@@ -17,9 +17,27 @@
     </div>
 </section>
 
+<section class="content-card beneficiary-project-card">
+    <form method="get" action="{{ route('beneficiaries.summary') }}" id="beneficiary-project-scope">
+        <input type="hidden" name="reported" value="{{ $filters['reported'] ?? '' }}">
+        <label class="beneficiary-project-filter" for="summary_project_ids">Proyectos
+            <select id="summary_project_ids" name="project_ids[]" multiple data-beneficiary-project-filter data-placeholder="Todos los proyectos" aria-describedby="summary-project-help">
+                <option value="__all__" data-project-select-all disabled>Seleccionar todos los proyectos</option>
+                @foreach($projectOptions as $project)
+                    <option value="{{ $project->id }}" @selected(in_array($project->id, $filters['project_ids'] ?? [], true))>{{ $project->codigo }} — {{ $project->nombre_alias ?: $project->descripcion }}</option>
+                @endforeach
+            </select>
+            <small id="summary-project-help">Sin selección se incluyen todos los proyectos. Seleccione uno o varios, o use «Seleccionar todos los proyectos» y quite los que no necesite. Al cerrar la lista se actualizan los demás filtros y se conserva el estado de reporte.</small>
+        </label>
+        <button class="button button-primary" type="submit">Aplicar proyectos</button>
+        <small id="summary-project-status" role="status" aria-live="polite"></small>
+    </form>
+</section>
+
 <section class="content-card beneficiary-reported-card" aria-labelledby="summary-reported-title">
     <h2 id="summary-reported-title">Estado de reporte</h2>
     <form method="get" action="{{ route('beneficiaries.summary') }}" id="beneficiary-reported-filter" class="beneficiary-reported-filter">
+        <span data-project-scope-inputs hidden>@foreach($filters['project_ids'] as $projectId)<input type="hidden" name="project_ids[]" value="{{ $projectId }}">@endforeach</span>
         <span id="reported-periods" hidden>
             @foreach(\App\Support\ReportPeriod::selection($filters['reporting_period'] ?? null) ?: [''] as $selectedPeriod)
                 <input type="hidden" name="reporting_period[]" value="{{ $selectedPeriod }}">
@@ -33,17 +51,18 @@
             </select>
         </label>
         <button class="button button-primary" type="submit">Aplicar estado</button>
-        <p class="muted" id="summary-reported-help">Los indicadores, lugares y demás opciones corresponden al estado elegido. Al cambiarlo se conserva el período y se limpian los demás filtros.</p>
+        <p class="muted" id="summary-reported-help">Los indicadores, lugares y demás opciones corresponden a los proyectos y al estado elegido. Al cambiarlo se conservan los proyectos y el período y se limpian los demás filtros.</p>
     </form>
 </section>
 
 <section class="content-card report-period-row">
-    @include('reports.partials.period-filter', ['periodForm' => 'beneficiary-report-filters'])
+    @include('reports.partials.period-filter', ['periodForm' => 'beneficiary-report-filters', 'includeUnassignedPeriod' => $includeUnassignedPeriod])
 </section>
 
 <section class="content-card filter-card">
     <form method="get" class="beneficiary-report-filters" id="beneficiary-report-filters" data-period-dates data-date-bounds-url="{{ route('beneficiaries.dates') }}" data-locations-url="{{ route('beneficiaries.locations') }}">
         <input type="hidden" name="reported" value="{{ $filters['reported'] ?? '' }}">
+        <span data-project-scope-inputs hidden>@foreach($filters['project_ids'] as $projectId)<input type="hidden" name="project_ids[]" value="{{ $projectId }}">@endforeach</span>
         @foreach(['attention' => ['from' => 'Fecha de atención desde', 'to' => 'Fecha de atención hasta'], 'registered' => ['included_from' => 'Fecha de registro (inclusión) desde', 'included_to' => 'Fecha de registro (inclusión) hasta']] as $dateGroup => $dateFields)
         <div class="beneficiary-date-range" role="group" aria-label="{{ $dateGroup === 'attention' ? 'Fechas de atención' : 'Fechas de registro (inclusión)' }}">
             @php
@@ -106,7 +125,7 @@
                     Exportar Excel
                 </a>
             @endcan
-            <a class="button button-secondary" href="{{ route('beneficiaries.summary', ['reported' => $filters['reported'] ?? '']) }}">Limpiar</a>
+            <a class="button button-secondary" href="{{ route('beneficiaries.summary', ['reported' => $filters['reported'] ?? '', 'project_ids' => $filters['project_ids']]) }}">Limpiar</a>
         </div>
     </form>
 </section>
@@ -245,6 +264,7 @@ document.querySelectorAll('[data-report-tab]').forEach(tab => tab.addEventListen
 </script>
 
 <script src="{{ asset('js/beneficiary-indicator-picker.js') }}?v={{ filemtime(public_path('js/beneficiary-indicator-picker.js')) }}" defer></script>
+<script src="{{ asset('js/beneficiary-project-filter.js') }}?v={{ filemtime(public_path('js/beneficiary-project-filter.js')) }}" defer></script>
 @include('reports.partials.period-date-assets')
 <script src="{{ asset('js/general-report-locations.js') }}?v={{ filemtime(public_path('js/general-report-locations.js')) }}"></script>
 <script src="/vendor/datatables/jquery-3.7.1.min.js"></script>

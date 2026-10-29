@@ -140,6 +140,7 @@
         params.set('reported', form.querySelector('input[name="reported"]')?.value ?? '');
         const periods = Array.from(select.selectedOptions, option => option.value).filter(Boolean);
         (periods.length ? periods : ['']).forEach(period => params.append('reporting_period[]', period));
+        form.querySelectorAll('input[name="project_ids[]"]').forEach(input => params.append('project_ids[]', input.value));
         lock(true);
         if (error) error.hidden = true;
         try {
