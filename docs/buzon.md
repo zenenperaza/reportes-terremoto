@@ -23,6 +23,28 @@ La valoración admite «Muy buena», «Ni buena ni mala» o «Mala». La clasifi
 
 La consulta permite uno o varios proyectos, fecha de opinión desde/hasta, valoración y tipo de retroalimentación, combinados. Las tarjetas resumen cuentan todos los formularios filtrados, no solo la página visible. Los proyectos inactivos conservan sus consultas y permiten corregir entradas ya existentes, pero no crear nuevas.
 
+## Dictado de comentarios y mejoras
+
+Los formularios de creación y edición ofrecen **Dictar datos** al inicio, **Dictar comentario** para comentarios, sugerencias o quejas y **Dictar mejora** para «¿Qué podemos hacer para mejorar?». La consulta de solo lectura no activa ni muestra estos controles.
+
+Con Dictar datos se pueden completar varios campos en una sola frase, por ejemplo: «lugar Comunidad San José, nombre María González, edad 34 años, género femenino, teléfono 0414 123 4567, discapacidad ninguna, afrodescendiente no». Los campos se completan al finalizar el dictado; también se puede corregir la frase en «Ver o corregir la frase de datos» y pulsar «Aplicar datos de la frase». Esto último no requiere micrófono.
+
+Solo se completan campos reconocidos; los demás conservan su valor. **Proyecto y fecha están excluidos del dictado**, incluso si se mencionan en la frase o se pulsa Aplicar datos: conservan siempre su selección manual. El analizador no devuelve estos campos y la aplicación de datos solo acepta una lista explícita de campos permitidos. Los teléfonos admiten cifras o dígitos individuales dictados, conservando el cero inicial. Los datos no reconocidos se dejan para revisión manual.
+
+También se pueden indicar explícitamente discapacidad, afrodescendencia, valoración («opinión muy buena», «opinión ni buena ni mala», «opinión mala») y tipo («tipo sugerencia», «tipo comentario», «tipo queja»). No se deducen datos personales, valoraciones ni clasificaciones del contenido de las quejas; los botones de texto libre no interpretan campos.
+
+El diseño muestra una cabecera compacta azul claro con «Dictado rápido» a la izquierda y el botón a la derecha, como en beneficiarios, seguida del ejemplo fuera de la cabecera. La transcripción y la ayuda están plegadas; al pulsar Dictar datos se abre la transcripción. «Limpiar dictado» elimina solo la frase, no los campos del formulario.
+
+El dictado es opcional: se inicia únicamente al pulsar el botón del campo elegido, sin casilla de consentimiento adicional. Se mantiene el permiso de micrófono del navegador. Se usa `SpeechRecognition` o `webkitSpeechRecognition`, en español de Venezuela (`es-VE`), cuando el navegador lo ofrece y la página está en un contexto seguro (HTTPS o localhost). La compatibilidad depende del navegador y de su servicio; la escritura manual siempre permanece disponible.
+
+La ayuda informa de que el navegador puede procesar audio mediante un servicio externo de reconocimiento. SIA no graba ni almacena audio, no guarda transcripciones en almacenamiento local ni añade servicios de reconocimiento propios. Referencia: [SpeechRecognition, MDN](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition).
+
+En comentarios y mejoras, solo los resultados definitivos se añaden al final del campo; el texto previo y las correcciones manuales no se borran. Los resultados provisionales aparecen en una vista previa. Se puede detener y retomar el dictado o cambiar de campo una vez finalizado. No se interpreta lo hablado como comandos: decir «guardar» no envía el formulario.
+
+Si se alcanza el límite de 10.000 caracteres, la última frase no se añade ni se trunca: permanece visible para copiarla y revisarla. Al guardar durante un dictado se detiene la captura y se pide revisar el texto y pulsar Guardar nuevamente. Al ocultar la página o salir, se cancela la captura y se ignoran los resultados tardíos. No se reinicia el micrófono automáticamente.
+
+Para desplegar esta mejora, subir `resources/views/buzon/form.blade.php`, `public/css/buzon.css` y los nuevos `public/js/buzon-voice-data.js` y `public/js/buzon-dictation.js`, y limpiar la caché de vistas. No requiere migraciones, cambios de permisos ni modificación del formulario de beneficiarios. El contenido solo se guarda mediante el envío manual habitual del Buzón.
+
 ## Instalación
 
 Subir los archivos del nuevo módulo, modelos, controladores, solicitudes, middleware, vistas, CSS/JS y las versiones actualizadas de `routes/web.php`, `resources/views/layouts/app.blade.php`, `resources/views/proyectos/show.blade.php`, `ProyectoController`, `PermissionController`, `Proyecto` y `RecordAuditLog`.

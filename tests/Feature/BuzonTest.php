@@ -41,6 +41,34 @@ class BuzonTest extends TestCase
         return BuzonEntry::create($this->payload($extra) + ['created_by' => $this->admin->id]);
     }
 
+    public function test_dictation_is_available_only_on_editable_buzon_forms_and_never_creates_records(): void
+    {
+        $entry = $this->entry(['comment' => 'Texto conservado', 'improvement' => 'Mejora conservada']);
+        foreach ([route('buzon.create'), route('buzon.edit', $entry)] as $url) {
+            $this->get($url)->assertOk()->assertSee('Dictado rápido')
+                ->assertDontSee('data-buzon-voice-consent', false)
+                ->assertDontSee('Confirmo que cuento con consentimiento')
+                ->assertSee('class="buzon-voice-heading"', false)
+                ->assertSee('Diga los datos de la persona en una sola frase. Podrá revisarlos antes de guardar.')
+                ->assertSee('class="buzon-voice-example"', false)
+                ->assertSee('data-buzon-voice-target="datos"', false)
+                ->assertSee('data-buzon-data-transcript', false)
+                ->assertSee('Proyecto y fecha se seleccionan manualmente y no se modifican por dictado.')
+                ->assertDontSee('data-voice-aliases', false)
+                ->assertSee('data-buzon-voice-target="comment"', false)
+                ->assertSee('data-buzon-voice-target="improvement"', false)
+                ->assertSee('id="buzon_comment"', false)->assertSee('id="buzon_improvement"', false)
+                ->assertSee('servicio externo de reconocimiento de voz')
+                ->assertSee('buzon-dictation.js')->assertSee('buzon-voice-data.js')
+                ->assertSeeInOrder(['data-buzon-dictation', 'name="proyecto_id"', 'name="full_name"'], false);
+        }
+        $this->get(route('buzon.show', $entry))->assertOk()->assertSee('Texto conservado')->assertSee('Mejora conservada')
+            ->assertDontSee('data-buzon-voice-target', false)->assertDontSee('buzon-dictation.js');
+        $this->assertDatabaseCount('buzon_entries', 1);
+        $this->assertDatabaseCount('reports', 0);
+        $this->assertDatabaseCount('beneficiaries', 0);
+    }
+
     public function test_single_permission_is_granted_only_to_admin_initially_and_is_protected(): void
     {
         $permission = Permission::findByName('Buzon', 'web');

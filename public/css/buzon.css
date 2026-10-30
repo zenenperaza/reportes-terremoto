@@ -4,4 +4,20 @@
 .buzon-options legend{float:none;width:auto;font-size:1rem;font-weight:600;padding:0 .4rem}.buzon-options label{display:inline-flex;align-items:center;gap:.5rem;margin:.25rem 1rem .25rem 0}.buzon-options input{width:auto;min-height:0}.buzon-options small{display:block}
 .buzon-notice{padding:1rem;border-left:4px solid #12aedf;background:rgba(18,174,223,.08);border-radius:.25rem}
 .buzon-table td{vertical-align:top;overflow-wrap:anywhere}.buzon-table{min-width:850px}.buzon-fieldset:disabled{opacity:1}.buzon-fieldset textarea{min-height:7rem}
+.buzon-voice-heading{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:16px 18px;border:1px solid #b9dbea;border-radius:8px;background:#f3fafe}
+.buzon-voice-heading h2{display:block;color:var(--navy);font-size:18px;font-weight:700;margin:0}.buzon-voice-heading p{margin:4px 0 0;color:#486477}
+.buzon-voice-heading .button{flex:0 0 auto;display:inline-flex;align-items:center;gap:.4rem}
+.buzon-voice-toolbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.75rem;margin-bottom:.5rem}
+.buzon-voice-toolbar label{margin:0}.buzon-voice-toolbar .button{display:inline-flex;align-items:center;gap:.4rem}
+.buzon-data-voice .is-listening,.buzon-voice-toolbar .is-listening{border-color:#b42318;background:#b42318;color:#fff}
+.buzon-data-voice .button:disabled,.buzon-voice-toolbar .button:disabled{opacity:.6;cursor:not-allowed}
+.buzon-voice-preview{white-space:pre-wrap;border-left:3px solid #12aedf;padding-left:.75rem}
+.buzon-voice-preview[hidden]{display:none}
+.buzon-data-voice{margin:4px 0 22px;min-width:0}.buzon-voice-example{margin:22px 0;font-weight:600;overflow-wrap:anywhere}
+.buzon-data-voice details{margin-top:1rem}.buzon-data-voice summary{cursor:pointer;font-weight:600;margin-bottom:.75rem}
+.buzon-voice-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.buzon-data-voice [hidden]{display:none!important}
+.buzon-voice-filled{outline:2px solid #23815a;outline-offset:1px}
+@media(max-width:760px){.buzon-voice-heading{align-items:stretch;flex-direction:column}.buzon-voice-heading .button{width:100%;justify-content:center}}
+@media(max-width:560px){.buzon-voice-toolbar{align-items:stretch;flex-direction:column}.buzon-voice-toolbar .button{justify-content:center;width:100%}}
 @media(max-width:800px){.buzon-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:480px){.buzon-summary{grid-template-columns:1fr}}
