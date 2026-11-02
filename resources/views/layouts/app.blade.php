@@ -116,8 +116,7 @@
                     <li class="nav-item">
                         <a class="nav-link menu-link collapsed {{ request()->routeIs('cases.*', 'families.*') ? 'active' : '' }}" href="#sidebarCases" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarCases"><i class="ri-folder-shield-2-line"></i><span>Gestión de casos</span></a>
                         <div class="collapse menu-dropdown" id="sidebarCases" data-bs-parent="#navbar-nav"><ul class="nav nav-sm flex-column">
-                            <li class="nav-item"><a class="nav-link {{ request()->routeIs('cases.*') ? 'active' : '' }}" href="{{ route('cases.index') }}">Casos</a></li>
-                            <li class="nav-item"><a class="nav-link {{ request()->routeIs('families.*') ? 'active' : '' }}" href="{{ route('families.index') }}">Familias</a></li>
+                            <li class="nav-item"><span class="nav-link text-muted" role="status">Sección en construcción</span></li>
                         </ul></div>
                     </li>
                 @endcan
