@@ -7,6 +7,9 @@
     $nationalityOptions = collect($beneficiaryOptions['nationalities'])
         ->merge($initialBeneficiaries->pluck('nationality'))->push(old('beneficiary.nationality'))
         ->filter(fn ($value) => is_string($value) && $value !== '')->unique()->values();
+    $caregiverRelationshipOptions = collect($beneficiaryOptions['caregiver_relationships'])
+        ->merge($initialBeneficiaries->pluck('caregiver_relationship'))->push(old('beneficiary.caregiver_relationship'))
+        ->filter(fn ($value) => is_string($value) && $value !== '')->unique()->values();
 @endphp
 
 @section('title', ($editing ? 'Editar registro #'.$report->id : 'Nuevo registro').' | SIA')
@@ -262,7 +265,7 @@
                     <div class="beneficiary-voice-transcript" id="beneficiary-voice-panel" hidden>
                         <label for="beneficiary-voice-text">Transcripción</label>
                         <textarea id="beneficiary-voice-text" rows="3"
-                            placeholder="Ejemplo: María González, 34 años, mujer, cédula 18 456 782, teléfono 0414 123 4567, sin discapacidad, no indígena, lactante."></textarea>
+                            placeholder="Ejemplo: Cédula V18456782, nombre María González, edad 34 años, mujer, teléfono 0414 123 4567, sin discapacidad, no indígena, lactante."></textarea>
                         <div class="beneficiary-voice-actions">
                             <button class="button button-secondary" type="button" id="beneficiary-voice-apply">Completar campos</button>
                             <button class="button button-ghost" type="button" id="beneficiary-voice-clear">Limpiar dictado</button>
@@ -273,11 +276,18 @@
                         El reconocimiento de voz no está disponible en este navegador. Puede escribir o pegar la frase en la transcripción.
                     </p>
                 </div>
-                <p class="beneficiary-voice-example"><strong>Ejemplo:</strong> María González, 34 años, mujer, cédula 18 456 782, teléfono 0414 123 4567, sin discapacidad, no indígena, lactante.</p>
+                <p class="beneficiary-voice-example"><strong>Ejemplo:</strong> Cédula V18456782, nombre María González, edad 34 años, mujer, teléfono 0414 123 4567, sin discapacidad, no indígena, lactante.</p>
+                <p class="beneficiary-voice-example"><strong>Menor de edad:</strong> Sin cédula, nombre Ana Pérez, edad 12 años, mujer, cédula del cuidador V12345678, nombre del cuidador Carmen Pérez, parentesco Madre.</p>
                 <p class="beneficiary-voice-example"><strong>Comando:</strong> diga “guardar beneficiario” para registrar la persona por voz.</p>
                 <div class="form-grid beneficiary-form-grid">
-                    <label>Nombre y apellido<input type="text" id="beneficiary_full_name"
-                            maxlength="150" autocomplete="name" style="text-transform: uppercase"></label>
+                    <label>Cédula<input type="text" id="beneficiary_national_id" maxlength="30"
+                            inputmode="text" data-beneficiary-lookup="{{ route('beneficiaries.lookup') }}"
+                            data-lookup-enabled="{{ !$editing && auth()->user()->can('registrar actividad') && auth()->user()->can('ver detalle de registros') ? '1' : '0' }}"
+                            aria-describedby="beneficiary-lookup-status" autocomplete="off">
+                        <small id="beneficiary-lookup-status" role="status" aria-live="polite">Al ingresar la cédula se consultan coincidencias para completar los datos. Revise la información antes de guardar.</small>
+                    </label>
+                    <label>Nombre y apellido *<input type="text" id="beneficiary_full_name"
+                            required maxlength="150" autocomplete="name" style="text-transform: uppercase"></label>
                     <label>Edad * <small id="beneficiary-age-range" class="beneficiary-age-range" hidden></small><input type="number" id="beneficiary_age" min="0" max="120"
                             inputmode="numeric"></label>
                     <label>Sexo *<select id="beneficiary_sex">
@@ -287,8 +297,6 @@
                             @endforeach
                         </select>
                     </label>
-                    <label>Cédula<input type="text" id="beneficiary_national_id" maxlength="30"
-                            inputmode="numeric"></label>
                     <label>Teléfono<input type="text" id="beneficiary_phone" maxlength="30" inputmode="tel"></label>
                     <label>Discapacidad<select id="beneficiary_disability">
                             @foreach ($beneficiaryOptions['disabilities'] as $option)
@@ -315,12 +323,25 @@
                             @endforeach
                         </select></label>
                 </div>
+                <fieldset id="beneficiary-caregiver-fields" class="beneficiary-caregiver-fields" hidden>
+                    <legend>Datos del cuidador</legend>
+                    <p class="muted">Obligatorios para beneficiarios menores de 18 años.</p>
+                    <div class="form-grid beneficiary-form-grid">
+                        <label>Cédula del cuidador *<input type="text" id="beneficiary_caregiver_national_id" maxlength="30" disabled></label>
+                        <label>Nombre del cuidador *<input type="text" id="beneficiary_caregiver_full_name" maxlength="150" style="text-transform:uppercase" disabled></label>
+                        <label>Parentesco del cuidador *<select id="beneficiary_caregiver_relationship" disabled>
+                            <option value="">Seleccione el parentesco</option>
+                            @foreach($caregiverRelationshipOptions as $option)
+                                <option value="{{ $option }}" data-caregiver-relationship-legacy="{{ in_array($option, $beneficiaryOptions['caregiver_relationships'], true) ? '0' : '1' }}" @disabled(!in_array($option, $beneficiaryOptions['caregiver_relationships'], true)) @selected($option === old('beneficiary.caregiver_relationship'))>{{ $option }}</option>
+                            @endforeach
+                        </select></label>
+                    </div>
+                </fieldset>
                 <div class="beneficiary-recurrence-field"><label>Recurrente *<select id="beneficiary_is_recurrent">
                             <option value="0" selected>No</option>
                             <option value="1">Sí</option>
                         </select></label>
-                    <p class="muted">Indique esta condición de forma independiente, considerando la alerta de posibles
-                        coincidencias.</p>
+                    <p class="muted">Se calcula automáticamente según los registros anteriores del beneficiario en el mismo proyecto.</p>
                 </div>
                 <div class="beneficiary-entry-actions">
                     <button
@@ -392,6 +413,8 @@
 @endsection
 
 @push('scripts')
+    <script src="{{ asset('js/beneficiary-recurrence.js') }}?v={{ filemtime(public_path('js/beneficiary-recurrence.js')) }}"></script>
+    <script src="{{ asset('js/beneficiary-voice.js') }}?v={{ filemtime(public_path('js/beneficiary-voice.js')) }}"></script>
     <script src="{{ asset('js/associated-indicators.js') }}?v={{ filemtime(public_path('js/associated-indicators.js')) }}"></script>
     <script>
         const select = (id) => document.getElementById(id);
@@ -801,13 +824,30 @@
         const validateCoordinates = async () => true;
 
         const beneficiaryFields = ['has_informed_consent', 'full_name', 'age', 'sex', 'national_id', 'nationality', 'phone', 'disability', 'ethnicity',
-            'pregnant_lactating', 'is_recurrent'
+            'pregnant_lactating', 'is_recurrent', 'caregiver_national_id', 'caregiver_full_name', 'caregiver_relationship'
         ];
         const beneficiaryInputs = Object.fromEntries(beneficiaryFields.map(field => [field, select(
             `beneficiary_${field}`)]));
+        const syncCaregiverFields = () => {
+            const age = beneficiaryInputs.age.value.trim();
+            const minor = age !== '' && Number.isInteger(Number(age)) && Number(age) >= 0 && Number(age) < 18;
+            const adult = age !== '' && Number.isInteger(Number(age)) && Number(age) >= 18;
+            select('beneficiary-caregiver-fields').hidden = !minor;
+            ['caregiver_national_id', 'caregiver_full_name', 'caregiver_relationship'].forEach(field => {
+                const input = beneficiaryInputs[field];
+                input.required = minor;
+                input.disabled = !minor;
+                if (adult) input.value = '';
+            });
+        };
         const syncNationalityOptions = storedNationality => {
             Array.from(beneficiaryInputs.nationality.options).forEach(option => {
                 if (option.dataset.nationalityLegacy === '1') option.disabled = option.value !== storedNationality;
+            });
+        };
+        const syncCaregiverRelationshipOptions = storedRelationship => {
+            Array.from(beneficiaryInputs.caregiver_relationship.options).forEach(option => {
+                if (option.dataset.caregiverRelationshipLegacy === '1') option.disabled = option.value !== storedRelationship;
             });
         };
         const pregnantLactatingField = select('beneficiary-pregnant-lactating-field');
@@ -856,81 +896,54 @@
             voiceText = select('beneficiary-voice-text'),
             voiceStatus = select('beneficiary-voice-status'),
             SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        let voiceRecognition = null,
-            voiceSessionActive = false,
-            voiceSessionBase = '';
-        const normalizeVoiceText = value => value.toLocaleLowerCase('es-VE').normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
-        const spokenDigits = value => {
-            const words = {cero:'0', uno:'1', un:'1', dos:'2', tres:'3', cuatro:'4', cinco:'5', seis:'6', siete:'7', ocho:'8', nueve:'9'};
-            return normalizeVoiceText(value).split(/\s+/).map(part => words[part] ?? part.replace(/\D/g, '')).join('');
-        };
-        const selectMatch = (input, aliases) => [...input.options].find(option => {
-            const value = normalizeVoiceText(option.value);
-            return value && aliases.some(alias => value.includes(normalizeVoiceText(alias)));
-        })?.value || '';
+        let voiceRecognition = null, voiceSessionActive = false, voiceAcceptResults = false,
+            voiceSessionBase = '', voiceGeneration = 0;
+        const choices = field => Array.from(beneficiaryInputs[field].options)
+            .filter(option => !option.disabled).map(option => option.value);
+        const voiceCoordinator = window.BeneficiaryVoice.createCoordinator({
+            inputs: beneficiaryInputs,
+            options: {nationalities: choices('nationality'), disabilities: choices('disability'),
+                ethnicities: choices('ethnicity'), caregiver_relationships: choices('caregiver_relationship')},
+            lookup: id => form.beneficiaryLookup?.forVoice(id) || {status: 'disabled', fields: []},
+            sync: () => {syncPregnantLactatingField(); syncCaregiverFields(); void checkPossibleRecurrence();},
+            status: message => {voiceStatus.textContent = message;},
+            pending: value => {form.dataset.beneficiaryVoicePending = value ? '1' : '0';},
+        });
         const markVoiceField = (field, recognized) => {
             beneficiaryInputs[field].classList.toggle('voice-recognized', recognized);
-            beneficiaryInputs[field].classList.toggle('voice-review', !recognized && ['age', 'sex'].includes(field));
+            beneficiaryInputs[field].classList.toggle('voice-review', !beneficiaryInputs[field].value.trim() && ['full_name', 'age', 'sex'].includes(field));
         };
-        const applyVoiceTranscript = () => {
-            const raw = voiceText.value.trim(), text = normalizeVoiceText(raw), recognized = new Set();
-            if (!text) {
+        const applyVoiceTranscript = async (text = voiceText.value) => {
+            if (!text.trim()) {
                 voiceStatus.textContent = 'Dicte o escriba primero los datos del beneficiario.';
                 voiceText.focus();
-                return;
+                return {canSave: false};
             }
-            const age = text.match(/(?:edad\s*)?(\d{1,3})\s*(?:anos|ano)/);
-            if (age && Number(age[1]) <= 120) { beneficiaryInputs.age.value = age[1]; recognized.add('age'); }
-            if (/\b(mujer|femenin[oa]|nina|señora)\b/.test(text)) {
-                beneficiaryInputs.sex.value = 'Mujer'; recognized.add('sex');
-            } else if (/\b(hombre|masculin[oa]|nino|señor)\b/.test(text)) {
-                beneficiaryInputs.sex.value = 'Hombre'; recognized.add('sex');
-            }
-            const nationalId = text.match(/(?:cedula|identidad|\bci\b)\s*(?:numero)?\s*([\d\s.-]{5,})/);
-            if (nationalId) { beneficiaryInputs.national_id.value = spokenDigits(nationalId[1]); recognized.add('national_id'); }
-            const phone = text.match(/(?:telefono|celular|movil)\s*(?:numero)?\s*([\d\s.-]{7,})/);
-            if (phone) { beneficiaryInputs.phone.value = spokenDigits(phone[1]); recognized.add('phone'); }
-            const explicitName = raw.match(/nombre(?:\s+y\s+apellido)?\s*(?:es)?\s*(.+?)(?=,|;|\bedad\b|\b\d{1,3}\s*años?\b|$)/i);
-            const leadingName = raw.split(/\s*(?:,|;|\bedad\b|\b\d{1,3}\s*años?\b|\bmujer\b|\bhombre\b|\bcédula\b|\btelefono\b)/i)[0]
-                .replace(/^(beneficiari[oa]|persona)\s+/i, '').trim();
-            const name = (explicitName?.[1] || leadingName).replace(/[.,;:]$/, '').trim();
-            if (name && name.split(/\s+/).length >= 2) {
-                beneficiaryInputs.full_name.value = name.toLocaleUpperCase('es-VE');
-                recognized.add('full_name');
-            }
-            if (/\b(sin discapacidad|ninguna discapacidad)\b/.test(text)) {
-                beneficiaryInputs.disability.value = 'Ninguna'; recognized.add('disability');
-            } else {
-                const disability = ['fisica', 'motora', 'sensorial', 'auditiva', 'sorda', 'visual', 'ciega', 'intelectual', 'psiquica']
-                    .find(alias => text.includes(alias));
-                if (disability) {
-                    const aliases = disability === 'sorda' ? ['auditiva'] : disability === 'ciega' ? ['visual'] : [disability];
-                    const value = selectMatch(beneficiaryInputs.disability, aliases);
-                    if (value) { beneficiaryInputs.disability.value = value; recognized.add('disability'); }
-                }
-            }
-            if (/\b(no indigena|sin etnia|ninguna etnia)\b/.test(text)) {
-                beneficiaryInputs.ethnicity.value = 'Ninguna'; recognized.add('ethnicity');
-            } else {
-                const ethnicity = [...beneficiaryInputs.ethnicity.options].find(option => option.value !== 'Ninguna' &&
-                    text.includes(normalizeVoiceText(option.value)));
-                if (ethnicity) { beneficiaryInputs.ethnicity.value = ethnicity.value; recognized.add('ethnicity'); }
-            }
-            if (/\b(embarazada|gestante|lactante|amamantando)\b/.test(text) && !/\b(no embarazada|no lactante)\b/.test(text)) {
-                beneficiaryInputs.pregnant_lactating.value = 'Sí'; recognized.add('pregnant_lactating');
-            } else if (/\b(no embarazada|no lactante|ni embarazada ni lactante)\b/.test(text)) {
-                beneficiaryInputs.pregnant_lactating.value = 'No'; recognized.add('pregnant_lactating');
-            }
-            if (/\b(recurrente|ya atendid[oa]|atendid[oa] anteriormente)\b/.test(text) && !/\bno recurrente\b/.test(text)) {
-                beneficiaryInputs.is_recurrent.value = '1'; recognized.add('is_recurrent');
-            }
-            syncPregnantLactatingField();
+            const result = await voiceCoordinator.apply(text);
+            if (result.cancelled) return result;
+            const recognized = new Set(result.recognized || []);
             beneficiaryFields.forEach(field => markVoiceField(field, recognized.has(field)));
-            voiceStatus.textContent = `Se completaron ${recognized.size} campos. Revise especialmente cédula, teléfono y los campos amarillos antes de guardar.`;
-            const missing = ['age', 'sex'].find(field => !recognized.has(field));
-            (missing ? beneficiaryInputs[missing] : beneficiaryInputs.full_name).focus();
+            const missing = ['full_name', 'age', 'sex'].find(field => !beneficiaryInputs[field].value.trim());
+            if (missing) beneficiaryInputs[missing].focus();
+            return result;
         };
+        const resetVoiceButton = () => {
+            voiceToggle.classList.remove('is-listening');
+            voiceToggle.setAttribute('aria-pressed', 'false');
+            voiceToggle.textContent = SpeechRecognition ? 'Dictar beneficiario' : 'Escribir datos rápidos';
+        };
+        const cancelVoice = () => {
+            voiceGeneration++;
+            voiceAcceptResults = false;
+            voiceSessionActive = false;
+            voiceCoordinator.cancel();
+            form.beneficiaryLookup?.cancel();
+            voiceRecognition?.abort();
+            resetVoiceButton();
+        };
+        form.addEventListener('beneficiary-entry-reset', cancelVoice);
+        window.addEventListener('pagehide', cancelVoice);
+        document.addEventListener('visibilitychange', () => {if (document.hidden) cancelVoice();});
         if (SpeechRecognition) {
             voiceRecognition = new SpeechRecognition();
             voiceRecognition.lang = 'es-VE';
@@ -940,67 +953,76 @@
                 voicePanel.hidden = false;
                 voiceToggle.classList.add('is-listening');
                 voiceToggle.setAttribute('aria-pressed', 'true');
-                voiceToggle.innerHTML = '<span aria-hidden="true">■</span> Detener dictado';
-                voiceStatus.textContent = 'Escuchando… diga los datos de la persona.';
+                voiceToggle.textContent = 'Detener dictado';
+                voiceStatus.textContent = 'Escuchando… comience por la cédula o diga “sin cédula”.';
             };
-            voiceRecognition.onresult = event => {
-                const latestResult = event.results[event.results.length - 1];
-                const currentTranscript = [...event.results].map(result => result[0].transcript).join(' ').trim();
-                voiceText.value = [voiceSessionBase, currentTranscript].filter(Boolean).join(' ').trim();
-                applyVoiceTranscript();
-                const latestText = normalizeVoiceText(latestResult[0].transcript);
-                if (latestResult.isFinal && /\b(?:guardar|guarda)(?:\s+(?:el\s+)?beneficiari[oa])?[.!]?$/.test(latestText)) {
+            voiceRecognition.onresult = async event => {
+                if (!voiceAcceptResults) return;
+                const generation = voiceGeneration;
+                const results = Array.from(event.results);
+                voiceText.value = [voiceSessionBase, ...results.map(result => result[0].transcript)].filter(Boolean).join(', ');
+                const latestResult = results.at(-1);
+                // Preview interim speech without querying an unfinished ID.
+                if (!latestResult?.isFinal) return;
+                const confirmed = [voiceSessionBase, ...results.filter(result => result.isFinal).map(result => result[0].transcript)].filter(Boolean).join(', ');
+                const saveRequested = window.BeneficiaryVoice.parse(latestResult[0].transcript).saveRequested;
+                if (saveRequested) {
+                    voiceAcceptResults = false;
                     voiceSessionActive = false;
                     voiceRecognition.stop();
-                    voiceStatus.textContent = 'Comando reconocido. Guardando beneficiario…';
-                    void saveBeneficiary();
-                    return;
                 }
-                voiceStatus.textContent += ' Continúe hablando o presione “Detener dictado” para finalizar.';
+                const result = await applyVoiceTranscript(confirmed);
+                if (generation !== voiceGeneration || result.cancelled) return;
+                if (saveRequested && result.canSave) {
+                    voiceStatus.textContent = 'Comando reconocido. Comprobando los datos antes de guardar…';
+                    await saveBeneficiary();
+                } else if (saveRequested) voiceStatus.textContent += ' Revise los datos y guarde manualmente.';
             };
             voiceRecognition.onerror = event => {
-                const errors = {'not-allowed':'No se concedió permiso para usar el micrófono.','no-speech':'No se detectó voz. Inténtelo nuevamente.','audio-capture':'No se encontró un micrófono disponible.'};
-                voiceStatus.textContent = errors[event.error] || 'No fue posible reconocer la voz. También puede escribir la frase.';
-                if (['not-allowed', 'audio-capture', 'service-not-allowed'].includes(event.error)) voiceSessionActive = false;
+                const errors = {'not-allowed':'No se concedió permiso para usar el micrófono.',
+                    'no-speech':'No se detectó voz. Inténtelo nuevamente.',
+                    'audio-capture':'No se encontró un micrófono disponible.'};
+                if (event.error !== 'aborted') voiceStatus.textContent = errors[event.error] || 'No fue posible reconocer la voz. También puede escribir la frase.';
+                voiceSessionActive = false;
+                voiceAcceptResults = false;
+                resetVoiceButton();
             };
             voiceRecognition.onend = () => {
-                if (voiceSessionActive) {
-                    voiceSessionBase = voiceText.value.trim();
-                    window.setTimeout(() => {
-                        if (voiceSessionActive) {
-                            try { voiceRecognition.start(); } catch (error) { voiceSessionActive = false; }
-                        }
-                    }, 250);
-                    return;
-                }
-                voiceToggle.classList.remove('is-listening');
-                voiceToggle.setAttribute('aria-pressed', 'false');
-                voiceToggle.innerHTML = '<span aria-hidden="true">🎙</span> Dictar beneficiario';
+                voiceSessionActive = false;
+                resetVoiceButton();
             };
-        } else {
-            select('beneficiary-voice-unavailable').hidden = false;
-            voiceToggle.textContent = 'Escribir datos rápidos';
-        }
+        } else select('beneficiary-voice-unavailable').hidden = false;
         voiceToggle.addEventListener('click', () => {
             voicePanel.hidden = false;
             if (!voiceRecognition) return voiceText.focus();
             if (voiceSessionActive) {
                 voiceSessionActive = false;
                 voiceRecognition.stop();
-                voiceStatus.textContent = 'Dictado finalizado. Revise los datos antes de guardar.';
             } else {
-                voiceSessionActive = true;
                 voiceSessionBase = voiceText.value.trim();
-                voiceRecognition.start();
+                voiceGeneration++;
+                voiceCoordinator.cancel();
+                voiceSessionActive = true;
+                voiceAcceptResults = true;
+                try {voiceRecognition.start();}
+                catch (_) {
+                    voiceSessionActive = false;
+                    voiceAcceptResults = false;
+                    resetVoiceButton();
+                    voiceStatus.textContent = 'Espere a que termine el dictado anterior e intente nuevamente.';
+                }
             }
         });
-        select('beneficiary-voice-apply').addEventListener('click', applyVoiceTranscript);
+        select('beneficiary-voice-apply').addEventListener('click', () => {void applyVoiceTranscript();});
         select('beneficiary-voice-clear').addEventListener('click', () => {
+            cancelVoice();
             voiceText.value = ''; voiceStatus.textContent = '';
             beneficiaryFields.forEach(field => beneficiaryInputs[field].classList.remove('voice-recognized', 'voice-review'));
             voiceText.focus();
         });
         const clearBeneficiaryEntry = () => {
+            form.dataset.beneficiaryEditing = '0';
+            form.dispatchEvent(new Event('beneficiary-entry-reset'));
             beneficiaryFields.forEach(field => {
                 if (field === 'has_informed_consent') beneficiaryInputs[field].checked = true;
                 else beneficiaryInputs[field].value = '';
@@ -1009,9 +1031,11 @@
             beneficiaryInputs.ethnicity.value = 'Ninguna';
             beneficiaryInputs.nationality.value = @json(\App\Models\Beneficiary::DEFAULT_NATIONALITY);
             syncNationalityOptions(null);
+            syncCaregiverRelationshipOptions(null);
             beneficiaryInputs.pregnant_lactating.value = 'Ninguna';
             beneficiaryInputs.is_recurrent.value = '0';
             syncPregnantLactatingField();
+            syncCaregiverFields();
             beneficiaryEditId = null;
             select('beneficiary-entry-title').textContent = 'Registrar beneficiario';
             saveButton.textContent = 'Guardar beneficiario';
@@ -1064,11 +1088,18 @@
                 return 'Debe confirmar que cuenta con el consentimiento informado del beneficiario.';
             }
             const labels = {
+                full_name: 'nombre y apellido',
                 age: 'edad',
                 sex: 'sexo',
                 is_recurrent: 'recurrente'
             };
-            const missing = Object.keys(labels).filter(field => beneficiary[field] === '');
+            const missing = Object.keys(labels).filter(field => String(beneficiary[field] ?? '').trim() === '');
+            if (beneficiary.age !== '' && Number.isInteger(Number(beneficiary.age)) && Number(beneficiary.age) >= 0 && Number(beneficiary.age) < 18) {
+                const caregiverLabels = {caregiver_national_id: 'cédula del cuidador', caregiver_full_name: 'nombre del cuidador', caregiver_relationship: 'parentesco del cuidador'};
+                Object.keys(caregiverLabels).forEach(field => {
+                    if (!String(beneficiary[field] ?? '').trim()) { labels[field] = caregiverLabels[field]; missing.push(field); }
+                });
+            }
             const errors = missing.length ? [
                 `Complete los campos obligatorios: ${missing.map(field => labels[field]).join(', ')}.`
             ] : [];
@@ -1114,7 +1145,10 @@
                 edit.setAttribute('aria-label', 'Editar beneficiario');
                 edit.innerHTML = '<i class="ri-pencil-line" aria-hidden="true"></i>';
                 edit.addEventListener('click', () => {
+                    form.dataset.beneficiaryEditing = '1';
+                    form.dispatchEvent(new Event('beneficiary-entry-reset'));
                     syncNationalityOptions(beneficiary.nationality);
+                    syncCaregiverRelationshipOptions(beneficiary.caregiver_relationship);
                     beneficiaryFields.forEach(field => {
                         if (field === 'has_informed_consent') beneficiaryInputs[field].checked = Boolean(beneficiary[field]);
                         else beneficiaryInputs[field].value = field === 'is_recurrent'
@@ -1122,6 +1156,7 @@
                             : String(beneficiary[field] ?? '');
                     });
                     syncPregnantLactatingField();
+                    syncCaregiverFields();
                     beneficiaryEditId = beneficiary.id;
                     select('beneficiary-entry-title').textContent = `Editar beneficiario ${index + 1}`;
                     saveButton.textContent = 'Actualizar beneficiario';
@@ -1154,44 +1189,12 @@
         recurrenceWarning.hidden = true;
         recurrenceWarning.setAttribute('role', 'status');
         beneficiaryInputs.is_recurrent.closest('label').before(recurrenceWarning);
-        let recurrenceCheck = 0;
-        const checkPossibleRecurrence = async () => {
-            const beneficiary = beneficiaryRecord(),
-                hasFallback = beneficiary.full_name && beneficiary.age !== '' && beneficiary.sex,
-                hasLocation = state.value && municipality.value && parish.value;
-            if (!activity.value || (!beneficiary.national_id && (!hasFallback || !hasLocation))) {
-                recurrenceWarning.hidden = true;
-                return;
-            }
-            const currentCheck = ++recurrenceCheck;
-            const params = new URLSearchParams({
-                indicador_proyecto_id: activity.value,
-                state_id: state.value,
-                municipality_id: municipality.value,
-                parish_id: parish.value,
-                national_id: beneficiary.national_id,
-                full_name: beneficiary.full_name,
-                age: beneficiary.age,
-                sex: beneficiary.sex,
-                exclude_beneficiary_id: beneficiaryEditId || ''
-            });
-            try {
-                const response = await fetch(`{{ route('beneficiaries.recurrence') }}?${params.toString()}`, {
-                        headers: {
-                            'Accept': 'application/json'
-                        }
-                    }),
-                    result = await response.json();
-                if (currentCheck !== recurrenceCheck) return;
-                if (result.matches > 0) {
-                    recurrenceWarning.textContent =
-                        `Aviso: se encontró ${result.matches} coincidencia(s) para esta actividad por nombre, edad, sexo, ubicación y actividad. A continuación indique si es un Beneficiario Recurrente.`;
-                    recurrenceWarning.hidden = false;
-                } else recurrenceWarning.hidden = true;
-            } catch (_) {
-                recurrenceWarning.hidden = true;
-            }
-        };
+        const recurrence = window.BeneficiaryRecurrence.create({
+            form, inputs: beneficiaryInputs, project, status: recurrenceWarning,
+            url: @json(route('beneficiaries.project-recurrence')),
+            csrf: document.querySelector('meta[name="csrf-token"]').content,
+        });
+        const checkPossibleRecurrence = () => recurrence.check();
         const responseMessage = async response => {
             const payload = await response.json().catch(() => ({}));
             if (response.ok) return payload;
@@ -1204,12 +1207,22 @@
         };
         async function saveBeneficiary() {
             if (isSaving || !ensureReportContext()) return;
+            if (form.dataset.beneficiaryLookupPending === '1' || form.dataset.beneficiaryVoicePending === '1') {
+                setMessage(entryError, 'Espere a que termine el dictado y la consulta de la cédula antes de guardar.');
+                return;
+            }
             if (!await validateCoordinates()) {
                 setMessage(entryError, 'Corrija las coordenadas GPS antes de guardar el beneficiario.');
                 (latitudeInput.value.trim() ? longitudeInput : latitudeInput).focus();
                 return;
             }
             const beneficiary = beneficiaryRecord();
+            if (!await checkPossibleRecurrence()) {
+                setMessage(entryError, 'No se pudo verificar la recurrencia. Revise los datos y vuelva a guardar.');
+                return;
+            }
+            if (isSaving) return;
+            beneficiary.is_recurrent = beneficiaryInputs.is_recurrent.value;
             const validationMessage = beneficiaryValidationMessage(beneficiary);
             if (validationMessage) {
                 setMessage(entryError, validationMessage);
@@ -1323,12 +1336,17 @@
             beneficiaryInputs.full_name.value = beneficiaryInputs.full_name.value.toLocaleUpperCase('es-VE');
             beneficiaryInputs.full_name.setSelectionRange(start, start);
         });
-        beneficiaryInputs.age.addEventListener('change', checkPossibleRecurrence);
+        beneficiaryInputs.age.addEventListener('input', syncCaregiverFields);
+        beneficiaryInputs.age.addEventListener('change', () => {syncCaregiverFields(); checkPossibleRecurrence();});
         beneficiaryInputs.sex.addEventListener('change', () => {
             syncPregnantLactatingField();
             checkPossibleRecurrence();
         });
-        beneficiaryInputs.is_recurrent.addEventListener('focus', checkPossibleRecurrence);
+        form.addEventListener('beneficiary-autofill', () => {
+            syncPregnantLactatingField();
+            syncCaregiverFields();
+            void checkPossibleRecurrence();
+        });
         const organization = select('organization'),
             otherOrganization = select('other-organization-field');
         const syncOrganization = () => {
@@ -1339,6 +1357,7 @@
         organization.addEventListener('change', syncOrganization);
         syncOrganization();
         syncPregnantLactatingField();
+        syncCaregiverFields();
         renderBeneficiaries();
         const initialBeneficiaryEditId = @json($editing ? $editBeneficiaryId : null);
         if (initialBeneficiaryEditId) {
@@ -1387,4 +1406,5 @@
             }
         });
     </script>
+    <script src="{{ asset('js/beneficiary-id-autofill.js') }}?v={{ filemtime(public_path('js/beneficiary-id-autofill.js')) }}" defer></script>
 @endpush

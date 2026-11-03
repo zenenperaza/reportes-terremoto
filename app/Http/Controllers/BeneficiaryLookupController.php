@@ -5,10 +5,58 @@ namespace App\Http\Controllers;
 use App\Models\Beneficiary;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class BeneficiaryLookupController extends Controller
 {
+    public function projectRecurrence(Request $request, \App\Services\BeneficiaryRecurrence $recurrence): JsonResponse
+    {
+        $data = $request->validate([
+            'proyecto_id' => ['required', 'integer', 'exists:proyectos,id'],
+            'national_id' => ['nullable', 'string', 'max:30'],
+            'full_name' => ['nullable', 'string', 'max:150'],
+            'age' => ['nullable', 'integer', 'min:0', 'max:120'],
+            'sex' => ['nullable', Rule::in(config('reports.beneficiary_options.sexes'))],
+        ]);
+        abort_unless($request->user()->isAdministrator() || $request->user()->projects()->whereKey($data['proyecto_id'])->exists(), 403);
+
+        return response()->json($recurrence->check((int) $data['proyecto_id'], $data))
+            ->header('Cache-Control', 'no-store, private');
+    }
+
+    public function byNationalId(Request $request): JsonResponse
+    {
+        $data = $request->validate(['national_id' => ['required', 'string', 'max:30']]);
+        $nationalId = strtoupper(preg_replace('/[\s.\-]+/', '', trim($data['national_id'])));
+        if (! preg_match('/^[VE]?\d{5,12}$/', $nationalId)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'national_id' => 'Ingrese una cédula válida de al menos 5 dígitos; puede incluir V o E.',
+            ]);
+        }
+        $digits = preg_replace('/^[VE]/', '', $nationalId);
+        $candidates = ctype_digit($nationalId) ? [$digits, 'V'.$digits, 'E'.$digits] : [$nationalId, $digits];
+        $normalizedColumn = DB::raw("REPLACE(REPLACE(REPLACE(UPPER(TRIM(national_id)), ' ', ''), '-', ''), '.', '')");
+        $matches = Beneficiary::query()->whereIn($normalizedColumn, $candidates)
+            ->whereHas('report', fn ($reports) => $request->user()->constrainVisibleReports($reports));
+        $identities = (clone $matches)->get(['full_name', 'sex', 'national_id']);
+        $names = $identities->pluck('full_name')->filter()->map(fn ($name) => Str::upper(Str::ascii(preg_replace('/\s+/', ' ', trim($name)))))->unique();
+        $sexes = $identities->pluck('sex')->filter()->unique();
+        $prefixes = $identities->pluck('national_id')->map(fn ($id) => strtoupper(preg_replace('/[\s.\-]+/', '', $id)))
+            ->filter(fn ($id) => preg_match('/^[VE]/', $id))->map(fn ($id) => $id[0])->unique();
+        if ($names->count() > 1 || $sexes->count() > 1 || $prefixes->count() > 1) {
+            return response()->json(['matched' => false, 'ambiguous' => true])->header('Cache-Control', 'no-store, private');
+        }
+        $person = $matches->orderByDesc('created_at')->orderByDesc('id')->first([
+            'full_name', 'age', 'sex', 'nationality', 'phone', 'disability', 'ethnicity', 'pregnant_lactating',
+            'caregiver_national_id', 'caregiver_full_name', 'caregiver_relationship',
+        ]);
+
+        return response()->json(['matched' => $person !== null, 'ambiguous' => false, 'beneficiary' => $person])
+            ->header('Cache-Control', 'no-store, private');
+    }
+
     public function recurrence(Request $request): JsonResponse
     {
         $data = $request->validate([

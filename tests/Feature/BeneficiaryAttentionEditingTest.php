@@ -65,7 +65,10 @@ class BeneficiaryAttentionEditingTest extends TestCase
         $report->created_at = now()->subMonth();
         $report->save();
         foreach ([10, 20] as $age) {
-            $report->beneficiaries()->create(['has_informed_consent' => true, 'full_name' => 'Persona '.$age, 'age' => $age, 'sex' => 'Mujer', 'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'Ninguna', 'is_recurrent' => false]);
+            $report->beneficiaries()->create(['has_informed_consent' => true, 'full_name' => 'Persona '.$age, 'age' => $age, 'sex' => 'Mujer', 'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'Ninguna', 'is_recurrent' => false,
+                'caregiver_national_id' => $age < 18 ? '00123456' : null,
+                'caregiver_full_name' => $age < 18 ? 'Cuidadora de prueba' : null,
+                'caregiver_relationship' => $age < 18 ? 'Madre' : null]);
         }
         $first = $report->beneficiaries()->first();
         $second = $report->beneficiaries()->get()->last();
@@ -76,7 +79,7 @@ class BeneficiaryAttentionEditingTest extends TestCase
 
     private function person(Beneficiary $beneficiary): array
     {
-        return $beneficiary->only(['has_informed_consent', 'full_name', 'age', 'sex', 'national_id', 'phone', 'disability', 'ethnicity', 'pregnant_lactating', 'is_recurrent']);
+        return $beneficiary->only(['has_informed_consent', 'full_name', 'age', 'sex', 'national_id', 'phone', 'disability', 'ethnicity', 'pregnant_lactating', 'is_recurrent', 'caregiver_national_id', 'caregiver_full_name', 'caregiver_relationship']);
     }
 
     public static function independentPermissions(): array

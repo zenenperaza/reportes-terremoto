@@ -155,6 +155,17 @@
                 <tbody>@foreach($report->beneficiaries as $beneficiary)<tr><td data-label="Nombre y apellido">{{ $beneficiary->full_name ?: 'Sin nombre registrado' }}</td><td data-label="Edad">{{ $beneficiary->age }}</td><td data-label="Sexo">{{ $beneficiary->sex }}</td><td data-label="Nacionalidad">{{ $beneficiary->nationality ?: '—' }}</td><td data-label="C&eacute;dula">{{ $beneficiary->national_id ?: '—' }}</td><td data-label="Tel&eacute;fono">{{ $beneficiary->phone ?: '—' }}</td><td data-label="Discapacidad">{{ $beneficiary->disability ?: 'Ninguna' }}</td><td data-label="Ind&iacute;gena">{{ $beneficiary->ethnicity ?: 'Ninguna' }}</td><td data-label="Emb./lact.">{{ $beneficiary->pregnant_lactating ?: 'Ninguna' }}</td><td data-label="Recurrente">{{ $beneficiary->is_recurrent ? 'Sí' : 'No' }}</td><td data-label="Reportado">{{ $beneficiary->reported_at ? 'Sí' : 'No' }}</td><td data-label="Fecha de reporte">{{ $beneficiary->reported_at?->format('d/m/Y') ?: '—' }}</td>@if($canEditBeneficiaries || $canDeleteBeneficiaries)<td data-label="Acciones"><div class="beneficiary-row-actions">@if($canEditBeneficiaries)<a class="btn btn-primary btn-icon waves-effect waves-light" title="Editar beneficiario" aria-label="Editar beneficiario" href="{{ route('reports.edit', ['report' => $report, 'beneficiary' => $beneficiary->id]) }}"><i class="ri-pencil-line" aria-hidden="true"></i></a>@endif @if($canDeleteBeneficiaries)<button class="btn btn-danger btn-icon waves-effect waves-light beneficiary-delete-button" title="Eliminar beneficiario" aria-label="Eliminar beneficiario" type="button" data-beneficiary-id="{{ $beneficiary->id }}"><i class="ri-delete-bin-5-line" aria-hidden="true"></i></button>@endif</div></td>@endif</tr>@endforeach</tbody>
             </table>
         </div>
+        @if($report->beneficiaries->contains(fn ($person) => $person->age < 18 && $person->caregiver_full_name))
+            <details class="beneficiary-caregiver-fields">
+                <summary>Datos de los cuidadores</summary>
+                <div class="table-wrap"><table class="beneficiary-table">
+                    <thead><tr><th>Beneficiario</th><th>Cédula del cuidador</th><th>Nombre del cuidador</th><th>Parentesco del cuidador</th></tr></thead>
+                    <tbody>@foreach($report->beneficiaries->filter(fn ($person) => $person->age < 18 && $person->caregiver_full_name) as $person)
+                        <tr><td>{{ $person->full_name ?: 'Sin nombre registrado' }}</td><td>{{ $person->caregiver_national_id }}</td><td>{{ $person->caregiver_full_name }}</td><td>{{ $person->caregiver_relationship }}</td></tr>
+                    @endforeach</tbody>
+                </table></div>
+            </details>
+        @endif
         @if($canEditBeneficiaries)
             <form id="beneficiary-edit-form" class="beneficiary-entry beneficiary-detail-editor" hidden>
                 <div class="card-heading"><div><h2>Editar beneficiario</h2><p class="muted">Actualice los datos y guarde los cambios.</p></div><button type="button" class="button button-secondary" id="cancel-beneficiary-edit">Cancelar</button></div>

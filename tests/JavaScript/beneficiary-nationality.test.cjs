@@ -31,7 +31,8 @@ test('starting the next beneficiary resets nationality to Venezuelan instead of 
     const beneficiaryInputs = inputs();
     beneficiaryInputs.nationality.value = 'Colombiana';
     const context = {beneficiaryFields: fields, beneficiaryInputs, beneficiaryEditId: 42, saveButton: {},
-        syncPregnantLactatingField() {}, syncNationalityOptions() {}, select() {return {};}, recurrenceWarning: {}, voiceText: {}, voiceStatus: {}};
+        syncPregnantLactatingField() {}, syncCaregiverFields() {}, syncNationalityOptions() {}, syncCaregiverRelationshipOptions() {}, select() {return {};}, recurrenceWarning: {}, voiceText: {}, voiceStatus: {},
+        form: {dataset: {}, dispatchEvent() {}}, Event};
     vm.runInNewContext(code + '\nclearBeneficiaryEntry();', context);
     assert.equal(beneficiaryInputs.nationality.value, 'Venezolana');
     assert.equal(beneficiaryInputs.full_name.value, '');

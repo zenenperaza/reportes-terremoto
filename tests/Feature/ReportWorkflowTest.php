@@ -620,6 +620,7 @@ class ReportWorkflowTest extends TestCase
         $first = $this->actingAs($user)->postJson('/beneficiarios', $header + ['beneficiary' => [
             'has_informed_consent' => true,
             'full_name' => 'María Gómez', 'age' => 8, 'sex' => 'Mujer', 'national_id' => 'V12345678', 'phone' => null,
+            'caregiver_national_id' => '00123456', 'caregiver_full_name' => 'Cuidadora de prueba', 'caregiver_relationship' => 'Madre',
             'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'N/A', 'is_recurrent' => false,
         ]])->assertCreated()->assertJsonPath('summary.total', 1);
 
@@ -630,14 +631,15 @@ class ReportWorkflowTest extends TestCase
 
         $this->actingAs($user)->postJson('/beneficiarios', $header + ['report_id' => $reportId, 'beneficiary' => [
             'has_informed_consent' => true,
-            'full_name' => '', 'age' => 34, 'sex' => 'Hombre', 'national_id' => null, 'phone' => '04140000000',
+            'full_name' => 'Luis Pérez', 'age' => 34, 'sex' => 'Hombre', 'national_id' => null, 'phone' => '04140000000',
             'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'N/A', 'is_recurrent' => true,
         ]])->assertOk()->assertJsonPath('summary.total', 2);
 
         $this->assertDatabaseCount('reports', 1);
         $this->assertDatabaseCount('beneficiaries', 2);
-        $this->assertDatabaseHas('beneficiaries', ['report_id' => $reportId, 'full_name' => null, 'age' => 34]);
-        $this->assertDatabaseHas('reports', ['id' => $reportId, 'total_beneficiaries' => 2, 'recurrence_status' => 'mixto']);
+        $this->assertDatabaseHas('beneficiaries', ['report_id' => $reportId, 'full_name' => 'LUIS PÉREZ', 'age' => 34]);
+        // Both identities are new to this project, regardless of the client-supplied flag.
+        $this->assertDatabaseHas('reports', ['id' => $reportId, 'total_beneficiaries' => 2, 'recurrence_status' => 'no_recurrente']);
 
         $changedHeader = $header;
         $changedHeader['place_name'] = 'Comunidad El Manantial';

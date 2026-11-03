@@ -42,7 +42,7 @@ class ReportFilterLayoutTest extends TestCase
         }
     }
 
-    public function test_record_views_order_reported_period_summary_then_remaining_filters_in_one_get_form(): void
+    public function test_record_views_order_projects_reported_period_summary_then_remaining_filters_in_one_get_form(): void
     {
         foreach (['admin', 'coordinator', 'reporter'] as $role) {
             $response = $this->actingAs(User::factory()->create(['role' => $role]))
@@ -66,7 +66,7 @@ class ReportFilterLayoutTest extends TestCase
             foreach ($fields as $field) {
                 $names[] = $xpath->query('.//select | .//input[not(@type="hidden")]', $field)->item(0)->getAttribute('name');
             }
-            $this->assertSame(['reported', 'reporting_period[]', 'summary_indicator_ids[]', 'state_id[]', 'from', 'to', 'user_id'], $names);
+            $this->assertSame(['project_ids[]', 'reported', 'reporting_period[]', 'summary_indicator_ids[]', 'state_id[]', 'from', 'to', 'user_id'], $names);
             $this->assertCount(2, $xpath->query('./label[contains(@class,"report-filter-date")]', $form->item(0)));
             foreach (['reported', 'state_id[]', 'user_id', 'reporting_period[]'] as $name) {
                 $this->assertCount(1, $xpath->query('.//select[@name="'.$name.'"]', $form->item(0)));

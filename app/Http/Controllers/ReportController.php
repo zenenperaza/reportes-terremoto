@@ -27,6 +27,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -34,6 +36,7 @@ class ReportController extends Controller
 {
     public function index(Request $request): View|JsonResponse|StreamedResponse
     {
+        $projectOptions = $this->normalizeProjectFilter($request);
         $this->normalizeStateFilter($request);
         $request->merge(['summary_indicator_ids' => SummaryIndicatorFilter::selection($request)]);
         $request->validate(['user_id' => ['nullable', 'integer', 'min:1'], 'reporting_period' => ReportPeriod::rules(),
@@ -91,7 +94,8 @@ class ReportController extends Controller
             'canViewPersonalData' => $request->user()->isAdministrator(),
             'registeringUsers' => User::withTrashed()->whereIn('id', $request->user()->constrainVisibleReports(Report::query())->select('reports.user_id'))
                 ->orderBy('name')->orderBy('id')->get(['id', 'name']),
-            'filters' => $request->only(['state_id', 'reported', 'from', 'to', 'user_id', 'reporting_period', 'servicio_actividad_id', 'summary_indicator_ids']),
+            'projectOptions' => $projectOptions,
+            'filters' => $request->only(['project_ids', 'state_id', 'reported', 'from', 'to', 'user_id', 'reporting_period', 'servicio_actividad_id', 'summary_indicator_ids']),
             'summaryIndicatorOptions' => SummaryIndicatorFilter::options($request->user()),
             'periodOptions' => ReportPeriod::options($request->user()->constrainVisibleReports(Report::query())),
         ]);
@@ -203,7 +207,7 @@ class ReportController extends Controller
         $associatedIds = $data['associated_indicator_ids'] ?? [];
         unset($data['associated_indicator_ids']);
         $data['reporting_period'] = ReportPeriod::forNewReport($request);
-        $beneficiaries = array_map(fn (array $person): array => $person + ['nationality' => Beneficiary::DEFAULT_NATIONALITY], $data['beneficiaries']);
+        $beneficiaries = array_map(fn (array $person): array => $person + ['nationality' => Beneficiary::DEFAULT_NATIONALITY, 'is_recurrent' => false], $data['beneficiaries']);
         $serviceIds = $data['servicio_actividad_ids'] ?? [];
         unset($data['beneficiaries'], $data['servicio_actividad_ids'], $data['sector_proyecto_id'], $data['evidence_1'], $data['evidence_2'], $data['evidence_3']);
 
@@ -217,9 +221,16 @@ class ReportController extends Controller
         $data['pregnant_or_lactating_women'] = $summary['pregnant_or_lactating_women'];
 
         $report = DB::transaction(function () use ($data, $beneficiaries, $request, $serviceIds, $associatedIds): Report {
+            // Serialize new attendances in this project, including simultaneous registrations.
+            Proyecto::whereKey($data['proyecto_id'])->lockForUpdate()->firstOrFail();
             $report = Report::create($data);
             $report->serviciosActividad()->sync($serviceIds);
-            $report->beneficiaries()->createMany($beneficiaries);
+            foreach ($beneficiaries as &$person) {
+                $person['is_recurrent'] = app(\App\Services\BeneficiaryRecurrence::class)->check((int) $report->proyecto_id, $person)['is_recurrent'];
+                $report->beneficiaries()->create($person);
+            }
+            unset($person);
+            $this->syncBeneficiarySummary($report);
 
             foreach ([1, 2, 3] as $slot) {
                 $file = $request->file("evidence_{$slot}");
@@ -252,12 +263,13 @@ class ReportController extends Controller
         $data = $request->validated();
         $associatedIds = $data['associated_indicator_ids'] ?? [];
         unset($data['associated_indicator_ids']);
-        $beneficiaryData = $data['beneficiary'] + ['nationality' => Beneficiary::DEFAULT_NATIONALITY];
+        $beneficiaryData = $data['beneficiary'] + ['nationality' => Beneficiary::DEFAULT_NATIONALITY, 'is_recurrent' => false];
         $reportId = $data['report_id'] ?? null;
         $serviceIds = $data['servicio_actividad_ids'] ?? [];
         unset($data['beneficiary'], $data['report_id'], $data['servicio_actividad_ids'], $data['sector_proyecto_id'], $data['evidence_1'], $data['evidence_2'], $data['evidence_3']);
 
         [$report, $beneficiary, $summary, $createdReport, $copies] = DB::transaction(function () use ($request, $data, $beneficiaryData, $reportId, $serviceIds, $associatedIds): array {
+            Proyecto::whereKey($data['proyecto_id'])->lockForUpdate()->firstOrFail();
             if ($reportId) {
                 $report = Report::lockForUpdate()->findOrFail($reportId);
                 $this->ensureEditable($request, $report);
@@ -288,6 +300,7 @@ class ReportController extends Controller
                 $createdReport = true;
             }
 
+            $beneficiaryData['is_recurrent'] = app(\App\Services\BeneficiaryRecurrence::class)->check((int) $report->proyecto_id, $beneficiaryData)['is_recurrent'];
             $beneficiary = $report->beneficiaries()->create($beneficiaryData);
             $this->storeEvidence($report, $request);
             $summary = $this->syncBeneficiarySummary($report);
@@ -482,6 +495,9 @@ class ReportController extends Controller
                 'sex' => $beneficiary->sex,
                 'national_id' => $beneficiary->national_id,
                 'nationality' => $beneficiary->nationality,
+                'caregiver_national_id' => $beneficiary->caregiver_national_id,
+                'caregiver_full_name' => $beneficiary->caregiver_full_name,
+                'caregiver_relationship' => $beneficiary->caregiver_relationship,
                 'phone' => $beneficiary->phone,
                 'disability' => $beneficiary->disability ?: 'Ninguna',
                 'ethnicity' => $beneficiary->ethnicity ?: 'Ninguna',
@@ -533,6 +549,7 @@ class ReportController extends Controller
     public function export(Request $request): StreamedResponse
     {
         abort_unless($request->user()->isAdministrator(), 403);
+        $this->normalizeProjectFilter($request);
         $this->normalizeStateFilter($request);
         $request->validate(['user_id' => ['nullable', 'integer', 'min:1'], 'reporting_period' => ReportPeriod::rules(),
             'servicio_actividad_id' => ['nullable', 'integer', 'exists:servicio_actividad,id']]);
@@ -697,6 +714,26 @@ class ReportController extends Controller
         })->all();
     }
 
+    private function normalizeProjectFilter(Request $request): Collection
+    {
+        $user = $request->user();
+        // Include assigned and historically visible projects without widening report visibility.
+        $options = Proyecto::query()
+            ->when(! $user->isAdministrator(), fn (Builder $projects) => $projects->where(function (Builder $available) use ($user): void {
+                $available->whereIn('id', $user->projects()->select('proyectos.id'))
+                    ->orWhereIn('id', $user->constrainVisibleReports(Report::query())->select('reports.proyecto_id'));
+            }))
+            ->orderBy('codigo')->get(['id', 'codigo', 'nombre_alias', 'descripcion']);
+        $request->merge(['project_ids' => $request->input('project_ids') === '' ? [] : ($request->input('project_ids') ?? [])]);
+        $data = $request->validate([
+            'project_ids' => ['array', 'list', 'max:1000'],
+            'project_ids.*' => ['bail', 'required', 'integer', 'distinct', Rule::in($options->pluck('id')->all())],
+        ], ['project_ids.*.in' => 'Seleccione un proyecto disponible para su usuario.']);
+        $request->merge(['project_ids' => array_map('intval', $data['project_ids'])]);
+
+        return $options;
+    }
+
     private function normalizeStateFilter(Request $request): void
     {
         // Keep old links with a single state_id compatible with the multiple selector.
@@ -725,6 +762,7 @@ class ReportController extends Controller
         }
 
         return $query
+            ->when($request->input('project_ids'), fn (Builder $query, array $ids) => $query->whereIn('reports.proyecto_id', $ids))
             ->serviceAssignment($request->integer('servicio_actividad_id'))
             ->when($request->integer('user_id'), fn (Builder $query, int $userId) => $query->where('user_id', $userId))
             ->when($request->input('state_id'), fn (Builder $query, array $stateIds) => $query->whereIn('state_id', $stateIds))
@@ -741,6 +779,7 @@ class ReportController extends Controller
         return Beneficiary::query()
             ->whereHas('report', function (Builder $reports) use ($request, $summaryIds): void {
                 $request->user()->constrainVisibleReports($reports);
+                $reports->when($request->input('project_ids'), fn (Builder $query, array $ids) => $query->whereIn('reports.proyecto_id', $ids));
                 SummaryIndicatorFilter::apply($reports, $summaryIds);
                 $reports->serviceAssignment($request->integer('servicio_actividad_id'))
                     ->when($request->integer('user_id'), fn (Builder $query, int $userId) => $query->where('user_id', $userId))

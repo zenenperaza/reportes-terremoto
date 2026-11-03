@@ -205,6 +205,10 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
     Route::get('/actividades', [LocationController::class, 'allActivities'])->name('activities.all');
     Route::get('/sectores/{sector}/actividades', [LocationController::class, 'activities'])->name('sectors.activities');
     Route::get('/beneficiarios/verificar-recurrencia', [BeneficiaryLookupController::class, 'recurrence'])->name('beneficiaries.recurrence');
+    Route::post('/beneficiarios/verificar-recurrencia-proyecto', [BeneficiaryLookupController::class, 'projectRecurrence'])
+        ->middleware(['permission:registrar actividad', 'throttle:120,1'])->name('beneficiaries.project-recurrence');
+    Route::post('/beneficiarios/buscar-cedula', [BeneficiaryLookupController::class, 'byNationalId'])
+        ->middleware(['permission:registrar actividad', 'permission:ver detalle de registros', 'throttle:60,1'])->name('beneficiaries.lookup');
     Route::post('/beneficiarios', [ReportController::class, 'storeBeneficiary'])->middleware(['permission:registrar actividad', ReportPeriodTransaction::class])->name('beneficiaries.store');
     Route::put('/beneficiarios/{beneficiary}', [ReportController::class, 'updateBeneficiary'])->middleware(['permission:editar beneficiarios', ReportPeriodTransaction::class])->name('beneficiaries.update');
     Route::put('/beneficiarios/{beneficiary}/atencion', [ReportController::class, 'updateBeneficiaryAttention'])->middleware(['permission:editar beneficiarios', ReportPeriodTransaction::class])->name('beneficiaries.update-attention');

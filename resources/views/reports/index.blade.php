@@ -49,6 +49,15 @@
     @endif
     <form method="get" class="filters report-list-filters">
         @if(filled($filters['servicio_actividad_id'] ?? null))<input type="hidden" name="servicio_actividad_id" value="{{ $filters['servicio_actividad_id'] }}">@endif
+        <label class="report-filter-field report-filter-project" for="records-project-filter">Proyectos
+            <select id="records-project-filter" name="project_ids[]" multiple data-record-project-filter data-placeholder="Todos los proyectos" aria-describedby="records-project-help">
+                <option value="__all__" data-project-select-all disabled>Seleccionar todos los proyectos</option>
+                @foreach($projectOptions as $project)
+                    <option value="{{ $project->id }}" @selected(in_array($project->id, $filters['project_ids'] ?? [], true))>{{ $project->codigo }} — {{ $project->nombre_alias ?: $project->descripcion }}</option>
+                @endforeach
+            </select>
+            <small id="records-project-help">Sin selección se incluyen todos los proyectos. Puede seleccionar varios o seleccionar todos y quitar los que no necesite.</small>
+        </label>
         <label class="report-filter-field report-filter-reported">Estado de reporte
             <select name="reported"><option value="">Todos</option><option value="1" @selected(($filters['reported'] ?? '') === '1')>Sí</option><option value="0" @selected(($filters['reported'] ?? '') === '0')>No</option></select>
         </label>
@@ -113,6 +122,7 @@
 </section>
 
 @push('scripts')
+    <script src="{{ asset('js/record-project-filter.js') }}?v={{ filemtime(public_path('js/record-project-filter.js')) }}" defer></script>
     <script src="{{ asset('js/record-state-filter.js') }}?v={{ filemtime(public_path('js/record-state-filter.js')) }}" defer></script>
 @endpush
 <script src="/vendor/datatables/jquery-3.7.1.min.js"></script>

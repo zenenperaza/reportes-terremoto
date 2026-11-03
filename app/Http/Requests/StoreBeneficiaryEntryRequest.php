@@ -19,6 +19,7 @@ use Illuminate\Validation\Rule;
 
 class StoreBeneficiaryEntryRequest extends FormRequest
 {
+    use \App\Http\Requests\Concerns\ValidatesBeneficiaryCaregiver;
     use \App\Http\Requests\Concerns\ValidatesAssociatedIndicators;
     use \App\Http\Requests\Concerns\PreservesReportLocation;
     use \App\Http\Requests\Concerns\ValidatesProjectPlaces;
@@ -35,7 +36,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             $placeNameRules[] = Rule::exists('place_names', 'name');
         }
 
-        return $this->associatedIndicatorRules() + [
+        return $this->associatedIndicatorRules() + $this->caregiverRules('beneficiary.') + [
             'report_id' => ['nullable', 'integer', 'exists:reports,id'],
             'report_date' => ['required', 'date', 'before_or_equal:today'],
             'reporter_first_name' => ['required', 'string', 'max:100'],
@@ -71,7 +72,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
 
             'beneficiary' => ['required', 'array'],
             'beneficiary.has_informed_consent' => ['required', 'accepted'],
-            'beneficiary.full_name' => ['nullable', 'string', 'max:150'],
+            'beneficiary.full_name' => ['required', 'string', 'max:150'],
             'beneficiary.age' => ['required', 'integer', 'min:0', 'max:120'],
             'beneficiary.sex' => ['required', Rule::in($beneficiaryOptions['sexes'])],
             'beneficiary.national_id' => ['nullable', 'string', 'max:30'],
@@ -80,12 +81,13 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             'beneficiary.disability' => ['nullable', Rule::in($beneficiaryOptions['disabilities'])],
             'beneficiary.ethnicity' => ['nullable', Rule::in($beneficiaryOptions['ethnicities'])],
             'beneficiary.pregnant_lactating' => ['nullable', Rule::in($beneficiaryOptions['pregnant_lactating'])],
-            'beneficiary.is_recurrent' => ['required', 'boolean'],
+            'beneficiary.is_recurrent' => [$this->isMethod('post') ? 'sometimes' : 'required', 'boolean'],
         ];
     }
 
     protected function prepareForValidation(): void
     {
+        $this->normalizeCaregiverPayload('beneficiary');
         $reportId = filter_var($this->input('report_id'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         $report = $reportId ? Report::query()->whereKey($reportId)
             ->when(! $this->user()->isAdministrator(), fn ($query) => $query->where('user_id', $this->user()->id))
@@ -114,8 +116,11 @@ class StoreBeneficiaryEntryRequest extends FormRequest
         return [
             'proyecto_id.required' => 'Seleccione un proyecto para registrar la actividad.',
             'required' => 'El campo :attribute es obligatorio.',
-            'accepted' => 'Debe confirmar el :attribute.',
             'required_if' => 'El campo :attribute es obligatorio.',
+            'beneficiary.caregiver_national_id.required_if' => 'La cédula del cuidador es obligatoria para beneficiarios menores de 18 años.',
+            'beneficiary.caregiver_full_name.required_if' => 'El nombre del cuidador es obligatorio para beneficiarios menores de 18 años.',
+            'beneficiary.caregiver_relationship.required_if' => 'El parentesco del cuidador es obligatorio para beneficiarios menores de 18 años.',
+            'accepted' => 'Debe confirmar el :attribute.',
             'required_with' => 'El campo :attribute es obligatorio cuando se indica su coordenada relacionada.',
         ];
     }
@@ -145,6 +150,9 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             'actividad_indicador_id' => 'actividad a reportar',
             'servicio_actividad_ids' => 'servicios',
             'beneficiary.full_name' => 'nombre y apellido del beneficiario',
+            'beneficiary.caregiver_national_id' => 'cédula del cuidador',
+            'beneficiary.caregiver_full_name' => 'nombre del cuidador',
+            'beneficiary.caregiver_relationship' => 'parentesco del cuidador',
             'beneficiary.has_informed_consent' => 'consentimiento informado del beneficiario',
             'beneficiary.age' => 'edad del beneficiario',
             'beneficiary.sex' => 'sexo del beneficiario',

@@ -16,7 +16,7 @@ class TemporaryMaintenanceController extends Controller
         abort_if($token === '', 503, 'Falta configurar SERVER_MAINTENANCE_TOKEN en el archivo .env.');
         abort_unless(hash_equals($token, (string) request('token')), 403);
 
-        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto', 'actualizacion-buzon', 'indicadores-resumen', 'nacionalidad-beneficiarios'], true),
+        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto', 'actualizacion-buzon', 'indicadores-resumen', 'nacionalidad-beneficiarios', 'actualizacion-beneficiarios'], true),
             422, 'Modo de mantenimiento no reconocido.');
         $permissionsOnly = request('only') === 'permisos-beneficiarios';
         $groupEditingOnly = request('only') === 'edicion-cruzada-grupos';
@@ -31,6 +31,9 @@ class TemporaryMaintenanceController extends Controller
         $buzonUpdateOnly = request('only') === 'actualizacion-buzon';
         $summaryIndicatorsOnly = request('only') === 'indicadores-resumen';
         $nationalityOnly = request('only') === 'nacionalidad-beneficiarios';
+        $beneficiaryUpdateOnly = request('only') === 'actualizacion-beneficiarios';
+        abort_if($beneficiaryUpdateOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
+            422, 'El modo actualizacion-beneficiarios no se puede combinar con opciones de caché o importación.');
         abort_if($nationalityOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
             422, 'El modo nacionalidad-beneficiarios no se puede combinar con opciones de caché o importación.');
         abort_if($summaryIndicatorsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
@@ -370,6 +373,39 @@ class TemporaryMaintenanceController extends Controller
             }
         }
 
+        $caregiverMigration = ['name' => 'migrate', 'parameters' => [
+            '--path' => 'database/migrations/2026_11_02_120000_add_caregiver_fields_to_beneficiaries.php',
+            '--force' => true,
+        ]];
+        if ($beneficiaryUpdateOnly) {
+            // Validate the entire pending upload before changing caches or the schema.
+            foreach ([
+                $caregiverMigration['parameters']['--path'],
+                'app/Http/Controllers/TemporaryMaintenanceController.php',
+                'app/Http/Controllers/BeneficiaryLookupController.php',
+                'app/Http/Controllers/ReportController.php',
+                'app/Http/Middleware/RecordAuditLog.php',
+                'app/Http/Requests/StoreBeneficiaryEntryRequest.php',
+                'app/Http/Requests/StoreReportRequest.php',
+                'app/Http/Requests/UpdateBeneficiaryRequest.php',
+                'app/Http/Requests/UpdateBeneficiaryAttentionRequest.php',
+                'app/Http/Requests/Concerns/ValidatesBeneficiaryCaregiver.php',
+                'app/Services/BeneficiaryRecurrence.php',
+                'app/Models/Beneficiary.php', 'config/reports.php',
+                'resources/views/reports/create.blade.php',
+                'resources/views/reports/index.blade.php',
+                'resources/views/reports/show.blade.php',
+                'public/css/beneficiary-entry.css', 'public/css/report-datatable.css',
+                'public/js/beneficiary-id-autofill.js',
+                'public/js/beneficiary-voice.js',
+                'public/js/beneficiary-recurrence.js',
+                'public/js/record-project-filter.js',
+                'routes/web.php', 'routes/maintenance.php',
+            ] as $file) {
+                abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
+            }
+        }
+
         $cacheCommands = [
             ['name' => 'optimize:clear', 'parameters' => []],
             ['name' => 'cache:clear', 'parameters' => []],
@@ -533,6 +569,7 @@ class TemporaryMaintenanceController extends Controller
         $includeExcel = $excelOnly || request()->boolean('import_excel');
 
         $selectedMigrations = match (true) {
+            $beneficiaryUpdateOnly => [$caregiverMigration],
             $nationalityOnly => [$nationalityMigration],
             $summaryIndicatorsOnly => $summaryIndicatorMigrations,
             $buzonUpdateOnly => [$buzonMigration],
@@ -666,6 +703,20 @@ class TemporaryMaintenanceController extends Controller
                 'La migración ya aplicada se omite. Repetir este modo conserva las nacionalidades registradas y las configuraciones guardadas.',
                 'Este modo no instala Indicadores Resumen: si esa actualización sigue pendiente, ejecute primero only=indicadores-resumen con el token correspondiente.',
                 'Al finalizar, recargue SIA con Ctrl + F5 y revise el formulario de registro y los filtros antes de retirar el mantenimiento manualmente.',
+            ];
+        }
+        if ($beneficiaryUpdateOnly) {
+            $results = [
+                'ACTUALIZACIÓN DE BENEFICIARIOS Y REGISTROS: se comprueban los archivos, se ejecuta únicamente la migración del cuidador y se reconstruyen las cachés.',
+                'Se agregan caregiver_national_id, caregiver_full_name y caregiver_relationship como columnas opcionales. No se rellenan datos de beneficiarios anteriores.',
+                'Incluye nombre y apellido obligatorios, datos del cuidador para menores de 18 años, selector de parentesco, cédula primero, autocompletado autorizado y dictado actualizado.',
+                'Las nuevas atenciones calculan Recurrente dentro del mismo proyecto, aunque cambien el indicador o el lugar. No se reclasifican los registros históricos durante este mantenimiento.',
+                'El primer filtro de /reportes es Proyectos, con selección múltiple y Seleccionar todos. Se aplica al listado y a las exportaciones, conservando los permisos y la visibilidad de equipos.',
+                'No se ejecutan seeders, importaciones ni correcciones de parroquias. No se modifican registros históricos, Buzón, permisos, asignaciones de proyectos, períodos ni cierres.',
+                'No se activa ni se cancela el mantenimiento: se conservan los bloqueos y avisos programados.',
+                'La migración ya aplicada se omite. Repetir este modo conserva los datos del cuidador y las configuraciones guardadas.',
+                'Este modo presupone las actualizaciones anteriores del servidor, incluida nacionalidad. No ejecuta todas las migraciones pendientes.',
+                'Al finalizar, recargue SIA con Ctrl + F5 y verifique registro, dictado, recurrencia y filtro de proyectos antes de retirar el mantenimiento manualmente.',
             ];
         }
         $exitCode = 1;

@@ -137,7 +137,7 @@ class RecordAuditLog
     {
         // El historial del expediente conserva la acción y los campos modificados.
         // No duplicar datos personales ni búsquedas de casos en la bitácora general.
-        if ($request->routeIs('cases.*', 'families.*', 'buzon.*')) {
+        if ($request->routeIs('cases.*', 'families.*', 'buzon.*', 'beneficiaries.lookup', 'beneficiaries.project-recurrence')) {
             return null;
         }
 
@@ -203,6 +203,7 @@ class RecordAuditLog
         return in_array(strtolower($key), [
             '_token', 'password', 'password_confirmation', 'current_password',
             'token', 'remember_token', 'two_factor_code', 'authorization', 'cookie',
+            'caregiver_national_id', 'caregiver_full_name', 'caregiver_relationship',
         ], true);
     }
 

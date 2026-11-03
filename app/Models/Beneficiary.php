@@ -22,9 +22,19 @@ class Beneficiary extends Model
         return $options;
     }
 
+    public static function caregiverRelationshipOptions(?string $storedRelationship = null): array
+    {
+        $options = config('reports.beneficiary_options.caregiver_relationships');
+        if ($storedRelationship !== null && $storedRelationship !== '' && ! in_array($storedRelationship, $options, true)) {
+            $options[] = $storedRelationship;
+        }
+        return $options;
+    }
+
     protected $fillable = [
         'report_id', 'has_informed_consent', 'full_name', 'age', 'sex', 'national_id', 'phone', 'disability',
         'ethnicity', 'pregnant_lactating', 'is_recurrent', 'nationality',
+        'caregiver_national_id', 'caregiver_full_name', 'caregiver_relationship',
     ];
 
     protected function casts(): array
@@ -42,6 +52,11 @@ class Beneficiary extends Model
         return Attribute::make(
             set: fn ($value) => $value === null ? null : mb_strtoupper(trim($value), 'UTF-8'),
         );
+    }
+
+    protected function caregiverFullName(): Attribute
+    {
+        return Attribute::make(set: fn ($value) => $value === null ? null : mb_strtoupper(trim($value), 'UTF-8'));
     }
 
     public function report()

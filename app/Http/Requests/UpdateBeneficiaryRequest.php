@@ -8,6 +8,12 @@ use Illuminate\Validation\Rule;
 
 class UpdateBeneficiaryRequest extends FormRequest
 {
+    use \App\Http\Requests\Concerns\ValidatesBeneficiaryCaregiver;
+
+    protected function prepareForValidation(): void
+    {
+        $this->normalizeCaregiverPayload();
+    }
     public function authorize(): bool
     {
         return $this->user() !== null;
@@ -17,7 +23,7 @@ class UpdateBeneficiaryRequest extends FormRequest
     {
         $beneficiaryOptions = config('reports.beneficiary_options');
 
-        return [
+        return $this->caregiverRules() + [
             'has_informed_consent' => ['required', 'accepted'],
             'full_name' => ['nullable', 'string', 'max:150'],
             'age' => ['required', 'integer', 'min:0', 'max:120'],
@@ -37,6 +43,7 @@ class UpdateBeneficiaryRequest extends FormRequest
         return [
             'has_informed_consent' => 'consentimiento informado del beneficiario',
             'required' => 'El campo :attribute es obligatorio.',
+            'required_if' => 'El campo :attribute es obligatorio para beneficiarios menores de 18 años.',
             'accepted' => 'Debe confirmar el :attribute.',
             'boolean' => 'El campo :attribute debe contener una opción válida.',
             'in' => 'La opción seleccionada en :attribute no es válida.',
@@ -69,6 +76,9 @@ class UpdateBeneficiaryRequest extends FormRequest
             'age' => 'edad',
             'sex' => 'sexo',
             'national_id' => 'cédula',
+            'caregiver_national_id' => 'cédula del cuidador',
+            'caregiver_full_name' => 'nombre del cuidador',
+            'caregiver_relationship' => 'parentesco del cuidador',
             'nationality' => 'nacionalidad',
             'phone' => 'teléfono',
             'disability' => 'discapacidad',

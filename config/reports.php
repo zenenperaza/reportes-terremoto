@@ -78,6 +78,10 @@ return [
 
     'beneficiary_options' => [
         'sexes' => ['Hombre', 'Mujer'],
+        'caregiver_relationships' => [
+            'Madre', 'Padre', 'Abuela', 'Abuelo', 'Tía', 'Tío', 'Hermana', 'Hermano',
+            'Madrastra', 'Padrastro', 'Tutor/a legal', 'Otro familiar', 'Cuidador/a no familiar', 'Otro',
+        ],
         // Practical shortlist; not a ranking of current arrivals. See docs/nacionalidad-beneficiarios.md.
         'nationalities' => [
             'Venezolana', 'Colombiana', 'Peruana', 'Ecuatoriana', 'Brasileña',

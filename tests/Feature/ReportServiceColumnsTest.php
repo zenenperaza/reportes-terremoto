@@ -91,7 +91,8 @@ class ReportServiceColumnsTest extends TestCase
                 ->assertSee("columns: ':not(.no-export)'", false);
             $this->assertTableStructure($response->getContent(), $user->isCoordinator() ? 0 : $rows);
             if ($user->isCoordinator()) {
-                $response->assertSee('serverSide: true', false)->assertDontSee('PROY-COLUMNAS');
+                // Project metadata is now rendered in the filter; beneficiary rows remain AJAX-only.
+                $response->assertSee('serverSide: true', false)->assertSee('PROY-COLUMNAS');
                 $data = $this->getJson(route('reports.index', ['draw' => 1, 'length' => 15]))->assertOk()
                     ->assertJsonPath('recordsTotal', 2)->assertJsonCount(2, 'data')
                     ->assertJsonPath('data.0.service_count', 2)->json('data');
@@ -136,8 +137,9 @@ class ReportServiceColumnsTest extends TestCase
         $first = $report->beneficiaries()->first();
         $first->update(['age' => 8]);
         $report->beneficiaries()->where('id', '!=', $first->id)->update(['age' => 19]);
-        $this->actingAs($admin)->get(route('reports.index'))->assertOk()
-            ->assertSee('serverSide: true', false)->assertDontSee('PROY-COLUMNAS');
+        $response = $this->actingAs($admin)->get(route('reports.index'))->assertOk()
+            ->assertSee('serverSide: true', false)->assertSee('PROY-COLUMNAS');
+        $this->assertTableStructure($response->getContent(), 0);
         $params = ['draw' => 7, 'start' => 0, 'length' => 1, 'order' => [['column' => 6, 'dir' => 'asc']]];
         $page = $this->getJson(route('reports.index', $params))->assertOk()->assertJsonPath('draw', 7)
             ->assertJsonPath('recordsTotal', 2)->assertJsonPath('recordsFiltered', 2)->assertJsonCount(1, 'data');

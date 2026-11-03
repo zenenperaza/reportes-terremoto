@@ -19,6 +19,7 @@ use Illuminate\Validation\Rule;
 
 class StoreReportRequest extends FormRequest
 {
+    use \App\Http\Requests\Concerns\ValidatesBeneficiaryCaregiver;
     use \App\Http\Requests\Concerns\ValidatesAssociatedIndicators;
     use \App\Http\Requests\Concerns\PreservesReportLocation;
     use \App\Http\Requests\Concerns\ValidatesProjectPlaces;
@@ -35,7 +36,7 @@ class StoreReportRequest extends FormRequest
             $placeNameRules[] = Rule::exists('place_names', 'name');
         }
 
-        return $this->associatedIndicatorRules() + [
+        return $this->associatedIndicatorRules() + $this->caregiverRules('beneficiaries.*.') + [
             'report_date' => ['required', 'date', 'before_or_equal:today'],
             'reporter_first_name' => ['required', 'string', 'max:100'],
             'reporter_last_name' => ['present', 'nullable', 'string', 'max:100'],
@@ -65,7 +66,7 @@ class StoreReportRequest extends FormRequest
             'activity_details' => ['nullable', 'string', 'max:5000'],
 
             'beneficiaries' => ['required', 'array', 'min:1', 'max:1000'],
-            'beneficiaries.*.full_name' => ['nullable', 'string', 'max:150'],
+            'beneficiaries.*.full_name' => ['required', 'string', 'max:150'],
             'beneficiaries.*.age' => ['required', 'integer', 'min:0', 'max:120'],
             'beneficiaries.*.sex' => ['required', Rule::in($beneficiaryOptions['sexes'])],
             'beneficiaries.*.national_id' => ['nullable', 'string', 'max:30'],
@@ -74,7 +75,7 @@ class StoreReportRequest extends FormRequest
             'beneficiaries.*.disability' => ['required', Rule::in($beneficiaryOptions['disabilities'])],
             'beneficiaries.*.ethnicity' => ['required', Rule::in($beneficiaryOptions['ethnicities'])],
             'beneficiaries.*.pregnant_lactating' => ['required', Rule::in($beneficiaryOptions['pregnant_lactating'])],
-            'beneficiaries.*.is_recurrent' => ['required', 'boolean'],
+            'beneficiaries.*.is_recurrent' => ['sometimes', 'boolean'],
 
             'qualitative_notes' => ['nullable', 'string', 'max:5000'],
             'evidence_1' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx,xlsx', 'max:10240'],
@@ -85,6 +86,7 @@ class StoreReportRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $this->normalizeCaregiverPayload('beneficiaries', true);
         $this->merge(ReportRegistrant::fields($this->user(), $this->route('report')));
 
         if (! $this->boolean('is_community_location')) {
@@ -215,7 +217,11 @@ class StoreReportRequest extends FormRequest
 
     public function messages(): array
     {
-        return ['proyecto_id.required' => 'Seleccione un proyecto para registrar la actividad.'];
+        return ['proyecto_id.required' => 'Seleccione un proyecto para registrar la actividad.',
+            'beneficiaries.*.full_name.required' => 'El nombre y apellido del beneficiario es obligatorio.',
+            'beneficiaries.*.caregiver_national_id.required_if' => 'La cédula del cuidador es obligatoria para beneficiarios menores de 18 años.',
+            'beneficiaries.*.caregiver_full_name.required_if' => 'El nombre del cuidador es obligatorio para beneficiarios menores de 18 años.',
+            'beneficiaries.*.caregiver_relationship.required_if' => 'El parentesco del cuidador es obligatorio para beneficiarios menores de 18 años.'];
     }
 
     public function attributes(): array
@@ -233,6 +239,9 @@ class StoreReportRequest extends FormRequest
             'servicio_actividad_ids' => 'servicios',
             'beneficiaries' => 'beneficiarios',
             'beneficiaries.*.full_name' => 'nombre y apellido del beneficiario',
+            'beneficiaries.*.caregiver_national_id' => 'cédula del cuidador',
+            'beneficiaries.*.caregiver_full_name' => 'nombre del cuidador',
+            'beneficiaries.*.caregiver_relationship' => 'parentesco del cuidador',
             'beneficiaries.*.national_id' => 'cédula del beneficiario',
             'beneficiaries.*.nationality' => 'nacionalidad del beneficiario',
         ];
