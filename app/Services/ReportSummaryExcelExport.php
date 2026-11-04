@@ -23,14 +23,30 @@ class ReportSummaryExcelExport
         $workbook->getProperties()->setCreator('SIA - ASONACOP')->setTitle($byIndicators ? 'Informe por indicadores' : 'Informes generales');
         $summary = $workbook->getActiveSheet();
         $summary->setTitle('Resumen');
-        $this->table($summary, $byIndicators ? 'Informe por indicadores' : 'Informes generales', ['Concepto', 'Cantidad'], [
+        $summaryRows = [
             ['Personas atendidas', $data['summary']['beneficiaries']],
             ['NNA Mujeres', $data['summary']['women_under_18']],
             ['NNA Hombres', $data['summary']['men_under_18']],
             ['Mujeres adultas', $data['summary']['women_adults']],
             ['Hombres adultos', $data['summary']['men_adults']],
-        ]);
-        $this->table($summary, 'Filtros aplicados', ['Filtro', 'Valor'], $this->filterRows($data), 11);
+        ];
+        if (! $byIndicators) {
+            $summaryRows = array_merge($summaryRows, [
+                ['Personas con discapacidad', $data['summary']['disability']],
+                ['Personas indígenas / etnia', $data['summary']['ethnicity']],
+                ['Embarazadas o lactantes', $data['summary']['pregnancy']],
+            ]);
+        }
+        $filterStart = $this->table($summary, $byIndicators ? 'Informe por indicadores' : 'Informes generales', ['Concepto', 'Cantidad'], $summaryRows) + 1;
+        if (! $byIndicators) {
+            $noteRow = $filterStart - 2;
+            $summary->mergeCells('A'.$noteRow.':B'.$noteRow);
+            $this->cell($summary, 'A'.$noteRow, 'Estos grupos forman parte de Personas atendidas y pueden coincidir en una misma persona.');
+            $summary->getStyle('A'.$noteRow)->getFont()->setItalic(true)->setSize(10)->getColor()->setARGB('FF617484');
+            $summary->getStyle('A'.$noteRow)->getAlignment()->setWrapText(true);
+            $summary->getRowDimension($noteRow)->setRowHeight(30);
+        }
+        $this->table($summary, 'Filtros aplicados', ['Filtro', 'Valor'], $this->filterRows($data), $filterStart);
         $summary->getColumnDimension('A')->setWidth(38);
         $summary->getColumnDimension('B')->setWidth(75);
 

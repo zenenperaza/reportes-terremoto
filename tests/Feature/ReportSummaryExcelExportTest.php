@@ -101,11 +101,14 @@ class ReportSummaryExcelExportTest extends TestCase
             foreach (['women_under_18', 'men_under_18', 'women_adults', 'men_adults'] as $index => $key) {
                 $this->assertSame($data[$key], $summary->getCell('B'.($index + 4))->getValue());
             }
-            $this->assertSame('Todos', $summary->getCell('B13')->getValue());
-            $this->assertSame('Todos los períodos', $summary->getCell('B14')->getValue());
-            $this->assertSame('01/09/2026', $summary->getCell('B15')->getValue());
-            $this->assertSame('30/09/2026', $summary->getCell('B16')->getValue());
+            $filterOffset = $byIndicators ? 0 : 3;
+            $this->assertSame('Todos', $summary->getCell('B'.(13 + $filterOffset))->getValue());
+            $this->assertSame('Todos los períodos', $summary->getCell('B'.(14 + $filterOffset))->getValue());
+            $this->assertSame('01/09/2026', $summary->getCell('B'.(15 + $filterOffset))->getValue());
+            $this->assertSame('30/09/2026', $summary->getCell('B'.(16 + $filterOffset))->getValue());
             if ($byIndicators) {
+                $this->assertNull($summary->getCell('A8')->getValue());
+                $this->assertSame('Filtros aplicados', $summary->getCell('A11')->getValue());
                 $this->assertSame(['Resumen', 'Grupos', 'Indicadores'], $workbook->getSheetNames());
                 $groups = $workbook->getSheetByName('Grupos');
                 $this->assertSame(5, $groups->getCell('F3')->getValue());
@@ -119,6 +122,9 @@ class ReportSummaryExcelExportTest extends TestCase
                 $this->assertSame(2, $indicators->getCell('J4')->getValue());
                 $this->assertSame('A2:J4', $indicators->getAutoFilter()->getRange());
             } else {
+                foreach (['disability', 'ethnicity', 'pregnancy'] as $index => $key) {
+                    $this->assertSame($data[$key], $summary->getCell('B'.($index + 8))->getValue());
+                }
                 $this->assertSame(['Resumen', 'Desgloses'], $workbook->getSheetNames());
                 $sheet = $workbook->getSheetByName('Desgloses');
                 $rows = $sheet->toArray();
@@ -167,7 +173,7 @@ class ReportSummaryExcelExportTest extends TestCase
         $default = $this->load($this->get(route($route.'.export', ['reported' => '']))->assertOk());
         try {
             $this->assertSame(8, $default->getSheetByName('Resumen')->getCell('B3')->getValue());
-            $this->assertSame('Todos los períodos', $default->getSheetByName('Resumen')->getCell('B14')->getValue());
+            $this->assertSame('Todos los períodos', $default->getSheetByName('Resumen')->getCell($byIndicators ? 'B14' : 'B17')->getValue());
         } finally {
             $default->disconnectWorksheets();
         }
@@ -228,6 +234,80 @@ class ReportSummaryExcelExportTest extends TestCase
             $this->assertSame(DataType::TYPE_STRING, $sheet->getCell('B3')->getDataType());
             $this->assertSame('+SUM(1,2)', $sheet->getCell('C3')->getValue());
             $this->assertSame(DataType::TYPE_STRING, $sheet->getCell('C3')->getDataType());
+        } finally {
+            $workbook->disconnectWorksheets();
+        }
+    }
+
+    public function test_general_excel_condition_totals_match_cards_projects_filters_and_team_visibility(): void
+    {
+        $partner = User::factory()->create(['role' => 'reporter']);
+        $partner->givePermissionTo('exportar registros excel');
+        $first = $this->record($partner, 'A', '2026-09-10', '2026-09', $this->assignment, [
+            ['age' => 25, 'sex' => 'Mujer', 'disability' => 'Discapacidad Visual', 'ethnicity' => 'Wayúu', 'pregnant_lactating' => 'Sí'],
+            ['age' => 15, 'sex' => 'Hombre', 'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'No'],
+            ['age' => 30, 'sex' => 'Mujer', 'disability' => null, 'ethnicity' => '', 'pregnant_lactating' => 'Ninguna'],
+        ]);
+        $project = $this->assignment->proyecto->replicate();
+        $project->codigo = 'PR-2';
+        $project->save();
+        $sector = SectorProyecto::create(['proyecto_id' => $project->id, 'sector_id' => $this->assignment->asignacionSector->sector_id]);
+        $assignment = $this->secondAssignment->replicate();
+        $assignment->forceFill(['proyecto_id' => $project->id, 'sector_proyecto_id' => $sector->id])->save();
+        // This indicator is excluded only from beneficiary reports, not general reports.
+        $second = $this->record($this->admin, 'B', '2026-10-02', '2026-10', $assignment, [
+            ['age' => 33, 'sex' => 'Mujer', 'disability' => 'Discapacidad Auditiva', 'ethnicity' => 'Warao', 'pregnant_lactating' => 'Sí'],
+            ['age' => 40, 'sex' => 'Hombre', 'disability' => 'Discapacidad Física o Motora', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'N/A'],
+        ]);
+        $second->beneficiaries()->update(['reported_at' => '2026-10-03', 'reported' => true]);
+
+        foreach ([
+            [[], [5, 3, 2, 2]],
+            [['project_ids' => [$first->proyecto_id]], [3, 1, 1, 1]],
+            [['project_ids' => [$project->id]], [2, 2, 1, 1]],
+            [['project_ids' => [$first->proyecto_id, $project->id]], [5, 3, 2, 2]],
+            [['reported' => '1'], [2, 2, 1, 1]],
+            [['reported' => '0'], [3, 1, 1, 1]],
+            [['reporting_period' => ['2026-09']], [3, 1, 1, 1]],
+            [['attention_from' => '2026-09-10', 'attention_to' => '2026-09-30'], [3, 1, 1, 1]],
+            [['state_id' => [$this->geography['B']['state_id']]], [2, 2, 1, 1]],
+            [['indicador_id' => [$assignment->indicador_id]], [2, 2, 1, 1]],
+            [['sex' => 'Hombre'], [2, 1, 0, 0]],
+            [['age_from' => 99], [0, 0, 0, 0]],
+        ] as [$filters, $expected]) {
+            $this->assertGeneralConditionsExcel($filters, $expected);
+        }
+        $this->actingAs($partner);
+        $this->assertGeneralConditionsExcel([], [3, 1, 1, 1]);
+        $group = UserGroup::create(['name' => 'Equipo del resumen Excel', 'is_active' => true]);
+        $coordinator = User::factory()->create(['role' => 'coordinator']);
+        $coordinator->givePermissionTo('exportar registros excel');
+        $group->users()->attach([$coordinator->id, $partner->id]);
+        $this->actingAs($coordinator);
+        $this->assertGeneralConditionsExcel([], [3, 1, 1, 1]);
+    }
+
+    private function assertGeneralConditionsExcel(array $filters, array $expected): void
+    {
+        $filters += ['reported' => '', 'reporting_period' => ['']];
+        $screen = $this->get(route('general-reports.index', $filters))->assertOk()->viewData('summary');
+        $workbook = $this->load($this->get(route('general-reports.export', $filters))->assertOk()->assertDownload());
+        try {
+            $sheet = $workbook->getSheetByName('Resumen');
+            $keys = ['beneficiaries', 'disability', 'ethnicity', 'pregnancy'];
+            foreach (['B3', 'B8', 'B9', 'B10'] as $index => $cell) {
+                $this->assertSame($expected[$index], $screen[$keys[$index]], json_encode($filters));
+                $this->assertSame($screen[$keys[$index]], $sheet->getCell($cell)->getValue());
+                $this->assertSame(DataType::TYPE_NUMERIC, $sheet->getCell($cell)->getDataType());
+                $this->assertSame('#,##0', $sheet->getStyle($cell)->getNumberFormat()->getFormatCode());
+            }
+            $this->assertSame('Personas con discapacidad', $sheet->getCell('A8')->getValue());
+            $this->assertSame('Personas indígenas / etnia', $sheet->getCell('A9')->getValue());
+            $this->assertSame('Embarazadas o lactantes', $sheet->getCell('A10')->getValue());
+            $this->assertStringContainsString('pueden coincidir en una misma persona', $sheet->getCell('A12')->getValue());
+            $this->assertSame('Filtros aplicados', $sheet->getCell('A14')->getValue());
+            $this->assertSame('Filtro', $sheet->getCell('A15')->getValue());
+            $this->assertSame('Reportado', $sheet->getCell('A16')->getValue());
         } finally {
             $workbook->disconnectWorksheets();
         }
