@@ -11,6 +11,23 @@ use Illuminate\Validation\Rule;
 
 class BeneficiaryLookupController extends Controller
 {
+    public function continuationLookup(Request $request, \App\Models\Report $report): JsonResponse
+    {
+        app(\App\Services\ReportContinuation::class)->assertAllowed($request->user(), $report);
+
+        // Retain the existing personal-data visibility checks of the lookup.
+        return $this->byNationalId($request);
+    }
+
+    public function continuationRecurrence(Request $request, \App\Models\Report $report, \App\Services\BeneficiaryRecurrence $recurrence): JsonResponse
+    {
+        app(\App\Services\ReportContinuation::class)->assertAllowed($request->user(), $report);
+        // The record, not an arbitrary project sent by the browser, defines scope.
+        $request->merge(['proyecto_id' => $report->proyecto_id]);
+
+        return $this->projectRecurrence($request, $recurrence);
+    }
+
     public function projectRecurrence(Request $request, \App\Services\BeneficiaryRecurrence $recurrence): JsonResponse
     {
         $data = $request->validate([

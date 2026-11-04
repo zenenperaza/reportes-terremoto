@@ -12,8 +12,6 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportDataTable
 {
-    private ?ReportContinuation $continuation = null;
-
     public static function columns(User $user): array
     {
         $names = ['date', 'reporter', 'created'];
@@ -168,10 +166,6 @@ class ReportDataTable
         ];
         if ($includeActions && $user->can('ver detalle de registros')) {
             $row['actions'] = '<a href="'.e(route('reports.show', $report)).'">Ver</a>';
-            $this->continuation ??= new ReportContinuation();
-            if ($this->continuation->allows($user, $report)) {
-                $row['actions'] .= '<br><a href="'.e(route('reports.resume', $report)).'">Continuar agregando beneficiarios</a>';
-            }
         }
 
         return $row;

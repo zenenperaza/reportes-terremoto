@@ -239,9 +239,13 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
     Route::get('/reportes/nuevo', [ReportController::class, 'create'])->middleware('permission:registrar actividad')->name('reports.create');
     Route::post('/reportes', [ReportController::class, 'store'])->middleware(['permission:registrar actividad', ReportPeriodTransaction::class])->name('reports.store');
     Route::get('/reportes/{report}/continuar', [ReportController::class, 'resume'])
-        ->middleware('permission:registrar actividad')->name('reports.resume');
+        ->middleware('permission:editar registros')->name('reports.resume');
     Route::post('/reportes/{report}/continuar', [ReportController::class, 'continueBeneficiary'])
-        ->middleware(['permission:registrar actividad', ReportPeriodTransaction::class])->name('reports.continue-beneficiary');
+        ->middleware(['permission:editar registros', ReportPeriodTransaction::class])->name('reports.continue-beneficiary');
+    Route::post('/reportes/{report}/continuar/recurrencia', [BeneficiaryLookupController::class, 'continuationRecurrence'])
+        ->middleware(['permission:editar registros', 'throttle:120,1'])->name('reports.continuation-recurrence');
+    Route::post('/reportes/{report}/continuar/buscar-cedula', [BeneficiaryLookupController::class, 'continuationLookup'])
+        ->middleware(['permission:editar registros', 'throttle:60,1'])->name('reports.continuation-lookup');
     Route::get('/reportes/{report}/editar', [ReportController::class, 'edit'])->middleware('permission:editar registros|editar beneficiarios')->name('reports.edit');
     Route::put('/reportes/{report}', [ReportController::class, 'update'])->middleware(['permission:editar registros', ReportPeriodTransaction::class])->name('reports.update');
     Route::delete('/reportes/{report}', [ReportController::class, 'destroy'])->middleware(['permission:eliminar registros', ReportPeriodTransaction::class])->name('reports.destroy');

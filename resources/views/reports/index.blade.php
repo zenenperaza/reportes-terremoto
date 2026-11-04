@@ -112,11 +112,7 @@
                     <td data-order="{{ $report->total_beneficiaries }}">{{ number_format($report->total_beneficiaries) }}</td>
                     @php($isReported = $report->beneficiaries_count > 0 && $report->unreported_beneficiaries_count === 0)
                     <td><span class="status status-{{ $isReported ? 'reviewed' : 'submitted' }}">{{ $isReported ? 'Sí' : 'No' }}</span>@if(! $isReported && $report->beneficiaries_count > $report->unreported_beneficiaries_count)<br><small>{{ $report->beneficiaries_count - $report->unreported_beneficiaries_count }} de {{ $report->beneficiaries_count }} beneficiarios reportados</small>@endif</td>
-                    @if($canViewReportDetail)<td class="report-actions"><a href="{{ route('reports.show', $report) }}">Ver</a>
-                        @if($reportContinuation->allows(auth()->user(), $report))
-                            <br><a href="{{ route('reports.resume', $report) }}">Continuar agregando beneficiarios</a>
-                        @endif
-                    </td>@endif
+                    @if($canViewReportDetail)<td class="report-actions"><a href="{{ route('reports.show', $report) }}">Ver</a></td>@endif
                 </tr>
             @endforeach
             @endif

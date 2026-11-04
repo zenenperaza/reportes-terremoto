@@ -97,8 +97,11 @@ Recargar con Ctrl + F5 y comprobar:
 - Editar o eliminar opiniones de compañeros requiere el permiso de la acción y
   un grupo compartido activo con Edición cruzada habilitada. Los administradores
   conservan el alcance global, con sus permisos correspondientes.
-- La opción de continuar aparece en Registros y en el detalle de un listado
-  modificable. Se recuperan su período y las personas guardadas.
+- En Registros solo aparece Ver; el botón de continuar permanece en el detalle
+  de un listado modificable. Se recuperan su período y las personas guardadas.
+- Continuar exige `editar registros` y `ver detalle de registros`. El usuario
+  que solo tiene `registrar actividad` no puede continuar un listado, y quien
+  tiene editar sin registrar puede continuarlo pero no crear registros nuevos.
 - Una persona nueva se agrega al mismo registro. No es necesario crear ni
   eliminar registros de prueba en producción para verificar el despliegue.
 

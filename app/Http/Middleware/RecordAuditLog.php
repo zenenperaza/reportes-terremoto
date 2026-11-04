@@ -137,7 +137,7 @@ class RecordAuditLog
     {
         // El historial del expediente conserva la acción y los campos modificados.
         // No duplicar datos personales ni búsquedas de casos en la bitácora general.
-        if ($request->routeIs('cases.*', 'families.*', 'buzon.*', 'beneficiaries.lookup', 'beneficiaries.project-recurrence')) {
+        if ($request->routeIs('cases.*', 'families.*', 'buzon.*', 'beneficiaries.lookup', 'beneficiaries.project-recurrence', 'reports.continuation-recurrence', 'reports.continuation-lookup')) {
             return null;
         }
 

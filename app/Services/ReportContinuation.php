@@ -7,7 +7,7 @@ use App\Models\ReportingPeriod;
 use App\Models\User;
 use App\Support\ReportPeriod;
 
-/** A separate capability: append people without granting permission to edit the group. */
+/** Continuing an existing list is governed by the permission to edit records. */
 class ReportContinuation
 {
     private ?array $closedPeriods = null;
@@ -33,7 +33,7 @@ class ReportContinuation
 
     private function authorized(User $user, Report $report): bool
     {
-        return $user->can('registrar actividad') && $user->can('ver detalle de registros')
+        return $user->can('editar registros') && $user->can('ver detalle de registros')
             && $user->canViewReport($report) && $user->canManageGroupReport($report);
     }
 

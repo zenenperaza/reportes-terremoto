@@ -1,23 +1,32 @@
 # Continuar un listado de beneficiarios
 
-En **Registros**, la acción **Continuar agregando beneficiarios** abre
-`/reportes/{id}/continuar`. También aparece en el detalle del registro.
+En **Registros**, seleccione **Ver**. El botón **Continuar agregando beneficiarios**
+se muestra únicamente en el detalle del registro y abre `/reportes/{id}/continuar`.
+El listado, tanto en su versión normal como en la DataTable, conserva solo **Ver**.
 
 Se recuperan el proyecto, indicador, actividad, servicios, lugar, fecha y período
 originales, junto con las personas ya guardadas. La sección de beneficiarios queda
 habilitada; el contexto de la actividad permanece bloqueado. Cada nueva persona
 se guarda inmediatamente en el mismo registro y actualiza sus totales.
 
-Después del primer guardado en Nuevo registro, la dirección del navegador pasa a
-la de continuación, para que recargar retome el listado. Si se cambia de pantalla
+Después del primer guardado en Nuevo registro, si el usuario tiene permiso para
+continuar, la dirección del navegador pasa a la de continuación, para que recargar
+retome el listado. Si se cambia de pantalla
 o se inicia otra sesión, puede recuperarse desde Registros. Los datos de una
 persona que todavía no se haya guardado no se recuperan.
 
 ## Permisos y consistencia
 
-- Requiere `registrar actividad` y `ver detalle de registros`, además del alcance
+- Requiere `editar registros` y `ver detalle de registros`, además del alcance
   de gestión del registro y un proyecto asignado y activo (administrador exceptuado
-  de la asignación). No otorga permisos para editar ni eliminar datos existentes.
+  de la asignación). El formulario de continuación solo agrega personas: no
+  cambia los permisos para editar o eliminar beneficiarios ya guardados.
+- `registrar actividad` no sustituye a `editar registros` ni es necesario para
+  continuar. Sigue siendo obligatorio para crear registros nuevos.
+- La consulta de recurrencia y el autocompletado en continuación usan rutas
+  propias vinculadas al registro, con el mismo permiso de editar y alcance del
+  registro. No se abre el acceso general a las API de registro ni a perfiles fuera
+  de la visibilidad existente; los datos consultados no se guardan en la bitácora.
 - Para coordinadores se respeta la configuración de edición de su equipo.
 - No se permite continuar registros revisados ni períodos cerrados. Se comprueba
   de nuevo al guardar, dentro de la transacción.
@@ -36,6 +45,8 @@ persona que todavía no se haya guardado no se recuperan.
 ## Archivos para el despliegue
 
 - `app/Http/Controllers/ReportController.php`
+- `app/Http/Controllers/BeneficiaryLookupController.php`
+- `app/Http/Middleware/RecordAuditLog.php`
 - `app/Http/Requests/ContinueReportBeneficiaryRequest.php` (nuevo)
 - `app/Http/Requests/Concerns/PreservesReportLocation.php`
 - `app/Http/Requests/Concerns/ValidatesAssociatedIndicators.php`

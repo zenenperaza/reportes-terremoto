@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\{Beneficiary, Indicador, IndicadorProyecto, Municipality, Parish, PlaceName, Proyecto, Report, ReportingPeriod, Sector, State, SystemSetting, User, UserGroup};
+use App\Models\{AuditLog, Beneficiary, Indicador, IndicadorProyecto, Municipality, Parish, PlaceName, Proyecto, Report, ReportingPeriod, Sector, State, SystemSetting, User, UserGroup};
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Symfony\Component\Process\Process;
@@ -22,7 +22,7 @@ class ReportContinuationTest extends TestCase
         parent::setUp();
         $this->owner = User::factory()->create(['role' => 'reporter']);
         $this->owner->syncRoles([]);
-        $this->owner->givePermissionTo(['registrar actividad', 'ver detalle de registros', 'solo ver registros']);
+        $this->owner->givePermissionTo(['registrar actividad', 'editar registros', 'ver detalle de registros', 'solo ver registros']);
         $state = State::create(['code' => 'C', 'name' => 'Estado']);
         $municipality = Municipality::create(['state_id' => $state->id, 'code' => 'C1', 'name' => 'Municipio']);
         $parish = Parish::create(['municipality_id' => $municipality->id, 'code' => 'C11', 'name' => 'Parroquia']);
@@ -50,9 +50,82 @@ class ReportContinuationTest extends TestCase
         return $this->postJson(route('reports.continue-beneficiary', $this->report), ['beneficiary' => $this->person($changes)]);
     }
 
-    public function test_owner_can_resume_without_permission_to_edit_the_group_and_form_only_allows_adding_people(): void
+    public function test_registrar_without_edit_permission_cannot_see_or_use_continuation_but_can_create_new_records(): void
     {
-        $this->assertFalse($this->owner->can('editar registros'));
+        $this->owner->revokePermissionTo('editar registros');
+        $this->actingAs($this->owner->fresh());
+        $this->get(route('reports.show', $this->report))->assertOk()->assertViewHas('canContinueReport', false)
+            ->assertDontSee('href="'.route('reports.resume', $this->report).'"', false);
+        $this->get(route('reports.resume', $this->report))->assertForbidden();
+        $this->append()->assertForbidden();
+        $this->postJson(route('reports.continuation-recurrence', $this->report), $this->person())->assertForbidden();
+        $this->postJson(route('reports.continuation-lookup', $this->report), ['national_id' => 'V12345678'])->assertForbidden();
+        $this->postJson(route('beneficiaries.store'), $this->headers + ['beneficiary' => $this->person()])
+            ->assertCreated()->assertJsonPath('report.resume_url', null);
+        $this->assertSame(1, $this->report->beneficiaries()->count());
+        $this->assertSame(2, Report::count());
+    }
+
+    public function test_editor_without_registration_permission_can_continue_with_lookup_and_recurrence_without_gaining_create_access(): void
+    {
+        $this->owner->revokePermissionTo('registrar actividad');
+        $this->actingAs($this->owner->fresh());
+        $this->get(route('reports.resume', $this->report))->assertOk()->assertSee('data-lookup-enabled="1"', false)
+            ->assertSee(route('reports.continuation-lookup', $this->report), false)
+            ->assertSee(json_encode(route('reports.continuation-recurrence', $this->report)), false);
+        $this->postJson(route('reports.continuation-recurrence', $this->report), $this->person() + ['proyecto_id' => 999999])
+            ->assertOk()->assertJsonPath('comparable', true)->assertJsonPath('is_recurrent', true)
+            ->assertHeader('Cache-Control', 'no-store, private')->assertDontSee('PERSONA DE PRUEBA');
+        $this->postJson(route('reports.continuation-lookup', $this->report), ['national_id' => 'V12345678'])
+            ->assertOk()->assertJsonPath('matched', true)->assertHeader('Cache-Control', 'no-store, private');
+        foreach (['reports.continuation-recurrence', 'reports.continuation-lookup'] as $route) {
+            $this->assertNull(AuditLog::where('route_name', $route)->latest('id')->firstOrFail()->request_payload);
+        }
+        $this->append()->assertOk()->assertJsonPath('report.id', $this->report->id)->assertJsonPath('summary.total', 2);
+        $this->get(route('reports.create'))->assertForbidden();
+        $this->postJson(route('beneficiaries.store'), $this->headers + ['beneficiary' => $this->person()])->assertForbidden();
+        $this->postJson(route('beneficiaries.lookup'), ['national_id' => 'V12345678'])->assertForbidden();
+        $this->postJson(route('beneficiaries.project-recurrence'), $this->person() + ['proyecto_id' => $this->report->proyecto_id])->assertForbidden();
+        $this->assertSame(1, Report::count());
+    }
+
+    public function test_continuation_cannot_be_used_after_edit_permission_is_revoked_even_by_an_administrator(): void
+    {
+        $this->get(route('reports.resume', $this->report))->assertOk();
+        $this->owner->revokePermissionTo('editar registros');
+        $this->actingAs($this->owner->fresh());
+        $this->append()->assertForbidden();
+        $this->postJson(route('reports.continuation-recurrence', $this->report), $this->person())->assertForbidden();
+        $this->postJson(route('reports.continuation-lookup', $this->report), ['national_id' => 'V12345678'])->assertForbidden();
+        $admin = User::factory()->create(['role' => 'admin']);
+        $admin->syncRoles([]);
+        $admin->givePermissionTo(['registrar actividad', 'ver detalle de registros']);
+        $this->actingAs($admin);
+        $this->get(route('reports.show', $this->report))->assertOk()->assertViewHas('canContinueReport', false);
+        $this->get(route('reports.resume', $this->report))->assertForbidden();
+        $this->append()->assertForbidden();
+        $this->assertSame(1, $this->report->beneficiaries()->count());
+    }
+
+    public function test_continuation_lookups_respect_record_authorization_and_existing_profile_visibility(): void
+    {
+        $outsider = User::factory()->create(['role' => 'reporter']);
+        $hiddenReport = $this->report->replicate();
+        $hiddenReport->user_id = $outsider->id;
+        $hiddenReport->save();
+        $hiddenReport->beneficiaries()->create($this->person(['full_name' => 'PERFIL RESERVADO', 'national_id' => 'V99999999']));
+        $this->postJson(route('reports.continuation-lookup', $this->report), ['national_id' => 'V99999999'])
+            ->assertOk()->assertJsonPath('matched', false)->assertDontSee('PERFIL RESERVADO');
+        $outsider->givePermissionTo(['editar registros', 'ver detalle de registros']);
+        $outsider->projects()->attach($this->report->proyecto_id);
+        $this->actingAs($outsider);
+        $this->postJson(route('reports.continuation-lookup', $this->report), ['national_id' => 'V12345678'])->assertForbidden();
+        $this->postJson(route('reports.continuation-recurrence', $this->report), $this->person())->assertForbidden();
+    }
+
+    public function test_owner_with_edit_permission_can_resume_and_form_only_allows_adding_people(): void
+    {
+        $this->assertTrue($this->owner->can('editar registros'));
         $page = $this->get(route('reports.resume', $this->report))->assertOk()
             ->assertViewHas('continuing', true)->assertSee('Continuar registro #'.$this->report->id)
             ->assertSee('data-continuing="1"', false)->assertSee('data-lookup-enabled="1"', false)
@@ -110,6 +183,8 @@ class ReportContinuationTest extends TestCase
         $this->report->update(['status' => 'reviewed']);
         $this->get(route('reports.resume', $this->report))->assertConflict();
         $this->append()->assertConflict();
+        $this->postJson(route('reports.continuation-recurrence', $this->report), $this->person())->assertConflict();
+        $this->postJson(route('reports.continuation-lookup', $this->report), ['national_id' => 'V12345678'])->assertConflict();
         $this->get(route('reports.show', $this->report))->assertOk()->assertViewHas('canContinueReport', false);
         $this->report->update(['status' => 'submitted', 'reporting_period' => '2026-01']);
         ReportingPeriod::create(['period' => '2026-01', 'is_closed' => true]);
@@ -121,20 +196,22 @@ class ReportContinuationTest extends TestCase
     public function test_permission_project_assignment_and_group_scope_are_enforced_on_get_and_post(): void
     {
         $outsider = User::factory()->create(['role' => 'reporter']);
-        $outsider->givePermissionTo(['registrar actividad', 'ver detalle de registros']);
+        $outsider->givePermissionTo(['registrar actividad', 'editar registros', 'ver detalle de registros']);
         $outsider->projects()->attach($this->report->proyecto_id);
         $this->actingAs($outsider);
         $this->get(route('reports.resume', $this->report))->assertForbidden();
         $this->append()->assertForbidden();
-        $this->owner->revokePermissionTo('registrar actividad');
+        $this->owner->revokePermissionTo('editar registros');
         $this->actingAs($this->owner->fresh());
         $this->get(route('reports.resume', $this->report))->assertForbidden();
         $this->append()->assertForbidden();
-        $this->owner->givePermissionTo('registrar actividad');
+        $this->owner->givePermissionTo('editar registros');
         $this->owner->revokePermissionTo('ver detalle de registros');
         $this->actingAs($this->owner->fresh());
         $this->get(route('reports.resume', $this->report))->assertForbidden();
         $this->append()->assertForbidden();
+        $this->postJson(route('reports.continuation-recurrence', $this->report), $this->person())->assertForbidden();
+        $this->postJson(route('reports.continuation-lookup', $this->report), ['national_id' => 'V12345678'])->assertForbidden();
         $this->owner->givePermissionTo('ver detalle de registros');
         $this->owner->projects()->detach();
         $this->actingAs($this->owner->fresh());
@@ -143,18 +220,48 @@ class ReportContinuationTest extends TestCase
         $this->assertSame(1, Beneficiary::count());
     }
 
-    public function test_list_detail_and_server_side_datatable_offer_continuation_only_when_allowed(): void
+    public function test_list_offers_only_view_and_continuation_remains_in_detail_when_allowed(): void
     {
         $url = route('reports.resume', $this->report);
-        $this->get(route('reports.index'))->assertOk()->assertSee($url, false);
+        $this->get(route('reports.index'))->assertOk()->assertDontSee($url, false)
+            ->assertDontSee('Continuar agregando beneficiarios')
+            ->assertSee('href="'.route('reports.show', $this->report).'"', false);
         $this->get(route('reports.show', $this->report))->assertOk()->assertSee($url, false);
         $admin = User::factory()->create(['role' => 'admin']);
         $this->actingAs($admin)->getJson(route('reports.index', ['draw' => 1]))->assertOk()
-            ->assertJsonPath('data.0.actions', fn ($actions) => str_contains($actions, $url));
+            ->assertJsonPath('data.0.actions', '<a href="'.route('reports.show', $this->report).'">Ver</a>');
+        $this->get(route('reports.show', $this->report))->assertOk()->assertSee($url, false);
         $this->report->update(['status' => 'reviewed']);
         $this->getJson(route('reports.index', ['draw' => 1]))->assertOk()
             ->assertJsonPath('data.0.actions', fn ($actions) => !str_contains($actions, $url));
         $this->actingAs($this->owner)->get(route('reports.index'))->assertOk()->assertDontSee($url, false);
+        $this->get(route('reports.show', $this->report))->assertOk()->assertDontSee($url, false);
+    }
+
+    public function test_detail_actions_are_grouped_below_summary_with_status_outside_the_toolbar(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $response = $this->actingAs($admin)->get(route('reports.show', $this->report))->assertOk();
+        $dom = new \DOMDocument();
+        @$dom->loadHTML('<?xml encoding="UTF-8">'.$response->getContent());
+        $xpath = new \DOMXPath($dom);
+        $toolbar = $xpath->query('//nav[@class="report-detail-actions"]')->item(0);
+        $this->assertNotNull($toolbar);
+        $this->assertSame('Acciones del registro', $toolbar->getAttribute('aria-label'));
+        $this->assertSame(1, $xpath->query('//div[@class="report-detail-meta"]/span[contains(@class,"status")]')->length);
+        $this->assertSame(0, $xpath->query('.//span[contains(@class,"status")]', $toolbar)->length);
+        $labels = [];
+        foreach ($xpath->query('.//a | .//button', $toolbar) as $button) {
+            $labels[] = trim($button->textContent);
+            $this->assertSame(1, $xpath->query('./i[@aria-hidden="true"]', $button)->length);
+        }
+        $this->assertSame(['Continuar agregando beneficiarios', 'Editar registro', 'Eliminar registro', 'Volver a registros'], $labels);
+        $this->assertSame(1, $xpath->query('.//form[@class="report-delete-form"]/input[@name="_method"][@value="DELETE"]', $toolbar)->length);
+        $this->report->update(['reporting_period' => '2026-01']);
+        ReportingPeriod::create(['period' => '2026-01', 'is_closed' => true]);
+        $this->get(route('reports.show', $this->report))->assertOk()
+            ->assertSee('report-detail-back')->assertDontSee('class="report-detail-main-actions"', false)
+            ->assertDontSee('class="report-delete-form"', false);
     }
 
     public function test_validation_and_historical_location_snapshot_are_preserved(): void
@@ -212,7 +319,7 @@ class ReportContinuationTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'Equipo', 'is_active' => true, 'allow_member_editing' => true]);
         $coordinator = User::factory()->create(['role' => 'coordinator']);
-        $coordinator->givePermissionTo(['registrar actividad', 'ver detalle de registros']);
+        $coordinator->givePermissionTo(['editar registros', 'ver detalle de registros']);
         $coordinator->projects()->attach($this->report->proyecto_id);
         $group->users()->attach([$this->owner->id, $coordinator->id]);
         $this->actingAs($coordinator);

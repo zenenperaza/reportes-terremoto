@@ -3,26 +3,32 @@
 @section('title', 'Registro #'.$report->id.' | SIA')
 
 @section('content')
-<section class="page-heading detail-heading">
-    <div>
-        <p class="eyebrow">Registro #{{ $report->id }} · {{ $report->report_date->format('d/m/Y') }}</p>
-        <p class="muted">Período: {{ \App\Support\ReportPeriod::label($report->reporting_period) }}</p>
+<section class="page-heading detail-heading report-detail-heading">
+    <div class="report-detail-summary">
+        <div class="report-detail-meta">
+            <p class="eyebrow">Registro #{{ $report->id }} · {{ $report->report_date->format('d/m/Y') }}</p>
+            <span class="status status-{{ $report->status }}"><i class="{{ $report->status === 'reviewed' ? 'ri-checkbox-circle-line' : 'ri-time-line' }}" aria-hidden="true"></i>{{ $report->status === 'reviewed' ? 'Revisado' : 'Enviado' }}</span>
+        </div>
+        <p class="muted report-detail-period">Período: {{ \App\Support\ReportPeriod::label($report->reporting_period) }}</p>
         <h1>{{ $report->proyecto?->codigo ?? $report->sector?->name ?? 'Registro de actividad' }}</h1>
-        <p class="muted">{{ $report->actividadIndicador?->actividad?->descripcion ?? $report->indicadorProyecto?->indicador?->descripcion ?? $report->activity?->title }}</p>
+        <p class="muted report-detail-description">{{ $report->actividadIndicador?->actividad?->descripcion ?? $report->indicadorProyecto?->indicador?->descripcion ?? $report->activity?->title }}</p>
     </div>
-    <div class="heading-actions">
-        @if($canContinueReport)<a class="button button-primary" href="{{ route('reports.resume', $report) }}">Continuar agregando beneficiarios</a>@endif
-        <span class="status status-{{ $report->status }}">{{ $report->status === 'reviewed' ? 'Revisado' : 'Enviado' }}</span>
-        @if($canEditReport)<a class="button button-primary" href="{{ route('reports.edit', $report) }}">Editar registro</a>@endif
-        @if($canDeleteReport)
-            <form method="post" action="{{ route('reports.destroy', $report) }}" class="report-delete-form">
-                @csrf
-                @method('DELETE')
-                <button class="button button-danger" type="submit">Eliminar registro</button>
-            </form>
+    <nav class="report-detail-actions" aria-label="Acciones del registro">
+        @if($canContinueReport || $canEditReport || $canDeleteReport)
+            <div class="report-detail-main-actions">
+                @if($canContinueReport)<a class="button button-primary report-detail-continue" href="{{ route('reports.resume', $report) }}"><i class="ri-user-add-line" aria-hidden="true"></i><span>Continuar agregando beneficiarios</span></a>@endif
+                @if($canEditReport)<a class="button button-secondary" href="{{ route('reports.edit', $report) }}"><i class="ri-pencil-line" aria-hidden="true"></i><span>Editar registro</span></a>@endif
+                @if($canDeleteReport)
+                    <form method="post" action="{{ route('reports.destroy', $report) }}" class="report-delete-form">
+                        @csrf
+                        @method('DELETE')
+                        <button class="button button-danger" type="submit"><i class="ri-delete-bin-5-line" aria-hidden="true"></i><span>Eliminar registro</span></button>
+                    </form>
+                @endif
+            </div>
         @endif
-        <a class="button button-secondary" href="{{ route('reports.index') }}">Volver a registros</a>
-    </div>
+        <a class="button button-secondary report-detail-back" href="{{ route('reports.index') }}"><i class="ri-arrow-left-line" aria-hidden="true"></i><span>Volver a registros</span></a>
+    </nav>
 </section>
 
 @if($periodClosed)
@@ -34,9 +40,32 @@
 
 @push('styles')
     <style>
-        .button-danger { background: var(--danger); color: #fff; }
-        .button-danger:hover { background: #8f1e15; color: #fff; }
-        .heading-actions form { margin: 0; }
+        .page-heading.report-detail-heading { display: block; }
+        .report-detail-summary { min-width: 0; }
+        .report-detail-heading h1 { overflow-wrap: anywhere; }
+        .report-detail-meta { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 6px; }
+        .report-detail-meta .status { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+        .report-detail-heading .report-detail-period { margin-bottom: 6px; }
+        .report-detail-description { max-width: 110ch; overflow-wrap: anywhere; }
+        .report-detail-actions { display: flex; align-items: stretch; justify-content: flex-end; flex-wrap: wrap; gap: 12px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+        .report-detail-main-actions { display: flex; align-items: stretch; flex-wrap: wrap; gap: 10px; min-width: 0; margin-right: auto; }
+        .report-detail-actions .button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 11px 16px; line-height: 1.35; text-align: center; }
+        .report-detail-actions .button i { flex-shrink: 0; font-size: 16px; }
+        .report-detail-actions .button span { overflow-wrap: anywhere; }
+        .report-detail-actions .report-delete-form { display: flex; margin: 0; }
+        .report-detail-actions .button-danger { background: var(--danger); color: #fff; }
+        .report-detail-actions .button-danger:hover { background: #8f1e15; color: #fff; }
+
+        @media (max-width: 767px) {
+            .report-detail-actions { display: grid; grid-template-columns: minmax(0, 1fr); }
+            .report-detail-main-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; margin-right: 0; }
+            .report-detail-continue { grid-column: 1 / -1; }
+            .report-detail-main-actions > :only-child, .report-detail-continue + :last-child { grid-column: 1 / -1; }
+            .report-detail-actions .button, .report-detail-actions .report-delete-form { width: 100%; }
+        }
+        @media (max-width: 479px) {
+            .report-detail-main-actions { grid-template-columns: minmax(0, 1fr); }
+        }
 
         @media (max-width: 1500px) {
             .beneficiary-table { min-width: 0; }

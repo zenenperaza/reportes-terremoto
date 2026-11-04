@@ -24,7 +24,7 @@
             <h1>{{ $continuing ? 'Continuar registro #'.$report->id : ($editingBeneficiary ? 'Editar beneficiario #'.$editingBeneficiary->id : ($editing ? 'Editar registro completo' : 'Registrar actividad')) }}</h1>
             <p class="muted">{{ $continuing ? 'Las nuevas personas se agregarán a este mismo listado. Los datos de la actividad se conservan sin cambios.' : ($editingBeneficiary ? 'Los cambios afectan solo a esta persona. Si cambia los datos compartidos, se separará del grupo sin modificar a los demás.' : ($editing ? 'Los cambios de proyecto, indicador y ubicación se aplican a todos los beneficiarios de este registro.' : 'Cada clic en “Guardar beneficiario” registra inmediatamente la persona en la base de datos.')) }}</p>
             @if(!$editing)
-                @can('solo ver registros')<p class="muted">¿Ya comenzó un listado? <a href="{{ route('reports.index') }}">Busque el registro y seleccione «Continuar agregando beneficiarios»</a>.</p>@endcan
+                @can('solo ver registros')<p class="muted">¿Ya comenzó un listado? <a href="{{ route('reports.index') }}">Busque el registro, entre por «Ver» y seleccione «Continuar agregando beneficiarios»</a>.</p>@endcan
             @endif
         </div>
     </section>
@@ -292,8 +292,8 @@
                 <p class="beneficiary-voice-example"><strong>Comando:</strong> diga “guardar beneficiario” para registrar la persona por voz.</p>
                 <div class="form-grid beneficiary-form-grid">
                     <label>Cédula<input type="text" id="beneficiary_national_id" maxlength="30"
-                            inputmode="text" data-beneficiary-lookup="{{ route('beneficiaries.lookup') }}"
-                            data-lookup-enabled="{{ (!$editing || $continuing) && auth()->user()->can('registrar actividad') && auth()->user()->can('ver detalle de registros') ? '1' : '0' }}"
+                            inputmode="text" data-beneficiary-lookup="{{ $continuing ? route('reports.continuation-lookup', $report) : route('beneficiaries.lookup') }}"
+                            data-lookup-enabled="{{ ($continuing ? auth()->user()->can('editar registros') : (!$editing && auth()->user()->can('registrar actividad'))) && auth()->user()->can('ver detalle de registros') ? '1' : '0' }}"
                             aria-describedby="beneficiary-lookup-status" autocomplete="off">
                         <small id="beneficiary-lookup-status" role="status" aria-live="polite">Al ingresar la cédula se consultan coincidencias para completar los datos. Revise la información antes de guardar.</small>
                     </label>
@@ -1201,7 +1201,7 @@
         beneficiaryInputs.is_recurrent.closest('label').before(recurrenceWarning);
         const recurrence = window.BeneficiaryRecurrence.create({
             form, inputs: beneficiaryInputs, project, status: recurrenceWarning,
-            url: @json(route('beneficiaries.project-recurrence')),
+            url: @json($continuing ? route('reports.continuation-recurrence', $report) : route('beneficiaries.project-recurrence')),
             csrf: document.querySelector('meta[name="csrf-token"]').content,
         });
         const checkPossibleRecurrence = () => recurrence.check();
@@ -1292,7 +1292,7 @@
                     const link = select('current-report-link');
                     link.href = result.report.url;
                     link.hidden = false;
-                    if (result.report.resume_url && @json(auth()->user()->can('ver detalle de registros'))) {
+                    if (result.report.resume_url && @json(auth()->user()->can('ver detalle de registros') && auth()->user()->can('editar registros'))) {
                         // Remember the saved list on refresh; a browser history
                         // restriction must not turn a successful save into an error.
                         try { window.history.replaceState(null, '', result.report.resume_url); } catch (_) {}

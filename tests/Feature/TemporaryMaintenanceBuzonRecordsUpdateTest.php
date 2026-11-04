@@ -18,6 +18,7 @@ class TemporaryMaintenanceBuzonRecordsUpdateTest extends TestCase
         'app/Http/Controllers/BuzonController.php',
         'app/Http/Controllers/PermissionController.php',
         'app/Http/Controllers/ReportController.php',
+        'app/Http/Controllers/BeneficiaryLookupController.php',
         'app/Http/Requests/ContinueReportBeneficiaryRequest.php',
         'app/Http/Requests/SaveBuzonEntryRequest.php',
         'app/Http/Requests/StoreBeneficiaryEntryRequest.php',
@@ -98,6 +99,7 @@ class TemporaryMaintenanceBuzonRecordsUpdateTest extends TestCase
                 ->assertSee('opiniones propias y de sus grupos activos')
                 ->assertSee('edición cruzada habilitada')
                 ->assertSee('Continuar agregando beneficiarios')
+                ->assertSee('Continuar requiere editar registros y ver detalle de registros')
                 ->assertSee('Los datos del cuidador son opcionales')
                 ->assertSee('No se ejecutan seeders, importaciones ni correcciones de parroquias.')
                 ->assertSee('No se crean, eliminan, unen ni reclasifican registros, beneficiarios u opiniones')

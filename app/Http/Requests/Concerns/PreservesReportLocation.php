@@ -15,8 +15,7 @@ trait PreservesReportLocation
             $report = $beneficiary->report;
         }
         if (! $report instanceof Report || $this->boolean('is_community_location')
-            || ! $this->user()?->can($this->routeIs('reports.continue-beneficiary') ? 'registrar actividad'
-                : ($beneficiary instanceof Beneficiary ? 'editar beneficiarios' : 'editar registros'))
+            || ! $this->user()?->can($beneficiary instanceof Beneficiary ? 'editar beneficiarios' : 'editar registros')
             || ! $this->user()->canManageGroupReport($report)) {
             return false;
         }

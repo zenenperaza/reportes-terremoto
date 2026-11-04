@@ -85,7 +85,6 @@ class ReportController extends Controller
 
         return view('reports.index', [
             'reports' => $reports,
-            'reportContinuation' => new ReportContinuation(),
             'selectedService' => $request->filled('servicio_actividad_id')
                 ? ServicioActividad::with(['servicio', 'actividadIndicador.actividad', 'actividadIndicador.indicadorProyecto.indicador'])
                     ->when(! $request->user()->isAdministrator(), fn (Builder $query) => $query->whereHas('reports',
@@ -337,7 +336,7 @@ class ReportController extends Controller
             'report' => [
                 'id' => $report->id,
                 'url' => route('reports.show', $report),
-                'resume_url' => route('reports.resume', $report),
+                'resume_url' => app(ReportContinuation::class)->allows($request->user(), $report) ? route('reports.resume', $report) : null,
                 'total_beneficiaries' => $report->total_beneficiaries,
             ],
             'beneficiary' => $beneficiary,
