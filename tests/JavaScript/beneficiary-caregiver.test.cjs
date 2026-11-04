@@ -17,34 +17,40 @@ function harness(age = '') {
     return {beneficiaryInputs, section, sync};
 }
 
-test('age 0 through 17 requires caregiver fields; adults clear them but temporarily empty or invalid ages preserve typed data', () => {
+test('age 0 through 17 enables optional caregiver fields; adults clear them but temporarily empty or invalid ages preserve typed data', () => {
     for (const age of ['0', '1', '17', '18', '34', '', ' ', '-1', '17.5', 'abc']) {
         const h = harness(age); h.sync();
         const minor = ['0', '1', '17'].includes(age);
         assert.equal(h.section.hidden, !minor);
         caregiverFields.forEach(field => {
-            assert.equal(h.beneficiaryInputs[field].required, minor);
+            assert.equal(h.beneficiaryInputs[field].required, false);
             assert.equal(h.beneficiaryInputs[field].disabled, !minor);
             assert.equal(h.beneficiaryInputs[field].value, ['18', '34'].includes(age) ? '' : 'Dato previo');
         });
     }
 });
 
-test('changing from minor to adult clears caregiver data and changing back requires new input', () => {
+test('changing from minor to adult clears caregiver data and changing back keeps fields optional', () => {
     const h = harness('17'); h.sync();
     h.beneficiaryInputs.age.value = '18'; h.sync();
     h.beneficiaryInputs.age.value = '17'; h.sync();
-    caregiverFields.forEach(field => {assert.equal(h.beneficiaryInputs[field].value, ''); assert.equal(h.beneficiaryInputs[field].required, true);});
+    caregiverFields.forEach(field => {assert.equal(h.beneficiaryInputs[field].value, ''); assert.equal(h.beneficiaryInputs[field].required, false);});
 });
 
-test('client validation blocks saving a minor without any caregiver field but allows adults without them', () => {
+test('client validation allows blank or missing caregiver fields while beneficiary name age and sex remain required', () => {
     const start = view.indexOf('const beneficiaryValidationMessage =');
     const end = view.indexOf('const updateSummary =', start);
     const validate = vm.runInNewContext(view.slice(start, end) + '\nbeneficiaryValidationMessage;', {selectedIndicatorAgeRange: () => null});
     const person = {has_informed_consent: '1', full_name: 'Persona', age: '17', sex: 'Mujer', is_recurrent: '0',
         caregiver_national_id: '00123456', caregiver_full_name: 'Cuidadora', caregiver_relationship: 'Madre'};
     assert.equal(validate(person), '');
-    caregiverFields.forEach(field => assert.match(validate({...person, [field]: '   '}), /cuidador/));
+    caregiverFields.forEach(field => assert.equal(validate({...person, [field]: '   '}), ''));
+    const withoutCaregiver = Object.fromEntries(Object.entries(person).filter(([key]) => !caregiverFields.includes(key)));
+    assert.equal(validate(withoutCaregiver), '');
+    assert.equal(validate({...withoutCaregiver, caregiver_national_id: '00123456'}), '');
+    assert.match(validate({...withoutCaregiver, full_name: ''}), /nombre y apellido/);
+    assert.match(validate({...withoutCaregiver, age: ''}), /edad/);
+    assert.match(validate({...withoutCaregiver, sex: ''}), /sexo/);
     assert.equal(validate({...person, age: '18', caregiver_national_id: '', caregiver_full_name: '', caregiver_relationship: ''}), '');
 });
 

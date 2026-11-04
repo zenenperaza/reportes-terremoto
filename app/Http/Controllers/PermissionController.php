@@ -13,6 +13,10 @@ class PermissionController extends Controller
 {
     private const PROTECTED_PERMISSIONS = [
         'Buzon',
+        'ver buzon',
+        'crear buzon',
+        'editar buzon',
+        'eliminar buzon',
         'administrar sistema',
         'Recibir notificaciones',
         'coordinar registros',

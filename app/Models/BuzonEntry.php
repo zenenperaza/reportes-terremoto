@@ -35,8 +35,17 @@ class BuzonEntry extends Model
 
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
-        // The route always requires Buzon; administrator status is not a permission bypass.
+        // Routes require their action permission; admin status is not a bypass.
         return $query->when(! $user->isAdministrator(), fn (Builder $query) => $query
-            ->whereIn('proyecto_id', $user->projects()->select('proyectos.id')));
+            ->whereIn('proyecto_id', $user->projects()->select('proyectos.id'))
+            ->whereIn('created_by', $user->visibleGroupUserIds()));
+    }
+
+    /** Ownership scope only. Each action must additionally require its permission. */
+    public function scopeManageableBy(Builder $query, User $user): Builder
+    {
+        return $query->when(! $user->isAdministrator(), fn (Builder $query) => $query
+            ->whereIn('proyecto_id', $user->projects()->select('proyectos.id'))
+            ->whereIn('created_by', $user->editableGroupUserIds()));
     }
 }

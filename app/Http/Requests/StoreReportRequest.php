@@ -218,10 +218,7 @@ class StoreReportRequest extends FormRequest
     public function messages(): array
     {
         return ['proyecto_id.required' => 'Seleccione un proyecto para registrar la actividad.',
-            'beneficiaries.*.full_name.required' => 'El nombre y apellido del beneficiario es obligatorio.',
-            'beneficiaries.*.caregiver_national_id.required_if' => 'La cédula del cuidador es obligatoria para beneficiarios menores de 18 años.',
-            'beneficiaries.*.caregiver_full_name.required_if' => 'El nombre del cuidador es obligatorio para beneficiarios menores de 18 años.',
-            'beneficiaries.*.caregiver_relationship.required_if' => 'El parentesco del cuidador es obligatorio para beneficiarios menores de 18 años.'];
+            'beneficiaries.*.full_name.required' => 'El nombre y apellido del beneficiario es obligatorio.'];
     }
 
     public function attributes(): array

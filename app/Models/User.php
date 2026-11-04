@@ -247,7 +247,8 @@ class User extends Authenticatable
             ->map(fn ($id) => (int) $id)->all();
     }
 
-    private function visibleGroupUserIds()
+    /** Authors shared by the current user's active groups, including self. */
+    public function visibleGroupUserIds()
     {
         if (! Schema::hasTable('user_group_user')) {
             if (! $this->user_group_id || ! $this->userGroup?->is_active) {
@@ -278,7 +279,8 @@ class User extends Authenticatable
             ->unique();
     }
 
-    private function editableGroupUserIds()
+    /** Authors shared through an active group with cross-editing enabled, including self. */
+    public function editableGroupUserIds()
     {
         if (! Schema::hasTable('user_group_user')) {
             if (! $this->user_group_id || ! $this->userGroup?->is_active || ! $this->userGroup?->allow_member_editing) {

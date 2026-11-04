@@ -9,7 +9,7 @@ trait ValidatesAssociatedIndicators
     protected function associatedIndicatorRules(): array
     {
         return [
-            'associated_indicator_ids' => [$this->routeIs('reports.store', 'beneficiaries.store') ? 'nullable' : 'prohibited', 'array', 'max:100'],
+            'associated_indicator_ids' => [$this->routeIs('reports.store', 'beneficiaries.store', 'reports.continue-beneficiary') ? 'nullable' : 'prohibited', 'array', 'max:100'],
             'associated_indicator_ids.*' => ['required', 'integer', 'distinct', 'exists:indicador_proyecto,id'],
         ];
     }

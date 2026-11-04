@@ -2,6 +2,8 @@
 
 @php
     $editing = isset($report);
+    $continuing = $continuing ?? false;
+    $contextOld = fn ($key, $default = null) => $continuing ? $default : old($key, $default);
     $editingBeneficiary = $editingBeneficiary ?? null;
     $initialBeneficiaries = $editingBeneficiary ? collect([$editingBeneficiary]) : ($editing ? $report->beneficiaries : collect());
     $nationalityOptions = collect($beneficiaryOptions['nationalities'])
@@ -12,31 +14,39 @@
         ->filter(fn ($value) => is_string($value) && $value !== '')->unique()->values();
 @endphp
 
-@section('title', ($editing ? 'Editar registro #'.$report->id : 'Nuevo registro').' | SIA')
+@section('title', ($continuing ? 'Continuar registro #'.$report->id : ($editing ? 'Editar registro #'.$report->id : 'Nuevo registro')).' | SIA')
 
 @section('content')
     @php($registrant = \App\Services\ReportRegistrant::fields($user, $editing ? $report : null))
     <section class="page-heading compact-heading">
         <div>
             <p class="eyebrow">Formulario de respuesta</p>
-            <h1>{{ $editingBeneficiary ? 'Editar beneficiario #'.$editingBeneficiary->id : ($editing ? 'Editar registro completo' : 'Registrar actividad') }}</h1>
-            <p class="muted">{{ $editingBeneficiary ? 'Los cambios afectan solo a esta persona. Si cambia los datos compartidos, se separará del grupo sin modificar a los demás.' : ($editing ? 'Los cambios de proyecto, indicador y ubicación se aplican a todos los beneficiarios de este registro.' : 'Cada clic en “Guardar beneficiario” registra inmediatamente la persona en la base de datos.') }}</p>
+            <h1>{{ $continuing ? 'Continuar registro #'.$report->id : ($editingBeneficiary ? 'Editar beneficiario #'.$editingBeneficiary->id : ($editing ? 'Editar registro completo' : 'Registrar actividad')) }}</h1>
+            <p class="muted">{{ $continuing ? 'Las nuevas personas se agregarán a este mismo listado. Los datos de la actividad se conservan sin cambios.' : ($editingBeneficiary ? 'Los cambios afectan solo a esta persona. Si cambia los datos compartidos, se separará del grupo sin modificar a los demás.' : ($editing ? 'Los cambios de proyecto, indicador y ubicación se aplican a todos los beneficiarios de este registro.' : 'Cada clic en “Guardar beneficiario” registra inmediatamente la persona en la base de datos.')) }}</p>
+            @if(!$editing)
+                @can('solo ver registros')<p class="muted">¿Ya comenzó un listado? <a href="{{ route('reports.index') }}">Busque el registro y seleccione «Continuar agregando beneficiarios»</a>.</p>@endcan
+            @endif
         </div>
     </section>
 
     <form enctype="multipart/form-data" class="report-form" id="report-form"
-        data-beneficiary-url="{{ route('beneficiaries.store') }}" data-location-reverse-url="{{ route('locations.reverse') }}"
+        data-beneficiary-url="{{ $continuing ? route('reports.continue-beneficiary', $report) : route('beneficiaries.store') }}" data-location-reverse-url="{{ route('locations.reverse') }}"
+        data-continuing="{{ $continuing ? '1' : '0' }}"
         @if($editing) data-report-id="{{ $report->id }}" @endif
         @if($editingBeneficiary) data-beneficiary-update-url="{{ route('beneficiaries.update-attention', $editingBeneficiary) }}"
-        @elseif($editing) data-report-update-url="{{ route('reports.update', $report) }}" @endif
+        @elseif($editing && !$continuing) data-report-update-url="{{ route('reports.update', $report) }}" @endif
         novalidate>
         @csrf
         @if($editingBeneficiary)<input type="hidden" name="source_report_id" value="{{ $report->id }}">@endif
+        @if($continuing)
+            <p class="alert alert-info" role="status">Este listado ya tiene {{ $initialBeneficiaries->count() }} beneficiario(s) guardado(s). Puede salir y retomarlo desde Registros. Solo se conservan las personas que haya guardado.</p>
+            <fieldset class="report-continuation-context" disabled>
+        @endif
         <section class="form-section">
             <div class="section-heading"><span>1</span>
                 <div>
                     <h2>Actividad</h2>
-                    <p>{{ $editingBeneficiary ? 'Proyecto, indicador, actividad y servicios de este beneficiario.' : ($editing ? 'Información compartida por todos los beneficiarios del grupo.' : 'Si cambia cualquiera de estos encabezados, el próximo beneficiario iniciará un nuevo registro.') }}</p>
+                    <p>{{ $continuing ? 'Datos del listado original. Para una actividad diferente, inicie un nuevo registro.' : ($editingBeneficiary ? 'Proyecto, indicador, actividad y servicios de este beneficiario.' : ($editing ? 'Información compartida por todos los beneficiarios del grupo.' : 'Si cambia cualquiera de estos encabezados, el próximo beneficiario iniciará un nuevo registro.')) }}</p>
                 </div>
             </div>
             <div class="form-grid ">
@@ -90,7 +100,7 @@
                 </label>
                 <label class="span-two">Detalles adicionales de la actividad
                     <textarea name="activity_details" rows="4" maxlength="300"
-                        placeholder="Cantidades entregadas, temas de capacitación, logros o detalles relevantes.">{{ old('activity_details', $editing ? $report->activity_details : null) }}</textarea>
+                        placeholder="Cantidades entregadas, temas de capacitación, logros o detalles relevantes.">{{ $contextOld('activity_details', $editing ? $report->activity_details : null) }}</textarea>
                 </label>
             </div>
         </section>
@@ -115,19 +125,19 @@
                 <label>Período<input type="text" id="report-period" value="{{ \App\Support\ReportPeriod::label($reportingPeriod) }}" readonly aria-readonly="true"></label>
                 @if(!$editing)<input type="hidden" name="period_snapshot" value="{{ $reportingPeriod }}">@endif
                 <label>Fecha de atencion *<input type="date" name="report_date"
-                        value="{{ old('report_date', $editing ? $report->report_date->format('Y-m-d') : today()->format('Y-m-d')) }}" max="{{ today()->format('Y-m-d') }}"
+                        value="{{ $contextOld('report_date', $editing ? $report->report_date->format('Y-m-d') : today()->format('Y-m-d')) }}" max="{{ today()->format('Y-m-d') }}"
                         required></label>
 
                 <label>Organización implementadora *
                     <select name="organization" id="organization" required>
                         <option value="">Seleccione una organización</option>
                         @foreach ($organizations as $organization)
-                            <option value="{{ $organization }}" @selected(old('organization', $editing ? $report->organization : 'ASONACOP') === $organization)>{{ $organization }}</option>
+                            <option value="{{ $organization }}" @selected($contextOld('organization', $editing ? $report->organization : 'ASONACOP') === $organization)>{{ $organization }}</option>
                         @endforeach
                     </select>
                 </label>
                 <label id="other-organization-field" hidden>Especifique otra organización<input type="text"
-                        name="other_organization" value="{{ old('other_organization', $editing ? $report->other_organization : null) }}"></label>
+                        name="other_organization" value="{{ $contextOld('other_organization', $editing ? $report->other_organization : null) }}"></label>
             </div>
         </section>
 
@@ -141,7 +151,7 @@
             <div class="form-grid">
                 <label class="checkbox-label community-location-toggle">
                     <input type="checkbox" name="is_community_location" id="is_community_location" value="1"
-                        @checked(old('is_community_location', $communityLocation))>
+                        @checked($contextOld('is_community_location', $communityLocation))>
                     No es un centro o espacio de atención formal o provisional
                 </label>
                 <div id="formal-place-fields">
@@ -156,7 +166,7 @@
                                 data-installation-type="{{ $report->installation_type }}"
                                 data-latitude="{{ $report->latitude }}" data-longitude="{{ $report->longitude }}"
                                 data-altitude="{{ $report->altitude }}" data-gps-accuracy="{{ $report->gps_accuracy }}"
-                                @selected(old('place_name', $report->place_name) === $report->place_name)>{{ $report->place_name }} (ubicación guardada)</option>
+                                @selected($contextOld('place_name', $report->place_name) === $report->place_name)>{{ $report->place_name }} (ubicación guardada)</option>
                         @endif
                         @foreach ($placeNames as $placeName)
                             <option value="{{ $placeName->name }}" data-place-id="{{ $placeName->id }}" data-state-id="{{ $placeName->state_id }}"
@@ -169,7 +179,7 @@
                                 data-latitude="{{ $placeName->latitude }}"
                                 data-longitude="{{ $placeName->longitude }}"
                                 data-altitude="{{ $placeName->altitude }}"
-                                data-gps-accuracy="{{ $placeName->gps_accuracy }}" @selected(old('place_name', $editing ? $report->place_name : null) === $placeName->name)>
+                                data-gps-accuracy="{{ $placeName->gps_accuracy }}" @selected($contextOld('place_name', $editing ? $report->place_name : null) === $placeName->name)>
                                 {{ $placeName->name }}</option>
                         @endforeach
                     </select>
@@ -186,7 +196,7 @@
                         <select id="community_state_id">
                             <option value="">Seleccione el estado</option>
                             @foreach($states as $stateOption)
-                                <option value="{{ $stateOption->id }}" @selected(old('state_id', $editing ? $report->state_id : null) == $stateOption->id)>{{ $stateOption->name }}</option>
+                                <option value="{{ $stateOption->id }}" @selected($contextOld('state_id', $editing ? $report->state_id : null) == $stateOption->id)>{{ $stateOption->name }}</option>
                             @endforeach
                         </select>
                     </label>
@@ -194,7 +204,7 @@
                         <select id="community_municipality_id">
                             <option value="">Seleccione el municipio</option>
                             @foreach($communityMunicipalities as $municipalityOption)
-                                <option value="{{ $municipalityOption->id }}" @selected(old('municipality_id', $editing ? $report->municipality_id : null) == $municipalityOption->id)>{{ $municipalityOption->name }}</option>
+                                <option value="{{ $municipalityOption->id }}" @selected($contextOld('municipality_id', $editing ? $report->municipality_id : null) == $municipalityOption->id)>{{ $municipalityOption->name }}</option>
                             @endforeach
                         </select>
                     </label>
@@ -205,7 +215,7 @@
                                 <option value="{{ $parishOption->id }}"
                                     data-latitude="{{ $parishOption->latitude }}"
                                     data-longitude="{{ $parishOption->longitude }}"
-                                    @selected(old('parish_id', $editing ? $report->parish_id : null) == $parishOption->id)>{{ $parishOption->name }}</option>
+                                    @selected($contextOld('parish_id', $editing ? $report->parish_id : null) == $parishOption->id)>{{ $parishOption->name }}</option>
                             @endforeach
                         </select>
                     </label>
@@ -213,34 +223,35 @@
                         <strong id="community-generated-name" class="span-two"></strong>
                         <label>Latitud específica *
                             <input type="number" id="community-latitude" step="any" min="-90" max="90"
-                                value="{{ old('latitude', $editing ? $report->latitude : null) }}">
+                                value="{{ $contextOld('latitude', $editing ? $report->latitude : null) }}">
                         </label>
                         <label>Longitud específica *
                             <input type="number" id="community-longitude" step="any" min="-180" max="180"
-                                value="{{ old('longitude', $editing ? $report->longitude : null) }}">
+                                value="{{ $contextOld('longitude', $editing ? $report->longitude : null) }}">
                         </label>
                         <small class="span-two muted">Puede reemplazar las coordenadas sugeridas por unas más precisas.</small>
                     </div>
                 </div>
             </div>
-            <input type="hidden" name="state_id" id="state_id" value="{{ old('state_id', $editing ? $report->state_id : null) }}">
-            <input type="hidden" name="municipality_id" id="municipality_id" value="{{ old('municipality_id', $editing ? $report->municipality_id : null) }}">
-            <input type="hidden" name="parish_id" id="parish_id" value="{{ old('parish_id', $editing ? $report->parish_id : null) }}">
-            <input type="hidden" name="installation_type" id="installation_type" value="{{ old('installation_type', $editing ? $report->installation_type : null) }}">
-            <input type="hidden" name="latitude" id="latitude" value="{{ old('latitude', $editing ? $report->latitude : null) }}">
-            <input type="hidden" name="longitude" id="longitude" value="{{ old('longitude', $editing ? $report->longitude : null) }}">
-            <input type="hidden" name="altitude" id="altitude" value="{{ old('altitude', $editing ? $report->altitude : null) }}">
-            <input type="hidden" name="gps_accuracy" id="gps_accuracy" value="{{ old('gps_accuracy', $editing ? $report->gps_accuracy : null) }}">
+            <input type="hidden" name="state_id" id="state_id" value="{{ $contextOld('state_id', $editing ? $report->state_id : null) }}">
+            <input type="hidden" name="municipality_id" id="municipality_id" value="{{ $contextOld('municipality_id', $editing ? $report->municipality_id : null) }}">
+            <input type="hidden" name="parish_id" id="parish_id" value="{{ $contextOld('parish_id', $editing ? $report->parish_id : null) }}">
+            <input type="hidden" name="installation_type" id="installation_type" value="{{ $contextOld('installation_type', $editing ? $report->installation_type : null) }}">
+            <input type="hidden" name="latitude" id="latitude" value="{{ $contextOld('latitude', $editing ? $report->latitude : null) }}">
+            <input type="hidden" name="longitude" id="longitude" value="{{ $contextOld('longitude', $editing ? $report->longitude : null) }}">
+            <input type="hidden" name="altitude" id="altitude" value="{{ $contextOld('altitude', $editing ? $report->altitude : null) }}">
+            <input type="hidden" name="gps_accuracy" id="gps_accuracy" value="{{ $contextOld('gps_accuracy', $editing ? $report->gps_accuracy : null) }}">
         </section>
 
-        <section class="form-section" @if($editing && !$editingBeneficiary) hidden @endif>
+        @if($continuing)</fieldset>@endif
+        <section class="form-section" @if($editing && !$editingBeneficiary && !$continuing) hidden @endif>
             <div class="section-heading"><span>4</span>
                 <div>
                     <h2>Beneficiarios</h2>
                     <p>{{ $editingBeneficiary ? 'Edite los datos de esta persona y guarde todos sus cambios.' : 'Complete una persona y guárdela. Los campos de esta sección se limpiarán, pero los encabezados permanecerán.' }}</p>
                 </div>
             </div>
-            <fieldset class="beneficiary-entry" @if($editing && !$editingBeneficiary) disabled @endif>
+            <fieldset class="beneficiary-entry" @if($editing && !$editingBeneficiary && !$continuing) disabled @endif>
                 <legend id="beneficiary-entry-title">Registrar beneficiario</legend>
                 <div class="beneficiary-consent-card">
                     <div class="form-check form-check-primary">
@@ -282,7 +293,7 @@
                 <div class="form-grid beneficiary-form-grid">
                     <label>Cédula<input type="text" id="beneficiary_national_id" maxlength="30"
                             inputmode="text" data-beneficiary-lookup="{{ route('beneficiaries.lookup') }}"
-                            data-lookup-enabled="{{ !$editing && auth()->user()->can('registrar actividad') && auth()->user()->can('ver detalle de registros') ? '1' : '0' }}"
+                            data-lookup-enabled="{{ (!$editing || $continuing) && auth()->user()->can('registrar actividad') && auth()->user()->can('ver detalle de registros') ? '1' : '0' }}"
                             aria-describedby="beneficiary-lookup-status" autocomplete="off">
                         <small id="beneficiary-lookup-status" role="status" aria-live="polite">Al ingresar la cédula se consultan coincidencias para completar los datos. Revise la información antes de guardar.</small>
                     </label>
@@ -325,11 +336,11 @@
                 </div>
                 <fieldset id="beneficiary-caregiver-fields" class="beneficiary-caregiver-fields" hidden>
                     <legend>Datos del cuidador</legend>
-                    <p class="muted">Obligatorios para beneficiarios menores de 18 años.</p>
+                    <p class="muted">Datos opcionales para beneficiarios menores de 18 años.</p>
                     <div class="form-grid beneficiary-form-grid">
-                        <label>Cédula del cuidador *<input type="text" id="beneficiary_caregiver_national_id" maxlength="30" disabled></label>
-                        <label>Nombre del cuidador *<input type="text" id="beneficiary_caregiver_full_name" maxlength="150" style="text-transform:uppercase" disabled></label>
-                        <label>Parentesco del cuidador *<select id="beneficiary_caregiver_relationship" disabled>
+                        <label>Cédula del cuidador (opcional)<input type="text" id="beneficiary_caregiver_national_id" maxlength="30" disabled></label>
+                        <label>Nombre del cuidador (opcional)<input type="text" id="beneficiary_caregiver_full_name" maxlength="150" style="text-transform:uppercase" disabled></label>
+                        <label>Parentesco del cuidador (opcional)<select id="beneficiary_caregiver_relationship" disabled>
                             <option value="">Seleccione el parentesco</option>
                             @foreach($caregiverRelationshipOptions as $option)
                                 <option value="{{ $option }}" data-caregiver-relationship-legacy="{{ in_array($option, $beneficiaryOptions['caregiver_relationships'], true) ? '0' : '1' }}" @disabled(!in_array($option, $beneficiaryOptions['caregiver_relationships'], true)) @selected($option === old('beneficiary.caregiver_relationship'))>{{ $option }}</option>
@@ -351,7 +362,7 @@
                 </div>
             </fieldset>
 
-            <div class="beneficiary-list-card" @if($editing) hidden @endif>
+            <div class="beneficiary-list-card" @if($editing && !$continuing) hidden @endif>
                 <div class="card-heading">
                     <div>
                         <h3>Beneficiarios guardados</h3>
@@ -405,7 +416,7 @@
         <p id="beneficiary-entry-error" class="field-error" role="alert" hidden></p>
         <p id="beneficiary-entry-success" class="field-success" role="status" hidden></p>
         <div class="form-actions"><a class="button button-ghost" href="{{ $editing ? route('reports.show', $report) : route('dashboard') }}">Cancelar</a>
-            @if($editing)<button class="button button-primary" type="button" id="save-report-changes">{{ $editingBeneficiary ? 'Guardar cambios del beneficiario' : 'Guardar cambios de todo el grupo' }}</button>@endif
+            @if($editing && !$continuing)<button class="button button-primary" type="button" id="save-report-changes">{{ $editingBeneficiary ? 'Guardar cambios del beneficiario' : 'Guardar cambios de todo el grupo' }}</button>@endif
             @can('ver detalle de registros')<a class="button button-secondary" id="current-report-link" href="{{ $editing ? route('reports.show', $report) : '#' }}" @if(!$editing) hidden @endif>Ver registro guardado</a>@endcan
         </div>
     </form>
@@ -452,10 +463,10 @@
             servicesField = select('report-services-field');
         const projectIndicators = @json($projectIndicatorOptions);
         const projectLocations = @json($projectLocationOptions);
-        const initialProjectSector = @json(old('sector_proyecto_id', $editing ? $report->indicadorProyecto?->sector_proyecto_id : null));
-        const initialIndicator = @json(old('indicador_proyecto_id', $editing ? $report->indicador_proyecto_id : null));
-        const initialActivity = @json(old('actividad_indicador_id', $editing ? $report->actividad_indicador_id : null));
-        const initialServices = @json(old('servicio_actividad_ids', $editing ? $report->serviciosActividad->pluck('id')->all() : []));
+        const initialProjectSector = @json($contextOld('sector_proyecto_id', $editing ? $report->indicadorProyecto?->sector_proyecto_id : null));
+        const initialIndicator = @json($contextOld('indicador_proyecto_id', $editing ? $report->indicador_proyecto_id : null));
+        const initialActivity = @json($contextOld('actividad_indicador_id', $editing ? $report->actividad_indicador_id : null));
+        const initialServices = @json($contextOld('servicio_actividad_ids', $editing ? $report->serviciosActividad->pluck('id')->all() : []));
         const projectSectors = () => {
             const unique = new Map();
             (projectIndicators[project.value] || []).forEach(item => {
@@ -684,8 +695,8 @@
             communityLatitude = select('community-latitude'),
             communityLongitude = select('community-longitude');
         const initialCommunityCoordinates = {
-            latitude: @json(old('latitude', $editing ? $report->latitude : null)),
-            longitude: @json(old('longitude', $editing ? $report->longitude : null)),
+            latitude: @json($contextOld('latitude', $editing ? $report->latitude : null)),
+            longitude: @json($contextOld('longitude', $editing ? $report->longitude : null)),
         };
         const allCommunityStateOptions = [...communityState.options].map(option => option.cloneNode(true));
         const locationBelongsToProject = (stateId, municipalityId = null) => {
@@ -835,7 +846,7 @@
             select('beneficiary-caregiver-fields').hidden = !minor;
             ['caregiver_national_id', 'caregiver_full_name', 'caregiver_relationship'].forEach(field => {
                 const input = beneficiaryInputs[field];
-                input.required = minor;
+                input.required = false;
                 input.disabled = !minor;
                 if (adult) input.value = '';
             });
@@ -1060,6 +1071,7 @@
             ['indicador_proyecto_id', 'indicador']
         ];
         const ensureReportContext = () => {
+            if (form.dataset.continuing === '1') return true;
             const missing = requiredHeaderFields.find(([field]) => !form.elements[field].value.trim());
             if (!missing) return true;
             const locationFields = ['state_id', 'municipality_id', 'parish_id', 'installation_type', 'place_name'];
@@ -1094,12 +1106,6 @@
                 is_recurrent: 'recurrente'
             };
             const missing = Object.keys(labels).filter(field => String(beneficiary[field] ?? '').trim() === '');
-            if (beneficiary.age !== '' && Number.isInteger(Number(beneficiary.age)) && Number(beneficiary.age) >= 0 && Number(beneficiary.age) < 18) {
-                const caregiverLabels = {caregiver_national_id: 'cédula del cuidador', caregiver_full_name: 'nombre del cuidador', caregiver_relationship: 'parentesco del cuidador'};
-                Object.keys(caregiverLabels).forEach(field => {
-                    if (!String(beneficiary[field] ?? '').trim()) { labels[field] = caregiverLabels[field]; missing.push(field); }
-                });
-            }
             const errors = missing.length ? [
                 `Complete los campos obligatorios: ${missing.map(field => labels[field]).join(', ')}.`
             ] : [];
@@ -1171,10 +1177,14 @@
                 remove.innerHTML = '<i class="ri-delete-bin-5-line" aria-hidden="true"></i>';
                 remove.addEventListener('click', () => removeBeneficiary(beneficiary));
                 @can('editar beneficiarios')
+                @if(!$continuing)
                 actionGroup.append(edit);
+                @endif
                 @endcan
                 @can('eliminar beneficiarios')
+                @if(!$continuing)
                 actionGroup.append(remove);
+                @endif
                 @endcan
                 actions.appendChild(actionGroup);
                 row.appendChild(actions);
@@ -1230,7 +1240,7 @@
             }
             const signature = headerSignature(),
                 headersChanged = Boolean(activeReportId && activeHeaderSignature !== signature),
-                createsNewReport = !activeReportId || headersChanged;
+                createsNewReport = form.dataset.continuing !== '1' && (!activeReportId || headersChanged);
             if (form.dataset.reportUpdateUrl && headersChanged) {
                 setMessage(entryError, 'Guarde primero los cambios del registro antes de guardar o editar beneficiarios.');
                 return;
@@ -1282,6 +1292,11 @@
                     const link = select('current-report-link');
                     link.href = result.report.url;
                     link.hidden = false;
+                    if (result.report.resume_url && @json(auth()->user()->can('ver detalle de registros'))) {
+                        // Remember the saved list on refresh; a browser history
+                        // restriction must not turn a successful save into an error.
+                        try { window.history.replaceState(null, '', result.report.resume_url); } catch (_) {}
+                    }
                 }
                 currentSummary = result.summary;
                 renderBeneficiaries();

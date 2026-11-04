@@ -17,3 +17,13 @@
 .place-location-summary[hidden] {
     display: none !important;
 }
+
+/* Keep the activity snapshot readable, but outside the editable person entry. */
+.report-continuation-context {
+    display: grid;
+    gap: 18px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}

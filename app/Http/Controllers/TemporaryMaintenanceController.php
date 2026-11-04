@@ -16,7 +16,7 @@ class TemporaryMaintenanceController extends Controller
         abort_if($token === '', 503, 'Falta configurar SERVER_MAINTENANCE_TOKEN en el archivo .env.');
         abort_unless(hash_equals($token, (string) request('token')), 403);
 
-        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto', 'actualizacion-buzon', 'indicadores-resumen', 'nacionalidad-beneficiarios', 'actualizacion-beneficiarios'], true),
+        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto', 'actualizacion-buzon', 'indicadores-resumen', 'nacionalidad-beneficiarios', 'actualizacion-beneficiarios', 'actualizacion-buzon-registros'], true),
             422, 'Modo de mantenimiento no reconocido.');
         $permissionsOnly = request('only') === 'permisos-beneficiarios';
         $groupEditingOnly = request('only') === 'edicion-cruzada-grupos';
@@ -32,6 +32,9 @@ class TemporaryMaintenanceController extends Controller
         $summaryIndicatorsOnly = request('only') === 'indicadores-resumen';
         $nationalityOnly = request('only') === 'nacionalidad-beneficiarios';
         $beneficiaryUpdateOnly = request('only') === 'actualizacion-beneficiarios';
+        $buzonRecordsOnly = request('only') === 'actualizacion-buzon-registros';
+        abort_if($buzonRecordsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
+            422, 'El modo actualizacion-buzon-registros no se puede combinar con opciones de caché o importación.');
         abort_if($beneficiaryUpdateOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
             422, 'El modo actualizacion-beneficiarios no se puede combinar con opciones de caché o importación.');
         abort_if($nationalityOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
@@ -273,6 +276,53 @@ class TemporaryMaintenanceController extends Controller
             ] as $file) {
                 abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
             }
+        }
+
+        $buzonPermissionsMigration = ['name' => 'migrate', 'parameters' => [
+            '--path' => 'database/migrations/2026_11_04_120000_add_buzon_action_permissions.php',
+            '--force' => true,
+        ]];
+        if ($buzonRecordsOnly) {
+            // Cover both pending features, including the new request, service
+            // and Blade partial, before changing any cache or permission.
+            foreach ([
+                $buzonPermissionsMigration['parameters']['--path'],
+                'app/Http/Controllers/TemporaryMaintenanceController.php',
+                'app/Http/Controllers/BuzonController.php',
+                'app/Http/Controllers/PermissionController.php',
+                'app/Http/Controllers/ReportController.php',
+                'app/Http/Requests/ContinueReportBeneficiaryRequest.php',
+                'app/Http/Requests/SaveBuzonEntryRequest.php',
+                'app/Http/Requests/StoreBeneficiaryEntryRequest.php',
+                'app/Http/Requests/StoreReportRequest.php',
+                'app/Http/Requests/UpdateBeneficiaryRequest.php',
+                'app/Http/Requests/Concerns/ValidatesBeneficiaryCaregiver.php',
+                'app/Http/Requests/Concerns/PreservesReportLocation.php',
+                'app/Http/Requests/Concerns/ValidatesAssociatedIndicators.php',
+                'app/Http/Middleware/PrivateBuzonResponse.php',
+                'app/Http/Middleware/RecordAuditLog.php',
+                'app/Http/Middleware/ReportPeriodTransaction.php',
+                'app/Models/BuzonEntry.php',
+                'app/Models/User.php', 'app/Models/UserGroup.php',
+                'app/Services/ReportContinuation.php',
+                'app/Services/ReportDataTable.php',
+                'app/Support/ReportPeriod.php', 'config/reports.php',
+                'resources/views/buzon/form.blade.php',
+                'resources/views/buzon/index.blade.php',
+                'resources/views/buzon/partials/delete-button.blade.php',
+                'resources/views/layouts/app.blade.php',
+                'resources/views/proyectos/show.blade.php',
+                'resources/views/reports/create.blade.php',
+                'resources/views/reports/index.blade.php',
+                'resources/views/reports/show.blade.php',
+                'public/css/buzon.css', 'public/css/report-form-fixes.css',
+                'public/js/buzon.js',
+                'routes/web.php', 'routes/maintenance.php',
+            ] as $file) {
+                abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
+            }
+            abort_unless($this->groupAuthorScopesAvailable(), 422,
+                'Suba app/Models/User.php actualizado: el Buzón necesita los métodos públicos de autores visibles y editables del grupo.');
         }
 
         $buzonMigration = ['name' => 'migrate', 'parameters' => [
@@ -569,6 +619,7 @@ class TemporaryMaintenanceController extends Controller
         $includeExcel = $excelOnly || request()->boolean('import_excel');
 
         $selectedMigrations = match (true) {
+            $buzonRecordsOnly => [$buzonPermissionsMigration],
             $beneficiaryUpdateOnly => [$caregiverMigration],
             $nationalityOnly => [$nationalityMigration],
             $summaryIndicatorsOnly => $summaryIndicatorMigrations,
@@ -719,6 +770,21 @@ class TemporaryMaintenanceController extends Controller
                 'Al finalizar, recargue SIA con Ctrl + F5 y verifique registro, dictado, recurrencia y filtro de proyectos antes de retirar el mantenimiento manualmente.',
             ];
         }
+        if ($buzonRecordsOnly) {
+            $results = [
+                'ACTUALIZACIÓN DE BUZÓN Y CONTINUACIÓN DE REGISTROS: se comprueban los archivos, se ejecuta únicamente la nueva migración de permisos del Buzón y se reconstruyen las cachés.',
+                'Crea ver buzon, crear buzon, editar buzon y eliminar buzon, asignados inicialmente al rol Administrador. Los roles y usuarios con Buzon conservan ver, crear y editar; no reciben eliminar automáticamente.',
+                'Editar y eliminar requieren también ver buzon y respetan los proyectos asignados. Crear puede concederse sin permitir la consulta de opiniones anteriores.',
+                'Los usuarios consultan únicamente opiniones propias y de sus grupos activos, dentro de sus proyectos. Modificar o eliminar opiniones de compañeros requiere compartir un grupo activo con edición cruzada habilitada, además del permiso de la acción. Los administradores conservan el alcance global con los permisos correspondientes.',
+                'Incluye Continuar agregando beneficiarios desde Registros y desde el detalle: se recupera el mismo listado y su período, respetando permisos, revisión, cierres e indicadores asociados.',
+                'Los datos del cuidador son opcionales para menores de 18 años al registrar, continuar o editar. Se validan el formato, la longitud y las opciones de los datos que se proporcionen; no se borran datos históricos durante este mantenimiento.',
+                'No se ejecutan seeders, importaciones ni correcciones de parroquias. No se crean, eliminan, unen ni reclasifican registros, beneficiarios u opiniones durante este mantenimiento.',
+                'No se activa ni se cancela el mantenimiento: se conservan los bloqueos y avisos programados. No se modifican asignaciones de proyectos, períodos ni cierres.',
+                'La migración ya aplicada se omite. Repetir este modo conserva los permisos concedidos o retirados después de la actualización.',
+                'Este modo presupone las actualizaciones anteriores del servidor, incluido el Buzón y los datos del cuidador. No ejecuta todas las migraciones pendientes.',
+                'Al finalizar, recargue SIA con Ctrl + F5, revise los cuatro permisos en Roles y pruebe continuar un listado antes de retirar el mantenimiento manualmente.',
+            ];
+        }
         $exitCode = 1;
 
         try {
@@ -745,6 +811,18 @@ class TemporaryMaintenanceController extends Controller
         } catch (Throwable $exception) {
             return response('<pre>ERROR: '.e($exception->getMessage()).'</pre>', 500)->header('Cache-Control', 'no-store');
         }
+    }
+
+    protected function groupAuthorScopesAvailable(): bool
+    {
+        foreach (['visibleGroupUserIds', 'editableGroupUserIds'] as $method) {
+            if (! method_exists(\App\Models\User::class, $method)
+                || ! (new \ReflectionMethod(\App\Models\User::class, $method))->isPublic()) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     protected function deploymentFileExists(string $path): bool

@@ -12,7 +12,10 @@ class SaveBuzonEntryRequest extends FormRequest
     public function authorize(): bool
     {
         $entry = $this->route('entry');
-        return $this->user()?->can('Buzon') && (! $entry || BuzonEntry::visibleTo($this->user())->whereKey($entry->id)->exists());
+        return $this->user()?->can($entry ? 'editar buzon' : 'crear buzon')
+            && (! $entry || ($this->user()->can('ver buzon')
+                && BuzonEntry::visibleTo($this->user())->whereKey($entry->id)->exists()
+                && BuzonEntry::manageableBy($this->user())->whereKey($entry->id)->exists()));
     }
 
     public function rules(): array

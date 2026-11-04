@@ -8,11 +8,11 @@ function field(value = '') {
     return {value, handlers: {}, checked: false, addEventListener(name, handler) {this.handlers[name] = handler;},
         setCustomValidity(value) {this.error = value;}};
 }
-function fixture({from = null, to = null, disabilities = [], projects = null, window = {}} = {}) {
+function fixture({from = null, to = null, disabilities = [], projects = null, deleteForms = [], window = {}} = {}) {
     vm.runInNewContext(source, {window, document: {
         addEventListener(_, handler) {handler();},
         getElementById(id) {return {'buzon-from': from, 'buzon-to': to, 'buzon-project-filter': projects}[id] || null;},
-        querySelectorAll() {return disabilities;},
+        querySelectorAll(selector) {return selector === 'form[data-buzon-delete]' ? deleteForms : disabilities;},
     }});
 }
 
@@ -31,6 +31,25 @@ test('dates validate immediately, allow a single day and clear errors when corre
     assert.equal(to.min, '');
     assert.equal(from.max, '');
     assert.equal(to.error, '');
+});
+
+test('deletion requires confirmation and disables the button only after acceptance', () => {
+    const button = {disabled: false}, form = field();
+    form.querySelector = () => button;
+    let accepted = false, prevented = 0, confirmations = 0;
+    fixture({deleteForms: [form], window: {confirm(message) {
+        confirmations++;
+        assert.match(message, /permanente/);
+        return accepted;
+    }}});
+    form.handlers.submit({preventDefault() {prevented++;}});
+    assert.equal(prevented, 1);
+    assert.equal(button.disabled, false);
+    accepted = true;
+    form.handlers.submit({preventDefault() {prevented++;}});
+    assert.equal(prevented, 1);
+    assert.equal(button.disabled, true);
+    assert.equal(confirmations, 2);
 });
 
 test('none excludes disabilities while multiple actual disabilities remain allowed', () => {

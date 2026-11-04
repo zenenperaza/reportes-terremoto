@@ -43,7 +43,6 @@ class UpdateBeneficiaryRequest extends FormRequest
         return [
             'has_informed_consent' => 'consentimiento informado del beneficiario',
             'required' => 'El campo :attribute es obligatorio.',
-            'required_if' => 'El campo :attribute es obligatorio para beneficiarios menores de 18 años.',
             'accepted' => 'Debe confirmar el :attribute.',
             'boolean' => 'El campo :attribute debe contener una opción válida.',
             'in' => 'La opción seleccionada en :attribute no es válida.',

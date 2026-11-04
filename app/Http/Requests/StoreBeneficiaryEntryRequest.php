@@ -117,9 +117,6 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             'proyecto_id.required' => 'Seleccione un proyecto para registrar la actividad.',
             'required' => 'El campo :attribute es obligatorio.',
             'required_if' => 'El campo :attribute es obligatorio.',
-            'beneficiary.caregiver_national_id.required_if' => 'La cédula del cuidador es obligatoria para beneficiarios menores de 18 años.',
-            'beneficiary.caregiver_full_name.required_if' => 'El nombre del cuidador es obligatorio para beneficiarios menores de 18 años.',
-            'beneficiary.caregiver_relationship.required_if' => 'El parentesco del cuidador es obligatorio para beneficiarios menores de 18 años.',
             'accepted' => 'Debe confirmar el :attribute.',
             'required_with' => 'El campo :attribute es obligatorio cuando se indica su coordenada relacionada.',
         ];

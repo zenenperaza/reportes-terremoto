@@ -5,7 +5,7 @@
 @php($schema = \App\Models\BuzonEntry::class)
 <section class="page-heading">
     <div><p class="eyebrow">Opiniones y encuestas</p><h1>Buzón</h1><p class="muted">{{ $schema::INDICATOR_CODE }} · {{ $schema::INDICATOR_NAME }}</p></div>
-    <a class="button button-primary" href="{{ route('buzon.create', count($filters['project_ids']) === 1 ? ['proyecto_id' => $filters['project_ids'][0]] : []) }}">+ Registrar opinión</a>
+    @can('crear buzon')<a class="button button-primary" href="{{ route('buzon.create', count($filters['project_ids']) === 1 ? ['proyecto_id' => $filters['project_ids'][0]] : []) }}">+ Registrar opinión</a>@endcan
 </section>
 <section class="content-card">
     <h2>Consultar opiniones</h2>
@@ -32,7 +32,14 @@
         @forelse($entries as $entry)<tr>
             <td>{{ $entry->opinion_date->format('d/m/Y') }}</td><td><strong>{{ $entry->proyecto->codigo }}</strong><br>{{ $entry->proyecto->nombre_alias ?: $entry->proyecto->descripcion }}</td>
             <td>{{ $entry->place_name }}</td><td>{{ $schema::OPINIONS[$entry->opinion] }}</td><td>{{ $schema::FEEDBACK_TYPES[$entry->feedback_type] }}</td>
-            <td>{{ $entry->full_name ?: 'Anónimo / Sin nombre' }}</td><td><a href="{{ route('buzon.show', $entry) }}">Ver formulario</a><br><a href="{{ route('buzon.edit', $entry) }}">Editar</a></td>
+            <td>{{ $entry->full_name ?: 'Anónimo / Sin nombre' }}</td><td>
+                <div class="buzon-entry-actions"><a href="{{ route('buzon.show', $entry) }}">Ver formulario</a>
+                    @if(in_array($entry->id, $manageableEntryIds, true))
+                        @can('editar buzon')<a href="{{ route('buzon.edit', $entry) }}">Editar</a>@endcan
+                    @endif
+                    @include('buzon.partials.delete-button', ['canManageEntry' => in_array($entry->id, $manageableEntryIds, true)])
+                </div>
+            </td>
         </tr>@empty<tr><td colspan="7">No hay formularios del Buzón que coincidan con los filtros.</td></tr>@endforelse
     </tbody></table></div>
     <div class="pagination">{{ $entries->links() }}</div>

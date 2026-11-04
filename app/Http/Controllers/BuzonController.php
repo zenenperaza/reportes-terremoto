@@ -39,8 +39,10 @@ class BuzonController extends Controller
             ->when(filled($filters['opinion']), fn ($query) => $query->where('opinion', $filters['opinion']))
             ->when(filled($filters['feedback_type']), fn ($query) => $query->where('feedback_type', $filters['feedback_type']));
         $counts = (clone $query)->selectRaw('opinion, COUNT(*) as total')->groupBy('opinion')->pluck('total', 'opinion');
-        return view('buzon.index', ['projects' => $projects, 'filters' => $filters, 'counts' => $counts,
-            'entries' => $query->with('proyecto')->latest('opinion_date')->latest('id')->paginate(20)->withQueryString()]);
+        $entries = $query->with('proyecto')->latest('opinion_date')->latest('id')->paginate(20)->withQueryString();
+        $manageableEntryIds = ($request->user()->can('editar buzon') || $request->user()->can('eliminar buzon'))
+            ? BuzonEntry::manageableBy($request->user())->whereKey($entries->modelKeys())->pluck('id')->all() : [];
+        return view('buzon.index', compact('projects', 'filters', 'counts', 'entries', 'manageableEntryIds'));
     }
 
     private function formData(Request $request, BuzonEntry $entry, bool $readOnly = false): array
@@ -55,7 +57,8 @@ class BuzonController extends Controller
             abort_if(! $allowed && ! session()->hasOldInput(), 403);
             if (! $allowed) $selectedProject = '';
         }
-        return compact('entry', 'projects', 'readOnly', 'selectedProject');
+        $canManageEntry = $entry->exists && BuzonEntry::manageableBy($request->user())->whereKey($entry->id)->exists();
+        return compact('entry', 'projects', 'readOnly', 'selectedProject', 'canManageEntry');
     }
 
     public function create(Request $request)
@@ -66,7 +69,10 @@ class BuzonController extends Controller
     public function store(SaveBuzonEntryRequest $request)
     {
         $entry = BuzonEntry::create($request->validated() + ['created_by' => $request->user()->id]);
-        return redirect()->route('buzon.show', $entry)->with('success', 'Formulario del Buzón registrado. No se agregó a beneficiarios.');
+        return ($request->user()->can('ver buzon')
+            ? redirect()->route('buzon.show', $entry)
+            : redirect()->route('buzon.create', ['proyecto_id' => $entry->proyecto_id]))
+            ->with('success', 'Formulario del Buzón registrado. No se agregó a beneficiarios.');
     }
 
     private function ensureVisible(Request $request, BuzonEntry $entry): void
@@ -83,6 +89,7 @@ class BuzonController extends Controller
     public function edit(Request $request, BuzonEntry $entry)
     {
         $this->ensureVisible($request, $entry);
+        $this->ensureManageable($request, $entry);
         return view('buzon.form', $this->formData($request, $entry));
     }
 
@@ -90,6 +97,7 @@ class BuzonController extends Controller
     {
         DB::transaction(function () use ($request, $entry): void {
             $current = BuzonEntry::visibleTo($request->user())->whereKey($entry->id)->lockForUpdate()->firstOrFail();
+            $this->ensureManageable($request, $current);
             if ($current->version !== $request->integer('version')) {
                 throw ValidationException::withMessages(['version' => 'Otra persona modificó esta entrada. Recargue el formulario antes de guardar.']);
             }
@@ -97,5 +105,31 @@ class BuzonController extends Controller
             $current->update($data + ['disabilities' => [], 'version' => $current->version + 1]);
         });
         return redirect()->route('buzon.show', $entry)->with('success', 'Formulario del Buzón actualizado.');
+    }
+
+    public function destroy(Request $request, BuzonEntry $entry)
+    {
+        $this->ensureVisible($request, $entry);
+        $this->ensureManageable($request, $entry);
+        $request->validate(['version' => ['required', 'integer', 'min:1']], [
+            'version.required' => 'Recargue el Buzón antes de eliminar el formulario.',
+        ]);
+        DB::transaction(function () use ($request, $entry): void {
+            $current = BuzonEntry::visibleTo($request->user())->whereKey($entry->id)->lockForUpdate()->firstOrFail();
+            $this->ensureManageable($request, $current);
+            if ($current->version !== $request->integer('version')) {
+                throw ValidationException::withMessages(['version' => 'Otra persona modificó esta entrada. Revísela antes de eliminarla.']);
+            }
+            $current->delete();
+        });
+
+        return redirect()->route('buzon.index', ['project_ids' => [$entry->proyecto_id]])
+            ->with('success', 'Formulario del Buzón eliminado correctamente.');
+    }
+
+    private function ensureManageable(Request $request, BuzonEntry $entry): void
+    {
+        abort_unless(BuzonEntry::manageableBy($request->user())->whereKey($entry->id)->exists(), 403,
+            'Solo puede modificar sus propios formularios o los de compañeros con quienes comparte un grupo activo con edición cruzada habilitada.');
     }
 }

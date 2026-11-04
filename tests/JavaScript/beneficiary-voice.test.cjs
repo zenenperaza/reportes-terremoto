@@ -63,6 +63,16 @@ function harness(lookup) {
     return {inputs, states, ...coordinator};
 }
 
+test('a minor can be dictated without caregiver fields', async () => {
+    const h = harness(async () => ({status: 'not-found', fields: []}));
+    const result = await h.apply('Sin cédula, nombre Ana Pérez, edad 12 años, mujer');
+    assert.equal(result.canSave, true);
+    assert.equal(h.inputs.age.value, '12');
+    assert.equal(h.inputs.caregiver_national_id.value, '');
+    assert.equal(h.inputs.caregiver_full_name.value, '');
+    assert.equal(h.inputs.caregiver_relationship.value, '');
+});
+
 test('lookup finishes before explicit dictated corrections are applied', async () => {
     let complete;
     const h = harness(() => new Promise(resolve => {complete = resolve;}));

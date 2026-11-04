@@ -47,20 +47,17 @@ class BeneficiaryCaregiverTest extends TestCase
             + ($caregiver ? ['caregiver_national_id' => '00123456', 'caregiver_full_name' => 'Cuidadora Reservada', 'caregiver_relationship' => 'Madre'] : []);
     }
 
-    public function test_under_18_requires_all_three_fields_for_immediate_and_batch_registration(): void
+    public function test_under_18_accepts_missing_caregiver_fields_for_immediate_and_batch_registration(): void
     {
         foreach ([0, 5, 17] as $age) {
             $this->postJson(route('beneficiaries.store'), $this->headers + ['beneficiary' => $this->person($age, false)])
-                ->assertUnprocessable()->assertJsonValidationErrors([
-                    'beneficiary.caregiver_national_id', 'beneficiary.caregiver_full_name', 'beneficiary.caregiver_relationship',
-                ]);
+                ->assertCreated()->assertJsonPath('beneficiary.caregiver_national_id', null)
+                ->assertJsonPath('beneficiary.caregiver_full_name', null)->assertJsonPath('beneficiary.caregiver_relationship', null);
             $this->postJson(route('reports.store'), $this->headers + ['beneficiaries' => [$this->person($age, false)]])
-                ->assertUnprocessable()->assertJsonValidationErrors([
-                    'beneficiaries.0.caregiver_national_id', 'beneficiaries.0.caregiver_full_name', 'beneficiaries.0.caregiver_relationship',
-                ]);
+                ->assertSessionHasNoErrors()->assertRedirect();
         }
-        $this->assertDatabaseCount('reports', 0);
-        $this->assertDatabaseCount('beneficiaries', 0);
+        $this->assertDatabaseCount('reports', 6);
+        $this->assertDatabaseCount('beneficiaries', 6);
     }
 
     public function test_minor_caregiver_is_saved_loaded_for_edit_and_shown_without_affecting_counts_or_audit_privacy(): void
@@ -98,19 +95,23 @@ class BeneficiaryCaregiverTest extends TestCase
     public function test_mixed_batches_validate_each_age_independently_without_partial_writes(): void
     {
         $this->postJson(route('reports.store'), $this->headers + ['beneficiaries' => [$this->person(30, false), $this->person(17, false)]])
+            ->assertSessionHasNoErrors()->assertRedirect();
+        $this->assertDatabaseCount('reports', 1);
+        $this->postJson(route('reports.store'), $this->headers + ['beneficiaries' => [$this->person(30, false),
+            array_replace($this->person(17, false), ['caregiver_full_name' => ['invalid']])]])
             ->assertUnprocessable()->assertJsonValidationErrors('beneficiaries.1.caregiver_full_name');
-        $this->assertDatabaseCount('reports', 0);
+        $this->assertDatabaseCount('reports', 1);
         $this->post(route('reports.store'), $this->headers + ['beneficiaries' => [$this->person(30), $this->person(0)]])
             ->assertSessionHasNoErrors()->assertRedirect();
-        $this->assertSame(2, Beneficiary::count());
+        $this->assertSame(4, Beneficiary::count());
         $this->assertNull(Beneficiary::orderBy('id')->first()->caregiver_national_id);
         $this->assertSame('00123456', Beneficiary::orderByDesc('id')->first()->caregiver_national_id);
     }
 
-    public function test_empty_whitespace_nonstring_and_overlong_caregiver_fields_are_rejected(): void
+    public function test_nonstring_and_overlong_caregiver_fields_are_rejected_when_provided(): void
     {
         foreach (['caregiver_national_id' => 30, 'caregiver_full_name' => 150, 'caregiver_relationship' => 100] as $field => $max) {
-            foreach ([null, '', '   ', ['invalid'], str_repeat('A', $max + 1)] as $value) {
+            foreach ([['invalid'], str_repeat('A', $max + 1)] as $value) {
                 $this->postJson(route('beneficiaries.store'), $this->headers + ['beneficiary' => array_replace($this->person(), [$field => $value])])
                     ->assertUnprocessable()->assertJsonValidationErrors('beneficiary.'.$field);
             }
@@ -118,14 +119,16 @@ class BeneficiaryCaregiverTest extends TestCase
         $this->assertDatabaseCount('beneficiaries', 0);
     }
 
-    public function test_both_edit_endpoints_require_a_caregiver_for_minors_and_clear_it_when_age_becomes_18(): void
+    public function test_both_edit_endpoints_allow_empty_caregiver_for_minors_and_clear_it_when_age_becomes_18(): void
     {
         $this->postJson(route('beneficiaries.store'), $this->headers + ['beneficiary' => $this->person()])->assertCreated();
         $person = Beneficiary::firstOrFail();
-        $this->putJson(route('beneficiaries.update', $person), $this->person(17, false))
-            ->assertUnprocessable()->assertJsonValidationErrors('caregiver_national_id');
-        $this->putJson(route('beneficiaries.update-attention', $person), $this->headers + ['beneficiary' => $this->person(17, false)])
-            ->assertUnprocessable()->assertJsonValidationErrors('beneficiary.caregiver_full_name');
+        $empty = array_replace($this->person(17, false), ['caregiver_national_id' => null,
+            'caregiver_full_name' => null, 'caregiver_relationship' => null]);
+        $this->putJson(route('beneficiaries.update', $person), $empty)
+            ->assertOk()->assertJsonPath('beneficiary.caregiver_full_name', null);
+        $this->putJson(route('beneficiaries.update-attention', $person), $this->headers + ['beneficiary' => $empty])
+            ->assertOk()->assertJsonPath('beneficiary.caregiver_national_id', null);
         $this->putJson(route('beneficiaries.update', $person), $this->person(18))->assertOk();
         $this->assertNull($person->fresh()->caregiver_full_name);
         $this->putJson(route('beneficiaries.update-attention', $person), $this->headers + ['beneficiary' => $this->person(17)])
@@ -182,6 +185,23 @@ class BeneficiaryCaregiverTest extends TestCase
             ->assertUnprocessable()->assertJsonValidationErrors('beneficiary.caregiver_relationship');
         $this->postJson(route('reports.store'), $this->headers + ['beneficiaries' => [$person]])
             ->assertUnprocessable()->assertJsonValidationErrors('beneficiaries.0.caregiver_relationship');
+    }
+
+    public function test_blank_or_partial_caregiver_fields_are_optional_and_partial_data_is_visible_in_detail(): void
+    {
+        foreach (['caregiver_national_id', 'caregiver_full_name', 'caregiver_relationship'] as $field) {
+            foreach ([null, '', '   '] as $empty) {
+                $person = array_replace($this->person(), [$field => $empty]);
+                $this->postJson(route('beneficiaries.store'), $this->headers + ['beneficiary' => $person])
+                    ->assertCreated()->assertJsonPath('beneficiary.'.$field, null);
+            }
+        }
+        $result = $this->postJson(route('beneficiaries.store'), $this->headers + ['beneficiary' =>
+            $this->person(12, false) + ['caregiver_national_id' => '00123456']])->assertCreated();
+        $this->get(route('reports.show', $result->json('report.id')))->assertOk()
+            ->assertSee('Datos de los cuidadores')->assertSee('00123456');
+        $this->get(route('reports.create'))->assertOk()->assertSee('Datos opcionales para beneficiarios menores de 18 años.')
+            ->assertDontSee('Obligatorios para beneficiarios menores de 18 años.');
     }
 
     public function test_legacy_relationship_is_preserved_only_for_its_original_beneficiary_when_editing(): void

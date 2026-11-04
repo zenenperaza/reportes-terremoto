@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreReportRequest;
 use App\Http\Requests\StoreBeneficiaryEntryRequest;
+use App\Http\Requests\ContinueReportBeneficiaryRequest;
 use App\Http\Requests\UpdateBeneficiaryRequest;
 use App\Http\Requests\UpdateBeneficiaryAttentionRequest;
 use App\Http\Requests\UpdateReportRequest;
@@ -18,6 +19,7 @@ use App\Models\State;
 use App\Models\Proyecto;
 use App\Models\User;
 use App\Services\ReportDataTable;
+use App\Services\ReportContinuation;
 use App\Support\ReportPeriod;
 use App\Support\SummaryIndicatorFilter;
 use Illuminate\Database\Eloquent\Builder;
@@ -83,6 +85,7 @@ class ReportController extends Controller
 
         return view('reports.index', [
             'reports' => $reports,
+            'reportContinuation' => new ReportContinuation(),
             'selectedService' => $request->filled('servicio_actividad_id')
                 ? ServicioActividad::with(['servicio', 'actividadIndicador.actividad', 'actividadIndicador.indicadorProyecto.indicador'])
                     ->when(! $request->user()->isAdministrator(), fn (Builder $query) => $query->whereHas('reports',
@@ -128,12 +131,23 @@ class ReportController extends Controller
     public function edit(Request $request, Report $report): View
     {
         $this->ensureEditable($request, $report, $request->has('beneficiary') ? 'editar beneficiarios' : 'editar registros');
+        return $this->existingReportForm($request, $report);
+    }
+
+    public function resume(Request $request, Report $report): View
+    {
+        app(ReportContinuation::class)->assertAllowed($request->user(), $report);
+        return $this->existingReportForm($request, $report, true);
+    }
+
+    private function existingReportForm(Request $request, Report $report, bool $continuing = false): View
+    {
         $report->load(['beneficiaries', 'evidences', 'serviciosActividad', 'indicadorProyecto', 'state', 'municipality', 'parish']);
         $requestedBeneficiaryId = $request->integer('beneficiary');
-        $editingBeneficiary = $request->has('beneficiary')
+        $editingBeneficiary = ! $continuing && $request->has('beneficiary')
             ? $report->beneficiaries->firstWhere('id', $requestedBeneficiaryId)
             : null;
-        abort_if($request->has('beneficiary') && ! $editingBeneficiary, 404);
+        abort_if(! $continuing && $request->has('beneficiary') && ! $editingBeneficiary, 404);
         $editBeneficiaryId = $editingBeneficiary?->id;
 
         $projects = $this->availableProjects($request, $report->proyecto_id);
@@ -144,11 +158,12 @@ class ReportController extends Controller
 
         return view('reports.create', [
             'report' => $report,
+            'continuing' => $continuing,
             'storedAssociatedIds' => DB::table('report_indicator_copies')->where('source_report_id', $report->id)->pluck('indicator_assignment_id')->all(),
             'reportingPeriod' => $report->reporting_period,
             'projects' => $projects,
             'projectIndicatorOptions' => $this->projectIndicatorOptions($projects),
-            'selectedProjectId' => $selectedProjectId,
+            'selectedProjectId' => $continuing ? $report->proyecto_id : $selectedProjectId,
             'organizations' => config('reports.organizations'),
             'states' => $locations['states'],
             'projectLocationOptions' => $this->projectLocationOptions($projects),
@@ -272,17 +287,23 @@ class ReportController extends Controller
             Proyecto::whereKey($data['proyecto_id'])->lockForUpdate()->firstOrFail();
             if ($reportId) {
                 $report = Report::lockForUpdate()->findOrFail($reportId);
-                $this->ensureEditable($request, $report);
+                if ($request->routeIs('reports.continue-beneficiary')) {
+                    app(ReportContinuation::class)->assertAllowed($request->user(), $report, true);
+                } else {
+                    $this->ensureEditable($request, $report);
+                }
                 abort_unless($this->headersMatch($report, $data, $serviceIds), 409, 'Los encabezados cambiaron. Guarde el beneficiario como un nuevo registro.');
 
-                $report->update([
-                    'latitude' => $data['latitude'] ?? null,
-                    'longitude' => $data['longitude'] ?? null,
-                    'altitude' => $data['altitude'] ?? null,
-                    'gps_accuracy' => $data['gps_accuracy'] ?? null,
-                    'activity_details' => $data['activity_details'] ?? null,
-                    'qualitative_notes' => $data['qualitative_notes'] ?? null,
-                ]);
+                if (! $request->routeIs('reports.continue-beneficiary')) {
+                    $report->update([
+                        'latitude' => $data['latitude'] ?? null,
+                        'longitude' => $data['longitude'] ?? null,
+                        'altitude' => $data['altitude'] ?? null,
+                        'gps_accuracy' => $data['gps_accuracy'] ?? null,
+                        'activity_details' => $data['activity_details'] ?? null,
+                        'qualitative_notes' => $data['qualitative_notes'] ?? null,
+                    ]);
+                }
                 $createdReport = false;
             } else {
                 $summary = $this->beneficiarySummary([$beneficiaryData]);
@@ -316,11 +337,17 @@ class ReportController extends Controller
             'report' => [
                 'id' => $report->id,
                 'url' => route('reports.show', $report),
+                'resume_url' => route('reports.resume', $report),
                 'total_beneficiaries' => $report->total_beneficiaries,
             ],
             'beneficiary' => $beneficiary,
             'summary' => $summary,
         ], $createdReport ? 201 : 200);
+    }
+
+    public function continueBeneficiary(ContinueReportBeneficiaryRequest $request, Report $report): JsonResponse
+    {
+        return $this->storeBeneficiary($request);
     }
 
     public function updateBeneficiary(UpdateBeneficiaryRequest $request, Beneficiary $beneficiary): JsonResponse
@@ -473,6 +500,7 @@ class ReportController extends Controller
         return view('reports.show', [
             'report' => $report,
             'periodClosed' => $periodClosed,
+            'canContinueReport' => app(ReportContinuation::class)->allows($request->user(), $report),
             'isCoordinator' => $request->user()->isCoordinator(),
             'canEditReport' => !$periodClosed && $request->user()->can('editar registros')
                 && $request->user()->canManageGroupReport($report)
@@ -835,7 +863,11 @@ class ReportController extends Controller
             } else {
                 $copy = Report::lockForUpdate()->find($links->firstWhere('indicator_assignment_id', $id)?->target_report_id);
                 abort_unless($copy, 409, 'Se eliminó un registro asociado. Inicie un nuevo registro.');
-                $this->ensureEditable($request, $copy);
+                if ($request->routeIs('reports.continue-beneficiary')) {
+                    app(ReportContinuation::class)->assertAllowed($request->user(), $copy, true);
+                } else {
+                    $this->ensureEditable($request, $copy);
+                }
                 abort_unless($this->headersMatch($copy, $headers) && $copy->reporting_period === $source->reporting_period,
                     409, 'Se modificó un registro asociado. Inicie un nuevo registro.');
             }

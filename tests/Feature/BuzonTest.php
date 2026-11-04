@@ -7,6 +7,7 @@ use App\Models\BuzonEntry;
 use App\Models\Donante;
 use App\Models\Proyecto;
 use App\Models\User;
+use App\Models\UserGroup;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -69,23 +70,25 @@ class BuzonTest extends TestCase
         $this->assertDatabaseCount('beneficiaries', 0);
     }
 
-    public function test_single_permission_is_granted_only_to_admin_initially_and_is_protected(): void
+    public function test_action_permissions_are_granted_only_to_admin_initially_and_are_protected(): void
     {
-        $permission = Permission::findByName('Buzon', 'web');
-        $this->assertTrue($this->admin->can('Buzon'));
-        foreach (['reporter', 'coordinator'] as $role) {
-            $this->assertFalse(User::factory()->create(['role' => $role])->can('Buzon'));
+        foreach (['ver buzon', 'crear buzon', 'editar buzon', 'eliminar buzon'] as $name) {
+            $permission = Permission::findByName($name, 'web');
+            $this->assertTrue($this->admin->can($name));
+            foreach (['reporter', 'coordinator'] as $role) {
+                $this->assertFalse(User::factory()->create(['role' => $role])->can($name));
+            }
+            $this->put(route('permissions.update', $permission), ['name' => 'Otro'])->assertSessionHas('error');
+            $this->delete(route('permissions.destroy', $permission))->assertSessionHas('error');
+            $this->assertDatabaseHas('permissions', ['name' => $name]);
         }
-        $this->put(route('permissions.update', $permission), ['name' => 'Otro'])->assertSessionHas('error');
-        $this->delete(route('permissions.destroy', $permission))->assertSessionHas('error');
-        $this->assertDatabaseHas('permissions', ['name' => 'Buzon']);
     }
 
     public function test_users_and_admin_without_buzon_cannot_read_or_write_any_entry(): void
     {
         $entry = $this->entry(['full_name' => 'PERSONA RESERVADA', 'comment' => 'QUEJA RESERVADA']);
         foreach (['reporter', 'admin'] as $role) {
-            if ($role === 'admin') Role::findByName('admin', 'web')->revokePermissionTo('Buzon');
+            if ($role === 'admin') Role::findByName('admin', 'web')->revokePermissionTo(['ver buzon', 'crear buzon', 'editar buzon', 'eliminar buzon']);
             $user = User::factory()->create(['role' => $role]);
             $this->actingAs($user);
             foreach (['buzon.index' => [], 'buzon.create' => [], 'buzon.show' => [$entry], 'buzon.edit' => [$entry]] as $route => $params) {
@@ -142,13 +145,15 @@ class BuzonTest extends TestCase
         $this->get(route('buzon.edit', $entry))->assertOk()->assertSee('Guardar cambios');
     }
 
-    public function test_authorized_users_only_access_their_projects_not_group_peers_or_countrywide_projects(): void
+    public function test_assigned_projects_remain_required_within_the_work_group_even_with_countrywide_access(): void
     {
         $own = $this->entry(['full_name' => 'OWN RECORD']);
         $foreign = $this->entry(['proyecto_id' => $this->second->id, 'full_name' => 'FOREIGN RECORD']);
         $user = User::factory()->create(['role' => 'coordinator', 'countrywide_access' => true]);
-        $user->givePermissionTo('Buzon');
+        $user->givePermissionTo(['ver buzon', 'crear buzon', 'editar buzon']);
         $user->projects()->attach($this->first);
+        $group = UserGroup::create(['name' => 'Equipo de prueba', 'is_active' => true, 'allow_member_editing' => true]);
+        $group->users()->attach([$user->id, $this->admin->id]);
         $this->actingAs($user)->get(route('buzon.index'))->assertOk()->assertSee('OWN RECORD')->assertDontSee('FOREIGN RECORD')
             ->assertViewHas('entries', fn ($entries) => $entries->total() === 1);
         $this->get(route('buzon.show', $own))->assertOk();

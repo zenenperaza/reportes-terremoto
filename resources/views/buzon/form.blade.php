@@ -4,6 +4,9 @@
 @section('content')
 @php
     $schema = \App\Models\BuzonEntry::class;
+    $backUrl = auth()->user()->can('ver buzon')
+        ? route('buzon.index', $selectedProject ? ['project_ids' => [$selectedProject]] : [])
+        : route('dashboard');
     $formValue = function ($field, $fallback) use ($readOnly) {
         $value = $readOnly ? $fallback : old($field, $fallback);
         return is_scalar($value) || $value === null ? $value : '';
@@ -12,7 +15,7 @@
     $selectedDisabilities = is_array($selectedDisabilities) ? $selectedDisabilities : [];
 @endphp
 <section class="page-heading"><div><p class="eyebrow">{{ $schema::INDICATOR_NAME }}</p><h1>{{ $readOnly ? 'Opinión registrada' : ($entry->exists ? 'Editar opinión' : 'Registrar opinión') }}</h1><p class="muted">Formato de registro de comentarios y quejas · {{ $schema::INDICATOR_CODE }}</p></div>
-    <a class="button button-secondary" href="{{ route('buzon.index', $selectedProject ? ['project_ids' => [$selectedProject]] : []) }}">Volver al Buzón</a>
+    <a class="button button-secondary" href="{{ $backUrl }}">{{ auth()->user()->can('ver buzon') ? 'Volver al Buzón' : 'Volver al panel' }}</a>
 </section>
 <section class="content-card">
     <p class="buzon-notice">Este formulario pertenece exclusivamente al Buzón. No crea beneficiarios ni registros de otros indicadores. El nombre y el teléfono son opcionales; puede registrar una opinión anónima.</p>
@@ -60,9 +63,17 @@
                 <label class="span-two">La retroalimentación se refiere a *<select name="feedback_type" required><option value="">Seleccione el tipo</option>@foreach($schema::FEEDBACK_TYPES as $value => $label)<option value="{{ $value }}" @selected($formValue('feedback_type', $entry->feedback_type) === $value)>{{ $label }}</option>@endforeach</select><small>Clasificación realizada por el personal de ASONACOP.</small></label>
             </div>
         </fieldset>
-        @unless($readOnly)<div class="form-actions"><a class="button button-secondary" href="{{ route('buzon.index') }}">Cancelar</a><button class="button button-primary" type="submit">{{ $entry->exists ? 'Guardar cambios' : 'Guardar formulario del Buzón' }}</button></div>@endunless
+        @unless($readOnly)<div class="form-actions"><a class="button button-secondary" href="{{ $backUrl }}">Cancelar</a><button class="button button-primary" type="submit">{{ $entry->exists ? 'Guardar cambios' : 'Guardar formulario del Buzón' }}</button></div>@endunless
     </form>
-    @if($readOnly)<p class="muted">Registrado por {{ $entry->creator?->name ?: 'Usuario no disponible' }} · {{ $entry->created_at?->format('d/m/Y H:i') }}</p><a class="button button-primary" href="{{ route('buzon.edit', $entry) }}">Editar formulario</a>@endif
+    @if($readOnly)
+        <p class="muted">Registrado por {{ $entry->creator?->name ?: 'Usuario no disponible' }} · {{ $entry->created_at?->format('d/m/Y H:i') }}</p>
+        <div class="buzon-entry-actions">
+            @if($canManageEntry)
+                @can('editar buzon')<a class="button button-primary" href="{{ route('buzon.edit', $entry) }}">Editar formulario</a>@endcan
+            @endif
+            @include('buzon.partials.delete-button')
+        </div>
+    @endif
 </section>
 @endsection
 @push('scripts')<script src="{{ asset('js/buzon.js') }}?v={{ filemtime(public_path('js/buzon.js')) }}"></script>@endpush

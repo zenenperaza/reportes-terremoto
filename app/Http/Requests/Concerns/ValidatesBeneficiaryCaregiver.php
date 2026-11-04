@@ -9,12 +9,10 @@ trait ValidatesBeneficiaryCaregiver
 {
     private function caregiverRules(string $prefix = ''): array
     {
-        $required = 'required_if:'.$prefix.'age,'.implode(',', range(0, 17));
-
         return [
-            $prefix.'caregiver_national_id' => [$required, 'nullable', 'string', 'max:30'],
-            $prefix.'caregiver_full_name' => [$required, 'nullable', 'string', 'max:150'],
-            $prefix.'caregiver_relationship' => [$required, 'nullable', 'string', 'max:100',
+            $prefix.'caregiver_national_id' => ['nullable', 'string', 'max:30'],
+            $prefix.'caregiver_full_name' => ['nullable', 'string', 'max:150'],
+            $prefix.'caregiver_relationship' => ['nullable', 'string', 'max:100',
                 Rule::in(Beneficiary::caregiverRelationshipOptions($this->route('beneficiary')?->caregiver_relationship))],
         ];
     }

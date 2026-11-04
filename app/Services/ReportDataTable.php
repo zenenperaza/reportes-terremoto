@@ -12,6 +12,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportDataTable
 {
+    private ?ReportContinuation $continuation = null;
+
     public static function columns(User $user): array
     {
         $names = ['date', 'reporter', 'created'];
@@ -119,7 +121,7 @@ class ReportDataTable
                     $first = true;
                     foreach ($query->lazy(500) as $beneficiary) {
                         if (! $first) echo ',';
-                        $row = $this->row($beneficiary, $user);
+                        $row = $this->row($beneficiary, $user, false);
                         unset($row['actions']);
                         echo json_encode($row, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
                         $first = false;
@@ -140,7 +142,7 @@ class ReportDataTable
         ])->header('Cache-Control', 'private, no-store');
     }
 
-    private function row(Beneficiary $beneficiary, User $user): array
+    private function row(Beneficiary $beneficiary, User $user, bool $includeActions = true): array
     {
         $report = $beneficiary->report;
         $indicator = $report->indicadorProyecto?->indicador;
@@ -164,8 +166,12 @@ class ReportDataTable
             'recurrent' => '<span class="status status-'.($beneficiary->is_recurrent ? 'submitted' : 'reviewed').'">'.($beneficiary->is_recurrent ? 'Sí' : 'No').'</span>',
             'reported' => '<span class="status status-'.($beneficiary->reported_at ? 'reviewed' : 'submitted').'">'.($beneficiary->reported_at ? 'Sí' : 'No').'</span>'.($beneficiary->reported_at ? '<br><small>'.e($beneficiary->reported_at->format('d/m/Y')).'</small>' : ''),
         ];
-        if ($user->can('ver detalle de registros')) {
+        if ($includeActions && $user->can('ver detalle de registros')) {
             $row['actions'] = '<a href="'.e(route('reports.show', $report)).'">Ver</a>';
+            $this->continuation ??= new ReportContinuation();
+            if ($this->continuation->allows($user, $report)) {
+                $row['actions'] .= '<br><a href="'.e(route('reports.resume', $report)).'">Continuar agregando beneficiarios</a>';
+            }
         }
 
         return $row;

@@ -70,13 +70,14 @@ Route::middleware('guest')->group(function (): void {
 });
 
 Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'automatic.backup'])->group(function (): void {
-    Route::prefix('buzon')->name('buzon.')->middleware(['permission:Buzon', \App\Http\Middleware\PrivateBuzonResponse::class])->group(function (): void {
-        Route::get('/', [BuzonController::class, 'index'])->name('index');
-        Route::get('/nuevo', [BuzonController::class, 'create'])->name('create');
-        Route::post('/', [BuzonController::class, 'store'])->name('store');
-        Route::get('/{entry}/editar', [BuzonController::class, 'edit'])->name('edit');
-        Route::put('/{entry}', [BuzonController::class, 'update'])->name('update');
-        Route::get('/{entry}', [BuzonController::class, 'show'])->name('show');
+    Route::prefix('buzon')->name('buzon.')->middleware(\App\Http\Middleware\PrivateBuzonResponse::class)->group(function (): void {
+        Route::get('/', [BuzonController::class, 'index'])->middleware('permission:ver buzon')->name('index');
+        Route::get('/nuevo', [BuzonController::class, 'create'])->middleware('permission:crear buzon')->name('create');
+        Route::post('/', [BuzonController::class, 'store'])->middleware('permission:crear buzon')->name('store');
+        Route::get('/{entry}/editar', [BuzonController::class, 'edit'])->middleware(['permission:ver buzon', 'permission:editar buzon'])->name('edit');
+        Route::put('/{entry}', [BuzonController::class, 'update'])->middleware(['permission:ver buzon', 'permission:editar buzon'])->name('update');
+        Route::delete('/{entry}', [BuzonController::class, 'destroy'])->middleware(['permission:ver buzon', 'permission:eliminar buzon'])->name('destroy');
+        Route::get('/{entry}', [BuzonController::class, 'show'])->middleware('permission:ver buzon')->name('show');
     });
     Route::get('/panel', DashboardController::class)->name('dashboard');
     Route::post('/salir', [AuthController::class, 'logout'])->name('logout');
@@ -237,6 +238,10 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
     Route::get('/reportes', [ReportController::class, 'index'])->middleware('permission:solo ver registros')->name('reports.index');
     Route::get('/reportes/nuevo', [ReportController::class, 'create'])->middleware('permission:registrar actividad')->name('reports.create');
     Route::post('/reportes', [ReportController::class, 'store'])->middleware(['permission:registrar actividad', ReportPeriodTransaction::class])->name('reports.store');
+    Route::get('/reportes/{report}/continuar', [ReportController::class, 'resume'])
+        ->middleware('permission:registrar actividad')->name('reports.resume');
+    Route::post('/reportes/{report}/continuar', [ReportController::class, 'continueBeneficiary'])
+        ->middleware(['permission:registrar actividad', ReportPeriodTransaction::class])->name('reports.continue-beneficiary');
     Route::get('/reportes/{report}/editar', [ReportController::class, 'edit'])->middleware('permission:editar registros|editar beneficiarios')->name('reports.edit');
     Route::put('/reportes/{report}', [ReportController::class, 'update'])->middleware(['permission:editar registros', ReportPeriodTransaction::class])->name('reports.update');
     Route::delete('/reportes/{report}', [ReportController::class, 'destroy'])->middleware(['permission:eliminar registros', ReportPeriodTransaction::class])->name('reports.destroy');
