@@ -154,6 +154,8 @@ class BeneficiaryReportController extends Controller
         if ($includeNationalId) {
             $headers[] = 'Cédula';
         }
+        $locationCodeFirstColumn = Coordinate::stringFromColumnIndex(count($headers) + 1);
+        array_push($headers, 'Código de estado', 'Código de municipio', 'Código de parroquia');
         $lastColumn = Coordinate::stringFromColumnIndex(count($headers));
 
         foreach ($headers as $index => $header) {
@@ -178,6 +180,7 @@ class BeneficiaryReportController extends Controller
         if ($includeNationalId) {
             $widths[] = 20;
         }
+        array_push($widths, 18, 22, 22);
         foreach ($widths as $index => $width) {
             $worksheet->getColumnDimension(Coordinate::stringFromColumnIndex($index + 1))->setWidth($width);
         }
@@ -213,6 +216,7 @@ class BeneficiaryReportController extends Controller
             if ($includeNationalId) {
                 $values[] = $beneficiary->national_id;
             }
+            array_push($values, $beneficiary->state_code, $beneficiary->municipality_code, $beneficiary->parish_code);
 
             foreach ($values as $index => $value) {
                 $cell = Coordinate::stringFromColumnIndex($index + 1).$rowNumber;
@@ -239,6 +243,8 @@ class BeneficiaryReportController extends Controller
         if ($includeNationalId) {
             $worksheet->getStyle("Y2:Y{$lastDataRow}")->getNumberFormat()->setFormatCode('@');
         }
+        // Geographic codes are identifiers, not numbers: preserve leading zeros.
+        $worksheet->getStyle("{$locationCodeFirstColumn}2:{$lastColumn}{$lastDataRow}")->getNumberFormat()->setFormatCode('@');
 
         $writer = new Xlsx($spreadsheet);
         $fileName = 'beneficiarios-'.now()->format('Ymd-His').'.xlsx';
@@ -536,6 +542,7 @@ class BeneficiaryReportController extends Controller
                 'beneficiaries.pregnant_lactating', 'beneficiaries.is_recurrent', 'beneficiaries.reported_at',
                 'beneficiaries.created_at as beneficiary_created_at', 'export_states.name as state_name',
                 'export_municipalities.name as municipality_name', 'export_parishes.name as parish_name',
+                'export_states.code as state_code', 'export_municipalities.code as municipality_code', 'export_parishes.code as parish_code',
                 'export_reports.installation_type', 'export_reports.place_name', 'export_reports.latitude',
                 'export_reports.longitude',
                 'export_projects.codigo as project_code',

@@ -31,7 +31,9 @@ document.addEventListener('DOMContentLoaded', function () {
         params.set('reported', generalForm
             ? form.querySelector('input[name="reported"]')?.value ?? ''
             : document.getElementById('summary_reported')?.value ?? '0');
-        if (!generalForm) {
+        if (generalForm) {
+            form.querySelectorAll('input[name="project_ids[]"]').forEach(input => params.append('project_ids[]', input.value));
+        } else {
             const projects = document.getElementById('summary_project_ids');
             if (projects) Array.from(projects.selectedOptions, option => option.value)
                 .filter(value => value && value !== '__all__').forEach(value => params.append('project_ids[]', value));

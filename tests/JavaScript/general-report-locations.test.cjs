@@ -19,6 +19,7 @@ function harness(useSelect2 = false, beneficiary = false, projects = []) {
     form.dataset = {locationsUrl: '/informes-generales/ubicaciones'};
     const generalReported = element('1');
     form.querySelector = selector => selector === 'input[name="reported"]' ? generalReported : submit;
+    form.querySelectorAll = () => projects.map(value => ({value}));
     const elements = {'general-report-filters': form, 'general_state_id': state, 'general_municipality_id': municipality,
         'general_parish_id': parish, 'general-locations-error': error, 'general-locations-retry': retry};
     const exportButton = element();
@@ -90,6 +91,13 @@ test('beneficiary location requests always retain the selected projects', async 
     assert.deepEqual(params.getAll('project_ids[]'), ['11', '22']);
     h.requests[0].finish({municipalities: [], parishes: []});
     await pending;
+});
+
+test('general report location requests retain the selected project scope', async () => {
+    const h = harness(false, false, ['11', '22']);
+    const pending = h.state.handlers.change();
+    assert.deepEqual(new URL(h.requests[0].url, 'https://app.test').searchParams.getAll('project_ids[]'), ['11', '22']);
+    h.requests[0].finish({municipalities: [], parishes: []}); await pending;
 });
 
 const all = {municipalities: [{id: 11, name: 'Municipio A'}, {id: 22, name: 'Municipio B'}],

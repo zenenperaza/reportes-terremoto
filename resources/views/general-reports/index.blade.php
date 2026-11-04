@@ -15,7 +15,8 @@
     </div>
 </section>
 
-@include('general-reports.partials.filters-and-summary', ['exportRoute' => 'general-reports.export'])
+@include('general-reports.partials.project-filter')
+@include('general-reports.partials.filters-and-summary', ['exportRoute' => 'general-reports.export', 'includeConditionCards' => true])
 
 @if($summary['beneficiaries'] === 0)
 <section class="card"><div class="card-body general-empty"><i class="ri-bar-chart-box-line"></i><h2>Sin resultados</h2><p>Modifique los filtros para visualizar informaci&oacute;n.</p></div></section>

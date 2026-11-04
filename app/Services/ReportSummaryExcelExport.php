@@ -205,6 +205,11 @@ class ReportSummaryExcelExport
         $rows[] = ['Nombre del lugar', ($filters['place_name'] ?? '') ?: 'Todos'];
         $rows[] = ['Recurrente', filled($filters['is_recurrent'] ?? null) ? ((string) $filters['is_recurrent'] === '1' ? 'Sí' : 'No') : 'Todos'];
         $rows[] = ['Indicadores Resumen', \App\Support\SummaryIndicatorFilter::labels($filters['summary_indicator_ids'] ?? [])];
+        if ($data['projectFilterEnabled'] ?? false) {
+            $selected = collect($data['projectOptions'])->whereIn('id', $filters['project_ids'] ?? [])
+                ->map(fn ($project) => $project->codigo.' — '.($project->nombre_alias ?: $project->descripcion))->implode(', ');
+            $rows[] = ['Proyectos', $selected ?: 'Todos los proyectos'];
+        }
 
         return $rows;
     }

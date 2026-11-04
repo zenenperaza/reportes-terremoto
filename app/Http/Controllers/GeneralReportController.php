@@ -6,6 +6,7 @@ use App\Models\Beneficiary;
 use App\Models\IndicadorProyecto;
 use App\Models\Municipality;
 use App\Models\Parish;
+use App\Models\Proyecto;
 use App\Models\Report;
 use App\Models\Sector;
 use App\Services\ReportLocationOptions;
@@ -16,6 +17,7 @@ use App\Support\SummaryIndicatorFilter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -63,7 +65,7 @@ class GeneralReportController extends Controller
                 'report.indicadorProyecto.indicador:id,indicator_group_id,codigo,nombre_corto,descripcion,unidad_conteo,edad_desde,edad_hasta,espacio_coordinacion',
                 'report.indicadorProyecto.indicador.indicatorGroup:id,name,description,sort_order',
             ])
-            ->get(['id', 'report_id', 'age', 'sex', 'is_recurrent', 'reported_at', 'created_at']);
+            ->get(['id', 'report_id', 'age', 'sex', 'disability', 'ethnicity', 'pregnant_lactating', 'is_recurrent', 'reported_at', 'created_at']);
 
         $locations = $this->locationOptions($request, $filters);
         $optionReports = $this->optionReports($request, $filters);
@@ -79,6 +81,8 @@ class GeneralReportController extends Controller
                 ->distinct()
                 ->pluck('indicador_proyecto_id'))
             ->get(['id', 'indicador_id', 'sector_proyecto_id']);
+        $sectorIds = (clone $optionReports)->pluck('sector_id')
+            ->merge($indicatorAssignments->pluck('asignacionSector.sector_id'))->filter()->unique();
 
         $indicators = $indicatorAssignments
             ->filter(fn (IndicadorProyecto $assignment): bool => $assignment->indicador !== null)
@@ -108,8 +112,12 @@ class GeneralReportController extends Controller
 
         return [
             'filters' => $filters,
-            'summaryIndicatorOptions' => SummaryIndicatorFilter::options($request->user()),
-            'periodOptions' => ReportPeriod::options(clone $optionReports, true),
+            'projectFilterEnabled' => $this->projectFilterEnabled(),
+            'projectOptions' => $this->projectFilterEnabled() ? $this->projectOptions($request) : collect(),
+            'summaryIndicatorOptions' => SummaryIndicatorFilter::options($request->user())
+                ->when($filters['project_ids'], fn (Collection $options) => $options->whereIn('proyecto_id', $filters['project_ids'])->values()),
+            'periodOptions' => ReportPeriod::options(clone $optionReports, empty($filters['project_ids'])),
+            'includeUnassignedPeriod' => ! $filters['project_ids'] || (clone $optionReports)->whereNull('reporting_period')->exists(),
             'dateBounds' => $dateBounds,
             'dateBoundsRoute' => route('general-reports.dates'),
             'ageGroups' => self::AGE_GROUPS,
@@ -119,7 +127,7 @@ class GeneralReportController extends Controller
             'states' => $locations['states'],
             'municipalities' => $locations['municipalities'],
             'parishes' => $locations['parishes'],
-            'sectors' => Sector::whereIn('id', (clone $optionReports)->select('sector_id'))->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
+            'sectors' => Sector::whereIn('id', $sectorIds)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
             'indicators' => $indicators,
             'locationsRoute' => route('general-reports.locations'),
             'installationTypes' => (clone $optionReports)->whereNotNull('installation_type')->distinct()->orderBy('installation_type')->pluck('installation_type'),
@@ -149,13 +157,17 @@ class GeneralReportController extends Controller
     {
         // A report with both pending and reported people belongs to both statuses.
         // Other filters do not narrow options, so users can widen their selections.
-        return $this->visibleReports($request)->whereHas('beneficiaries', fn (Builder $q) => $this->applyReportedStatus($q, $filters));
+        return $this->visibleReports($request)
+            ->when($filters['project_ids'] ?? [], fn (Builder $q, array $ids) => $q->whereIn('reports.proyecto_id', $ids))
+            ->whereHas('beneficiaries', fn (Builder $q) => $this->applyReportedStatus($q, $filters));
     }
 
     private function optionBeneficiaries(Request $request, array $filters): Builder
     {
         return $this->applyReportedStatus(Beneficiary::query()
-            ->whereIn('report_id', $this->visibleReports($request)->select('reports.id')), $filters);
+            ->whereIn('report_id', $this->visibleReports($request)
+                ->when($filters['project_ids'] ?? [], fn (Builder $q, array $ids) => $q->whereIn('reports.proyecto_id', $ids))
+                ->select('reports.id')), $filters);
     }
 
     public function locations(Request $request): JsonResponse
@@ -188,6 +200,7 @@ class GeneralReportController extends Controller
         return Beneficiary::query()
             ->whereHas('report', function (Builder $query) use ($request, $filters): void {
                 $query->reportingPeriod($filters['reporting_period'] ?? null);
+                $query->when($filters['project_ids'] ?? [], fn (Builder $q, array $ids) => $q->whereIn('reports.proyecto_id', $ids));
                 $request->user()->constrainVisibleReports($query);
                 SummaryIndicatorFilter::apply($query, $filters['summary_indicator_ids'] ?? []);
                 $query
@@ -198,7 +211,9 @@ class GeneralReportController extends Controller
                     ->when($filters['parish_id'] ?? null, fn (Builder $q, int $id) => $q->where('parish_id', $id))
                     ->when($filters['installation_type'] ?? null, fn (Builder $q, string $type) => $q->where('installation_type', $type))
                     ->when($filters['place_name'] ?? null, fn (Builder $q, string $place) => $q->where('place_name', $place))
-                    ->when($filters['sector_id'] ?? null, fn (Builder $q, int $id) => $q->where('sector_id', $id))
+                    ->when($filters['sector_id'] ?? null, fn (Builder $q, int $id) => $q->where(fn (Builder $sector) => $sector
+                        ->where('sector_id', $id)->orWhere(fn (Builder $fallback) => $fallback->whereNull('sector_id')
+                            ->whereHas('indicadorProyecto.asignacionSector', fn (Builder $assignment) => $assignment->where('sector_id', $id)))))
                     ->when($filters['indicador_id'] ?? [], fn (Builder $q, array $ids) => $q->whereHas(
                         'indicadorProyecto',
                         fn (Builder $assignment) => $assignment->whereIn('indicador_id', $ids),
@@ -225,10 +240,28 @@ class GeneralReportController extends Controller
             ->whereHas('report', fn (Builder $query) => $query->reportingPeriod($filters['reporting_period'] ?? null)));
     }
 
+    protected function projectFilterEnabled(): bool
+    {
+        return true;
+    }
+
+    private function projectOptions(Request $request): Collection
+    {
+        $user = $request->user();
+        return Proyecto::query()
+            ->when(! $user->isAdministrator(), fn (Builder $projects) => $projects->where(function (Builder $available) use ($user, $request): void {
+                $available->whereIn('id', $user->projects()->select('proyectos.id'))
+                    ->orWhereIn('id', $this->visibleReports($request)->select('reports.proyecto_id'));
+            }))
+            ->orderBy('codigo')->get(['id', 'codigo', 'nombre_alias', 'descripcion']);
+    }
+
     /** @return array<string, mixed> */
     private function validatedFilters(Request $request): array
     {
         $input = $request->all() + ['reporting_period' => ''];
+        $input['project_ids'] = $this->projectFilterEnabled() ? ($input['project_ids'] ?? []) : [];
+        if ($input['project_ids'] === '') $input['project_ids'] = [];
         // Continue accepting bookmarked URLs with a single state_id.
         if (! is_array($input['state_id'] ?? null)) {
             $input['state_id'] = filled($input['state_id'] ?? null) ? [$input['state_id']] : [];
@@ -248,6 +281,8 @@ class GeneralReportController extends Controller
         }
 
         $filters = validator($input, [
+            'project_ids' => ['array', 'list', 'max:1000'],
+            'project_ids.*' => ['bail', 'required', 'integer', 'distinct', Rule::in($this->projectFilterEnabled() ? $this->projectOptions($request)->pluck('id')->all() : [])],
             'reporting_period' => ReportPeriod::rules(),
             'attention_from' => ['nullable', 'date_format:Y-m-d'],
             'attention_to' => ['nullable', 'date_format:Y-m-d', 'after:attention_from'],
@@ -271,9 +306,11 @@ class GeneralReportController extends Controller
         ], [
             'attention_to.after' => 'La fecha de atención «Desde» debe ser anterior a «Hasta».',
             'registered_to.after' => 'La fecha de registro «Desde» debe ser anterior a «Hasta».',
+            'project_ids.*.in' => 'Seleccione un proyecto disponible para su usuario.',
         ])->validate();
 
         $filters['state_id'] = array_map('intval', $filters['state_id']);
+        $filters['project_ids'] = array_map('intval', $filters['project_ids']);
         $filters['indicador_id'] = array_map('intval', $filters['indicador_id']);
         $filters['summary_indicator_ids'] = SummaryIndicatorFilter::selection($request);
         if (! empty($filters['municipality_id']) && $filters['state_id'] && ! Municipality::query()
@@ -316,6 +353,9 @@ class GeneralReportController extends Controller
             'women_under_18' => $women->where('age', '<', 18)->count(),
             'men_adults' => $men->where('age', '>=', 18)->count(),
             'men_under_18' => $men->where('age', '<', 18)->count(),
+            'disability' => $beneficiaries->filter(fn (Beneficiary $person) => filled($person->disability) && $person->disability !== 'Ninguna')->count(),
+            'ethnicity' => $beneficiaries->filter(fn (Beneficiary $person) => filled($person->ethnicity) && $person->ethnicity !== 'Ninguna')->count(),
+            'pregnancy' => $beneficiaries->where('pregnant_lactating', 'Sí')->count(),
             'average_age' => $beneficiaries->isEmpty() ? 0 : round((float) $beneficiaries->avg('age'), 1),
         ];
     }

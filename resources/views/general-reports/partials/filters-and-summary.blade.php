@@ -4,6 +4,9 @@
     <div class="card-body">
         <form method="get" id="general-report-filters" class="row g-3" data-period-dates data-date-bounds-url="{{ $dateBoundsRoute }}" data-locations-url="{{ $locationsRoute }}">
             <input type="hidden" name="reported" value="{{ $filters['reported'] ?? '' }}">
+            @if($projectFilterEnabled)
+                <span data-general-project-inputs hidden>@foreach($filters['project_ids'] as $id)<input type="hidden" name="project_ids[]" value="{{ $id }}">@endforeach</span>
+            @endif
             <div class="col-12">@include('reports.partials.summary-indicator-filter')</div>
             <div class="col-12 report-period-row">@include('reports.partials.period-filter')</div>
             @foreach(['attention_from' => ['attention', 'Fecha de atención desde'], 'attention_to' => ['attention', 'Fecha de atención hasta'], 'registered_from' => ['registered', 'Fecha de registro desde'], 'registered_to' => ['registered', 'Fecha de registro hasta']] as $field => [$dateGroup, $label])
@@ -51,7 +54,7 @@
             </div>
 
             <div class="col-12 d-flex flex-wrap justify-content-end align-items-center gap-2 pt-2 report-filter-actions">
-                <a class="btn btn-light" href="{{ url()->current().'?'.http_build_query(['reported' => $filters['reported'] ?? '']) }}"><i class="ri-refresh-line me-1"></i>Limpiar</a>
+                <a class="btn btn-light" href="{{ url()->current().'?'.http_build_query(['reported' => $filters['reported'] ?? '', 'project_ids' => $filters['project_ids']]) }}"><i class="ri-refresh-line me-1"></i>Limpiar</a>
                 <button class="btn btn-primary" type="submit"><i class="ri-filter-3-line me-1"></i>Aplicar filtros</button>
                 @include('general-reports.partials.excel-export')
             </div>
@@ -61,7 +64,7 @@
 
 @include('reports.partials.period-date-assets')
 
-<div class="row general-kpis">
+<div class="general-kpis" id="general-summary-cards">
     @foreach([
         ['Personas atendidas', $summary['beneficiaries'], 'ri-group-line', 'primary'],
         ['NNA Mujeres', $summary['women_under_18'], 'ri-user-heart-line', 'success'],
@@ -69,9 +72,15 @@
         ['Mujeres adultas', $summary['women_adults'], 'ri-women-line', 'danger'],
         ['Hombres adultos', $summary['men_adults'], 'ri-men-line', 'primary'],
     ] as [$label, $value, $icon, $tone])
-    <div class="col-xl col-md-4 col-sm-6"><article class="card general-kpi-card"><div class="card-body"><div><p>{!! $label !!}</p><strong>{!! $value !!}</strong></div><span class="general-kpi-icon tone-{{ $tone }}"><i class="{{ $icon }}"></i></span></div></article></div>
+    <div class="general-kpi-column"><article class="card general-kpi-card"><div class="card-body"><div><p>{!! $label !!}</p><strong>{!! $value !!}</strong></div><span class="general-kpi-icon tone-{{ $tone }}"><i class="{{ $icon }}"></i></span></div></article></div>
     @endforeach
+    @if($includeConditionCards ?? false)
+        @include('general-reports.partials.condition-cards')
+    @endif
 </div>
+@if($includeConditionCards ?? false)
+    <p class="text-muted small mb-4">Estos grupos forman parte de Personas atendidas y pueden coincidir en una misma persona.</p>
+@endif
 
 
 

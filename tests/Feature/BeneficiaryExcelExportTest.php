@@ -107,7 +107,15 @@ class BeneficiaryExcelExportTest extends TestCase
             $this->assertSame('Período', $worksheet->getCell('X1')->getValue());
             $this->assertSame('Octubre 2026', $worksheet->getCell('X2')->getValue());
             $this->assertSame(DataType::TYPE_STRING, $worksheet->getCell('X2')->getDataType());
-            $this->assertSame('A1:Y1', $worksheet->getAutoFilter()->getRange());
+            $this->assertSame('A1:AB1', $worksheet->getAutoFilter()->getRange());
+            foreach (['Z' => ['Código de estado', 'VE24'], 'AA' => ['Código de municipio', 'VE2401'], 'AB' => ['Código de parroquia', 'VE240101']] as $column => [$header, $value]) {
+                $this->assertSame($header, $worksheet->getCell($column.'1')->getValue());
+                $this->assertSame($value, $worksheet->getCell($column.'2')->getValue());
+                $this->assertSame(DataType::TYPE_STRING, $worksheet->getCell($column.'2')->getDataType());
+                $this->assertSame('@', $worksheet->getStyle($column.'2')->getNumberFormat()->getFormatCode());
+                $this->assertSame($worksheet->getStyle('X1')->getFill()->getStartColor()->getARGB(),
+                    $worksheet->getStyle($column.'1')->getFill()->getStartColor()->getARGB());
+            }
             $this->assertSame('Cédula', $worksheet->getCell('Y1')->getValue());
             $this->assertSame('001234567', $worksheet->getCell('Y2')->getValue());
             $this->assertSame(DataType::TYPE_STRING, $worksheet->getCell('Y2')->getDataType());
@@ -209,7 +217,7 @@ class BeneficiaryExcelExportTest extends TestCase
         $report = $this->reportWithNationalIds($admin);
         $this->actingAs($admin);
         $sheet = $this->exportWorksheet(['reported' => '']);
-        $this->assertSame('Y', $sheet->getHighestDataColumn());
+        $this->assertSame('AB', $sheet->getHighestDataColumn());
         $this->assertSame('000987654', $sheet->getCell('Y2')->getValue());
         $this->assertSame('', (string) $sheet->getCell('Y3')->getValue());
         $this->assertSame("'=1+1", $sheet->getCell('Y4')->getValue());
@@ -228,15 +236,58 @@ class BeneficiaryExcelExportTest extends TestCase
             $this->reportWithNationalIds($user);
             $this->actingAs($user);
             $sheet = $this->exportWorksheet(['reported' => '', 'include_national_id' => '1', 'is_admin' => '1']);
-            $this->assertSame('X', $sheet->getHighestDataColumn());
-            $this->assertSame('A1:X1', $sheet->getAutoFilter()->getRange());
+            $this->assertSame('AA', $sheet->getHighestDataColumn());
+            $this->assertSame('A1:AA1', $sheet->getAutoFilter()->getRange());
             $this->assertSame('Período', $sheet->getCell('X1')->getValue());
+            foreach (['Y' => ['Código de estado', 'TEST'], 'Z' => ['Código de municipio', 'TEST01'], 'AA' => ['Código de parroquia', 'TEST0101']] as $column => [$header, $code]) {
+                $this->assertSame($header, $sheet->getCell($column.'1')->getValue());
+                $this->assertSame($code, $sheet->getCell($column.'2')->getValue());
+            }
             $contents = json_encode($sheet->toArray(), JSON_UNESCAPED_UNICODE);
             $this->assertStringNotContainsString('Cédula', $contents);
             $this->assertStringNotContainsString('000987654', $contents);
             $this->assertStringNotContainsString('=1+1', $contents);
             $this->assertGreaterThan(1, $sheet->getHighestDataRow());
         }
+    }
+
+    public function test_geographic_codes_preserve_zeros_and_follow_each_beneficiary_location_and_filters(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $report = $this->reportWithNationalIds($admin);
+        $report->state->update(['code' => '01']);
+        $report->municipality->update(['code' => '0101']);
+        $report->parish->update(['code' => '010101']);
+        $state = State::create(['code' => '02', 'name' => 'Segundo estado']);
+        $municipality = Municipality::create(['state_id' => $state->id, 'code' => '0201', 'name' => 'Segundo municipio']);
+        $parish = Parish::create(['municipality_id' => $municipality->id, 'code' => '020101', 'name' => 'Segunda parroquia']);
+        $otherReport = $report->replicate()->setRelations([]);
+        $otherReport->fill(['state_id' => $state->id, 'municipality_id' => $municipality->id, 'parish_id' => $parish->id])->save();
+        $otherPerson = $otherReport->beneficiaries()->create(['full_name' => 'Otra persona', 'age' => 30, 'sex' => 'Mujer', 'is_recurrent' => false]);
+        $this->actingAs($admin);
+        foreach ([null, $report->state_id, $state->id] as $stateFilter) {
+            $sheet = $this->exportWorksheet(['reported' => '', 'state_id' => $stateFilter]);
+            $this->assertSame($stateFilter === null ? 5 : ($stateFilter === $state->id ? 2 : 4), $sheet->getHighestDataRow());
+            for ($row = 2; $row <= $sheet->getHighestDataRow(); $row++) {
+                $other = (int) $sheet->getCell('A'.$row)->getValue() === $otherPerson->id;
+                foreach (['Z' => $other ? '02' : '01', 'AA' => $other ? '0201' : '0101', 'AB' => $other ? '020101' : '010101'] as $column => $code) {
+                    $this->assertSame($code, $sheet->getCell($column.$row)->getValue());
+                    $this->assertSame(DataType::TYPE_STRING, $sheet->getCell($column.$row)->getDataType());
+                    $this->assertSame('@', $sheet->getStyle($column.$row)->getNumberFormat()->getFormatCode());
+                }
+            }
+        }
+    }
+
+    public function test_empty_export_still_includes_final_geographic_code_headers(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $this->actingAs($admin);
+        $sheet = $this->exportWorksheet(['reported' => '']);
+        $this->assertSame('Código de estado', $sheet->getCell('Z1')->getValue());
+        $this->assertSame('Código de municipio', $sheet->getCell('AA1')->getValue());
+        $this->assertSame('Código de parroquia', $sheet->getCell('AB1')->getValue());
+        $this->assertSame('A1:AB1', $sheet->getAutoFilter()->getRange());
     }
 
     private function exportWorksheet(array $filters): Worksheet

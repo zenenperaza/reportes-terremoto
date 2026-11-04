@@ -1,6 +1,9 @@
 <section class="content-card general-reported-card" aria-labelledby="general-reported-title">
     <h2 id="general-reported-title">Estado de reporte</h2>
     <form method="get" action="{{ url()->current() }}" id="general-reported-filter" class="general-reported-filter">
+        @if($projectFilterEnabled)
+            <span data-general-project-inputs hidden>@foreach($filters['project_ids'] as $id)<input type="hidden" name="project_ids[]" value="{{ $id }}">@endforeach</span>
+        @endif
         <span id="general-reported-periods" hidden>
             @foreach(\App\Support\ReportPeriod::selection($filters['reporting_period'] ?? null) ?: [''] as $selectedPeriod)
                 <input type="hidden" name="reporting_period[]" value="{{ $selectedPeriod }}">
@@ -14,7 +17,7 @@
             </select>
         </label>
         <button class="button button-primary" type="submit">Aplicar estado</button>
-        <p class="muted" id="general-reported-help">Los indicadores, lugares y demás opciones corresponden al estado elegido. Al cambiarlo se conserva el período y se limpian los demás filtros.</p>
+        <p class="muted" id="general-reported-help">Los indicadores, lugares y demás opciones corresponden al estado elegido. Al cambiarlo se conservan @if($projectFilterEnabled)los proyectos y @endif el período y se limpian los demás filtros.</p>
     </form>
 </section>
 @once
