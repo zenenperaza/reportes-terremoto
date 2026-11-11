@@ -156,7 +156,7 @@
                 const recognized = [];
                 for (const [field, value] of Object.entries(result.values)) {
                     const input = inputs[field];
-                    if (!input || input.readOnly) continue;
+                    if (!input || input.readOnly || input.dataset?.voiceExcluded === '1') continue;
                     // Lookup changes are expected. Manual edits during an awaited lookup are not overwritten.
                     const changedManually = input.value !== before[field] && !(lookupResult.fields || []).includes(field) && field !== 'national_id';
                     const correctedEarlier = dictated.get(field) === value && applied.has(field) && input.value !== applied.get(field);

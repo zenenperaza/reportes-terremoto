@@ -1,20 +1,22 @@
-# Recurrencia automática dentro del proyecto
+# Recurrencia sugerida dentro del proyecto
 
-Al registrar una nueva atención, **Recurrente** se calcula automáticamente y no se selecciona manualmente:
+Al registrar una nueva atención, **Recurrente** se sugiere automáticamente y el selector permanece habilitado para que el registrador pueda corregirlo antes de guardar:
 
 - Se busca en todo el proyecto seleccionado, sin limitar por indicador, actividad, lugar, período, registrador o equipo.
 - Con cédula: se normalizan espacios, puntos, guiones y mayúsculas; se conserva el prefijo V/E y los ceros iniciales. Una cédula explícitamente V no coincide con una explícitamente E.
 - Sin cédula: se exige coincidencia de nombre completo, edad y sexo. La edad debe coincidir exactamente; esta alternativa no equivale a identificar inequívocamente a una persona. Los homónimos o edades actualizadas requieren revisar los datos de identidad.
 - La cédula del cuidador nunca se utiliza como cédula del beneficiario.
-- Si solo tiene registros en otro proyecto, la nueva atención se guarda como **No recurrente**.
+- Si solo tiene registros en otro proyecto, la sugerencia es **No recurrente**.
+- Si se detecta una atención previa en el mismo proyecto, se propone **Sí**, pero el usuario puede cambiarlo a **No**. Se conserva la corrección al guardar, también al continuar un listado y en sus copias asociadas.
+- Cambiar de identidad o proyecto, o comenzar el siguiente beneficiario, descarta la corrección anterior. Una respuesta pendiente no sustituye una elección manual realizada mientras se consultaba.
 
 ## Seguridad y persistencia
 
 `POST /beneficiarios/verificar-recurrencia-proyecto` requiere permiso **registrar actividad** y acceso al proyecto (o administrador). Devuelve únicamente si hay coincidencia, no perfiles de otras personas, autores, conteos ni identificadores. Los datos personales no van en la URL ni se duplican en el payload de la bitácora. La respuesta no se almacena en caché.
 
-`BeneficiaryRecurrence` comparte la regla entre la pantalla y el guardado. Las altas individuales y por lote recalculan la condición en el servidor, ignorando el valor enviado por el cliente. El bloqueo transaccional del proyecto serializa las altas simultáneas. Las copias en indicadores asociados conservan la misma condición que la atención principal; no convierten su propia primera atención en recurrente.
+`BeneficiaryRecurrence` comparte la regla entre la pantalla y el guardado. Las altas individuales y por lote recalculan la condición en el servidor si no hubo corrección manual, incluso cuando un navegador envía una sugerencia anterior. Con `beneficiary.recurrence_manual = true` (o `beneficiaries.*.recurrence_manual` en lote), se exige un `is_recurrent` booleano y se respeta la elección. La marca manual es transitoria: no se añade una columna ni se guarda en el modelo. El bloqueo transaccional del proyecto serializa las altas simultáneas. Las copias en indicadores asociados conservan la misma condición que la atención principal; no convierten su propia primera atención en recurrente.
 
-El formulario espera la comprobación antes de guardar. Al cambiar de proyecto o identidad se descartan respuestas anteriores. El dictado consulta esta misma regla y no puede reemplazar la condición calculada.
+El formulario espera la comprobación antes de guardar. Al cambiar de proyecto o identidad se descartan respuestas anteriores. El dictado consulta esta misma regla y no reemplaza la condición del selector al crear una nueva atención; la corrección puede hacerse manualmente en el select. Si falla la consulta, sigue siendo necesario reintentar antes de guardar.
 
 No se recalculan registros históricos ni se cambia su comportamiento de edición; corregir una atención existente no crea una nueva asistencia ni la reclasifica automáticamente. El endpoint GET anterior de alertas por actividad se conserva por compatibilidad, pero ya no se utiliza en este formulario.
 

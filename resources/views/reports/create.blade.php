@@ -352,7 +352,7 @@
                             <option value="0" selected>No</option>
                             <option value="1">Sí</option>
                         </select></label>
-                    <p class="muted">Se calcula automáticamente según los registros anteriores del beneficiario en el mismo proyecto.</p>
+                    <p class="muted">Se sugiere automáticamente según los registros anteriores del beneficiario en el mismo proyecto. Puede cambiar la selección antes de guardar.</p>
                 </div>
                 <div class="beneficiary-entry-actions">
                     <button
@@ -1233,6 +1233,7 @@
             }
             if (isSaving) return;
             beneficiary.is_recurrent = beneficiaryInputs.is_recurrent.value;
+            beneficiary.recurrence_manual = recurrence.isManual();
             const validationMessage = beneficiaryValidationMessage(beneficiary);
             if (validationMessage) {
                 setMessage(entryError, validationMessage);
@@ -1265,6 +1266,7 @@
             } else {
                 data = new FormData(form);
                 beneficiaryFields.forEach(field => data.set(`beneficiary[${field}]`, beneficiary[field]));
+                data.set('beneficiary[recurrence_manual]', beneficiary.recurrence_manual ? '1' : '0');
                 if (!createsNewReport) data.set('report_id', activeReportId);
                 if (form.dataset.reportUpdateUrl) storedAssociatedIds.forEach(id => data.append('associated_indicator_ids[]', id));
             }

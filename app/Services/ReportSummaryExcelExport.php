@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Support\ReportPeriod;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
@@ -56,7 +57,28 @@ class ReportSummaryExcelExport
             $this->generalSheet($workbook, $data['charts']);
         }
         $workbook->setActiveSheetIndex(0);
-        $filename = ($byIndicators ? 'informe-indicadores-' : 'informes-generales-').now()->format('Ymd-His').'.xlsx';
+        $projectReference = '';
+        if ($byIndicators) {
+            $projects = collect($data['projectOptions'])->whereIn('id', $data['filters']['project_ids'] ?? []);
+            $projectNames = $projects->map(fn ($project) => $project->codigo.' — '.($project->nombre_alias ?: $project->descripcion));
+            $projectLabel = $projectNames->isEmpty() ? 'Proyectos: Todos los proyectos'
+                : ($projectNames->count() === 1 ? 'Proyecto: ' : 'Proyectos: ').$projectNames->implode('; ');
+            $projectReference = $projects->isEmpty() ? 'todos-los-proyectos' : Str::slug($projects->take(2)
+                ->map(fn ($project) => $project->codigo.' '.($project->nombre_alias ?: $project->descripcion))->implode(' '));
+            $projectReference = Str::substr($projectReference ?: 'proyectos-seleccionados', 0, 120);
+            if ($projects->count() > 2) {
+                $projectReference .= '-y-'.($projects->count() - 2).'-mas';
+            }
+            $projectReference .= '-';
+            foreach ($workbook->getAllSheets() as $sheet) {
+                // Identificar también las hojas consultadas sin abrir antes Resumen.
+                $this->cell($sheet, 'A1', $sheet->getCell('A1')->getValue()."\n".$projectLabel);
+                $sheet->getStyle('A1')->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_CENTER);
+                $sheet->getRowDimension(1)->setRowHeight(min(409, 34 + 18 * (int) ceil(Str::length($projectLabel) / 80)));
+            }
+            $workbook->getProperties()->setSubject($projectLabel);
+        }
+        $filename = ($byIndicators ? 'informe-indicadores-' : 'informes-generales-').$projectReference.now()->format('Ymd-His').'.xlsx';
 
         return response()->streamDownload(function () use ($workbook): void {
             try {

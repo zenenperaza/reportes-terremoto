@@ -81,7 +81,8 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             'beneficiary.disability' => ['nullable', Rule::in($beneficiaryOptions['disabilities'])],
             'beneficiary.ethnicity' => ['nullable', Rule::in($beneficiaryOptions['ethnicities'])],
             'beneficiary.pregnant_lactating' => ['nullable', Rule::in($beneficiaryOptions['pregnant_lactating'])],
-            'beneficiary.is_recurrent' => [$this->isMethod('post') ? 'sometimes' : 'required', 'boolean'],
+            'beneficiary.is_recurrent' => [$this->isMethod('post') ? 'required_if_accepted:beneficiary.recurrence_manual' : 'required', 'boolean'],
+            'beneficiary.recurrence_manual' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -117,6 +118,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             'proyecto_id.required' => 'Seleccione un proyecto para registrar la actividad.',
             'required' => 'El campo :attribute es obligatorio.',
             'required_if' => 'El campo :attribute es obligatorio.',
+            'beneficiary.is_recurrent.required_if_accepted' => 'Seleccione Sí o No en Recurrente para guardar la corrección manual.',
             'accepted' => 'Debe confirmar el :attribute.',
             'required_with' => 'El campo :attribute es obligatorio cuando se indica su coordenada relacionada.',
         ];

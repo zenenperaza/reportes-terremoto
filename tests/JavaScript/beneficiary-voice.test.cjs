@@ -63,6 +63,14 @@ function harness(lookup) {
     return {inputs, states, ...coordinator};
 }
 
+test('dictation does not overwrite the editable recurrence select excluded from voice in new entries', async () => {
+    const h = harness(async () => ({status: 'not-found', fields: []}));
+    h.inputs.is_recurrent = {value: '0', readOnly: false, dataset: {voiceExcluded: '1'}};
+    const result = await h.apply('nombre Ana Pérez, edad 34 años, mujer, recurrente');
+    assert.equal(h.inputs.is_recurrent.value, '0');
+    assert.equal(result.recognized.includes('is_recurrent'), false);
+});
+
 test('a minor can be dictated without caregiver fields', async () => {
     const h = harness(async () => ({status: 'not-found', fields: []}));
     const result = await h.apply('Sin cédula, nombre Ana Pérez, edad 12 años, mujer');

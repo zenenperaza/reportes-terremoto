@@ -23,7 +23,8 @@ function harness() {
 }
 
 test('new registrations calculate recurrence; one project-scoped POST sends no indicator or location', async () => {
-    const h = harness(); assert.equal(h.inputs.is_recurrent.disabled, true); assert.equal(h.inputs.is_recurrent.readOnly, true);
+    const h = harness(); assert.equal(h.inputs.is_recurrent.disabled, false); assert.equal(h.inputs.is_recurrent.readOnly, false);
+    assert.equal(h.inputs.is_recurrent.dataset.voiceExcluded, '1');
     h.inputs.national_id.value = 'V12345678'; const pending = h.check();
     const sent = JSON.parse(h.requests[0].options.body);
     assert.deepEqual(sent, {proyecto_id: '1', national_id: 'V12345678', full_name: '', age: '', sex: ''});
@@ -72,7 +73,59 @@ test('reset/edit invalidates old checks; correcting an existing attendance does 
     await h.check(); assert.equal(h.requests.length, 1); assert.equal(h.inputs.is_recurrent.value, '0');
     assert.equal(h.inputs.is_recurrent.disabled, false);
     h.form.dataset.beneficiaryEditing = '0'; await h.form.dispatch('beneficiary-entry-reset');
-    assert.equal(h.inputs.is_recurrent.disabled, true);
+    assert.equal(h.inputs.is_recurrent.disabled, false);
+    assert.equal(h.inputs.is_recurrent.dataset.voiceExcluded, '1');
+});
+
+test('automatic Yes remains editable and saving keeps a manual No for the same person and project', async () => {
+    const h = harness(); h.inputs.national_id.value = '12345678';
+    assert.equal(h.isManual(), false);
+    const pending = h.check(); await h.respond({is_recurrent: true}); await pending;
+    assert.equal(h.inputs.is_recurrent.value, '1'); assert.equal(h.inputs.is_recurrent.disabled, false);
+    h.inputs.is_recurrent.value = '0'; await h.inputs.is_recurrent.dispatch('change');
+    assert.equal(h.isManual(), true);
+    assert.match(h.status.textContent, /Selección manual/);
+    assert.equal(await h.check(), true); assert.equal(h.inputs.is_recurrent.value, '0');
+    assert.equal(h.requests.length, 1);
+});
+
+test('a pending automatic response cannot overwrite a manual choice made while loading', async () => {
+    const h = harness(); h.inputs.national_id.value = '12345678'; const pending = h.check();
+    h.inputs.is_recurrent.value = '0'; await h.inputs.is_recurrent.dispatch('change');
+    await h.respond({is_recurrent: true}); assert.equal(await pending, true);
+    assert.equal(h.inputs.is_recurrent.value, '0'); assert.match(h.status.textContent, /Selección manual/);
+    assert.match(h.status.textContent, /registros anteriores/);
+});
+
+test('manual overrides do not leak to a different person or project', async () => {
+    for (const target of ['person', 'project']) {
+        const h = harness(); h.inputs.national_id.value = '12345678'; let pending = h.check();
+        await h.respond({is_recurrent: true}); await pending;
+        h.inputs.is_recurrent.value = '0'; await h.inputs.is_recurrent.dispatch('change');
+        if (target === 'person') {h.inputs.national_id.value = '87654321'; await h.inputs.national_id.dispatch('input');}
+        else {h.project.value = '2'; await h.project.dispatch('change');}
+        pending = h.check(); await h.respond({is_recurrent: true}); await pending;
+        assert.equal(h.isManual(), false);
+        assert.equal(h.inputs.is_recurrent.value, '1'); assert.doesNotMatch(h.status.textContent, /Selección manual/);
+    }
+});
+
+test('resetting the next beneficiary removes a manual choice even when identity is entered again', async () => {
+    const h = harness(); h.inputs.national_id.value = '12345678';
+    h.inputs.is_recurrent.value = '0'; await h.inputs.is_recurrent.dispatch('change');
+    await h.form.dispatch('beneficiary-entry-reset');
+    assert.equal(h.isManual(), false);
+    const pending = h.check(); await h.respond({is_recurrent: true}); await pending;
+    assert.equal(h.inputs.is_recurrent.value, '1');
+});
+
+test('a same-person input event or retry does not discard a manual choice', async () => {
+    const h = harness(); h.inputs.national_id.value = '12345678';
+    h.inputs.is_recurrent.value = '1'; await h.inputs.is_recurrent.dispatch('change');
+    await h.inputs.national_id.dispatch('input'); const pending = h.check();
+    await h.respond({}, h.requests[0], false); assert.equal(await pending, false);
+    const retry = h.check(); await h.respond({is_recurrent: false}); assert.equal(await retry, true);
+    assert.equal(h.inputs.is_recurrent.value, '1'); assert.match(h.status.textContent, /Selección manual/);
 });
 
 test('voice and ID-autofill paths invoke recurrence; save awaits the check before posting', () => {
@@ -80,4 +133,6 @@ test('voice and ID-autofill paths invoke recurrence; save awaits the check befor
     assert.match(blade, /sync: \(\) => \{syncPregnantLactatingField\(\); syncCaregiverFields\(\); void checkPossibleRecurrence\(\);\}/);
     assert.match(blade, /form.addEventListener\('beneficiary-autofill',[\s\S]*?void checkPossibleRecurrence\(\)/);
     assert.match(blade, /async function saveBeneficiary\(\)[\s\S]*?await checkPossibleRecurrence\(\)[\s\S]*?beneficiary.is_recurrent = beneficiaryInputs.is_recurrent.value/);
+    assert.match(blade, /beneficiary.recurrence_manual = recurrence.isManual\(\)/);
+    assert.match(blade, /data.set\('beneficiary\[recurrence_manual\]', beneficiary.recurrence_manual \? '1' : '0'\)/);
 });

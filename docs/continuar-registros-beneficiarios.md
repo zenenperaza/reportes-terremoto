@@ -36,7 +36,8 @@ persona que todavía no se haya guardado no se recuperan.
   crear el listado. La nueva persona se agrega a las copias asociadas existentes;
   si una copia no puede modificarse, se cancela toda la operación.
 - Se conservan las validaciones de nombre, edad, cuidador, consentimiento y la
-  recurrencia automática dentro del mismo proyecto.
+  sugerencia automática de recurrencia dentro del mismo proyecto. El selector
+  permanece habilitado y una corrección manual a Sí o No se respeta al guardar.
   Los datos del cuidador son opcionales para menores de 18 años; si se ingresan,
   se comprueban sus longitudes y el parentesco seleccionado.
 - No se unen automáticamente registros diferentes ni se modifican listados

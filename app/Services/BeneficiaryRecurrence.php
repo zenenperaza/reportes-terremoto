@@ -7,6 +7,18 @@ use Illuminate\Support\Facades\DB;
 
 class BeneficiaryRecurrence
 {
+    /** Resolve a new attendance; the manual flag is transient, never a model field. */
+    public function forRegistration(int $projectId, array $person): array
+    {
+        $manual = (bool) ($person['recurrence_manual'] ?? false);
+        unset($person['recurrence_manual']);
+        if (! $manual) {
+            $person['is_recurrent'] = $this->check($projectId, $person)['is_recurrent'];
+        }
+
+        return $person;
+    }
+
     /** Check the whole authorized project, not an indicator, location, author or period. */
     public function check(int $projectId, array $person): array
     {

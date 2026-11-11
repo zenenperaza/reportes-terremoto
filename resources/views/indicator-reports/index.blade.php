@@ -15,6 +15,7 @@
     </div>
 </section>
 
+@include('general-reports.partials.project-filter')
 @include('general-reports.partials.filters-and-summary', ['exportRoute' => 'indicator-reports.export'])
 
 <section class="card general-chart-card indicator-groups-section">

@@ -8,7 +8,7 @@ Se admiten cifras y prefijos V/E con espacios, puntos o guiones. Se conservan lo
 
 Se toma el último beneficiario guardado visible para completar nombre, edad registrada, sexo, nacionalidad, teléfono, discapacidad, etnia, embarazo/lactancia y cuidador. No se calcula una edad actual a partir de una fecha inexistente: debe revisarse, al igual que el cuidador. Se conservan las correcciones que el registrador haga mientras la consulta está en curso.
 
-No se copian proyecto, período, ubicación, indicador, estado de reporte, consentimiento ni condición recurrente. Esta última se calcula mediante una búsqueda independiente dentro del proyecto seleccionado y se verifica nuevamente al guardar. El autocompletado no guarda ni actualiza registros automáticamente.
+No se copian proyecto, período, ubicación, indicador, estado de reporte, consentimiento ni condición recurrente. Esta última se sugiere mediante una búsqueda independiente dentro del proyecto seleccionado y se verifica nuevamente al guardar si no hubo una corrección manual en el selector. Una elección manual se respeta; el autocompletado no la reemplaza mientras se mantenga la misma identidad y proyecto. El autocompletado no guarda ni actualiza registros automáticamente.
 
 Cambiar la cédula limpia solo los datos que el autocompletado había cargado y que no se hayan corregido manualmente. Las consultas antiguas se cancelan o se ignoran. Al guardar, pasar a otra persona o abrir la edición se invalida la consulta pendiente. En edición no se autocompleta desde otra identidad.
 

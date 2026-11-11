@@ -1,5 +1,5 @@
 <section class="content-card beneficiary-project-card">
-    <form method="get" action="{{ route('general-reports.index') }}" id="general-project-scope">
+    <form method="get" action="{{ url()->current() }}" id="general-project-scope">
         <input type="hidden" name="reported" value="{{ $filters['reported'] ?? '' }}">
         <label class="beneficiary-project-filter" for="general_project_ids">Proyectos
             <select id="general_project_ids" name="project_ids[]" multiple data-general-project-filter data-placeholder="Todos los proyectos" aria-describedby="general-project-help">

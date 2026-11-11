@@ -75,7 +75,8 @@ class StoreReportRequest extends FormRequest
             'beneficiaries.*.disability' => ['required', Rule::in($beneficiaryOptions['disabilities'])],
             'beneficiaries.*.ethnicity' => ['required', Rule::in($beneficiaryOptions['ethnicities'])],
             'beneficiaries.*.pregnant_lactating' => ['required', Rule::in($beneficiaryOptions['pregnant_lactating'])],
-            'beneficiaries.*.is_recurrent' => ['sometimes', 'boolean'],
+            'beneficiaries.*.is_recurrent' => ['required_if_accepted:beneficiaries.*.recurrence_manual', 'boolean'],
+            'beneficiaries.*.recurrence_manual' => ['sometimes', 'boolean'],
 
             'qualitative_notes' => ['nullable', 'string', 'max:5000'],
             'evidence_1' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx,xlsx', 'max:10240'],
@@ -218,6 +219,7 @@ class StoreReportRequest extends FormRequest
     public function messages(): array
     {
         return ['proyecto_id.required' => 'Seleccione un proyecto para registrar la actividad.',
+            'beneficiaries.*.is_recurrent.required_if_accepted' => 'Seleccione Sí o No en Recurrente para guardar la corrección manual.',
             'beneficiaries.*.full_name.required' => 'El nombre y apellido del beneficiario es obligatorio.'];
     }
 

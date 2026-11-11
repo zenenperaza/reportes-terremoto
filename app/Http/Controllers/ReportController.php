@@ -240,7 +240,7 @@ class ReportController extends Controller
             $report = Report::create($data);
             $report->serviciosActividad()->sync($serviceIds);
             foreach ($beneficiaries as &$person) {
-                $person['is_recurrent'] = app(\App\Services\BeneficiaryRecurrence::class)->check((int) $report->proyecto_id, $person)['is_recurrent'];
+                $person = app(\App\Services\BeneficiaryRecurrence::class)->forRegistration((int) $report->proyecto_id, $person);
                 $report->beneficiaries()->create($person);
             }
             unset($person);
@@ -320,7 +320,7 @@ class ReportController extends Controller
                 $createdReport = true;
             }
 
-            $beneficiaryData['is_recurrent'] = app(\App\Services\BeneficiaryRecurrence::class)->check((int) $report->proyecto_id, $beneficiaryData)['is_recurrent'];
+            $beneficiaryData = app(\App\Services\BeneficiaryRecurrence::class)->forRegistration((int) $report->proyecto_id, $beneficiaryData);
             $beneficiary = $report->beneficiaries()->create($beneficiaryData);
             $this->storeEvidence($report, $request);
             $summary = $this->syncBeneficiarySummary($report);

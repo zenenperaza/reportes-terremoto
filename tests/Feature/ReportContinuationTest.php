@@ -160,6 +160,16 @@ class ReportContinuationTest extends TestCase
             ->assertViewHas('initialSummary', fn ($summary) => $summary['total'] === 2);
     }
 
+    public function test_continuing_a_list_respects_manual_no_despite_matching_existing_beneficiary(): void
+    {
+        $this->postJson(route('reports.continuation-recurrence', $this->report), $this->person())
+            ->assertOk()->assertJsonPath('is_recurrent', true);
+        $this->append(['is_recurrent' => '0', 'recurrence_manual' => true])->assertOk()
+            ->assertJsonPath('report.id', $this->report->id)->assertJsonPath('beneficiary.is_recurrent', false)
+            ->assertJsonPath('summary.total', 2)->assertJsonPath('summary.recurrence_status', 'no_recurrente');
+        $this->assertSame([false, false], $this->report->beneficiaries()->orderBy('id')->pluck('is_recurrent')->all());
+    }
+
     public function test_headers_owner_report_id_and_associated_selection_cannot_be_changed_by_client(): void
     {
         $before = $this->report->getAttributes();

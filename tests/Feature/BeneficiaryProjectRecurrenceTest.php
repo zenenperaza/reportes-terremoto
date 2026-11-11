@@ -103,14 +103,17 @@ class BeneficiaryProjectRecurrenceTest extends TestCase
         $this->check([], $this->other['proyecto_id'])->assertForbidden();
     }
 
-    public function test_immediate_save_ignores_client_value_and_marks_only_prior_attendance_in_same_project(): void
+    public function test_immediate_save_preserves_explicit_no_even_with_prior_attendance_in_same_project(): void
     {
-        $first = $this->postJson(route('beneficiaries.store'), $this->headers + ['beneficiary' => $this->person(['is_recurrent' => true])])
+        $first = $this->postJson(route('beneficiaries.store'), $this->headers + ['beneficiary' => $this->person(['is_recurrent' => false])])
             ->assertCreated()->assertJsonPath('beneficiary.is_recurrent', false)->assertJsonPath('summary.recurrence_status', 'no_recurrente');
-        $this->postJson(route('beneficiaries.store'), $this->headers + ['beneficiary' => $this->person(['is_recurrent' => false])])
+        $this->check()->assertOk()->assertJsonPath('is_recurrent', true);
+        $this->postJson(route('beneficiaries.store'), $this->headers + ['beneficiary' => $this->person(['is_recurrent' => false, 'recurrence_manual' => true])])
+            ->assertCreated()->assertJsonPath('beneficiary.is_recurrent', false)->assertJsonPath('summary.recurrence_status', 'no_recurrente');
+        $this->postJson(route('beneficiaries.store'), $this->headers + ['beneficiary' => $this->person(['is_recurrent' => '1', 'recurrence_manual' => true])])
             ->assertCreated()->assertJsonPath('beneficiary.is_recurrent', true)->assertJsonPath('summary.recurrence_status', 'recurrente');
-        $this->postJson(route('beneficiaries.store'), $this->other + ['beneficiary' => $this->person(['is_recurrent' => true])])
-            ->assertCreated()->assertJsonPath('beneficiary.is_recurrent', false);
+        $this->postJson(route('beneficiaries.store'), $this->other + ['beneficiary' => $this->person(['is_recurrent' => true, 'recurrence_manual' => true])])
+            ->assertCreated()->assertJsonPath('beneficiary.is_recurrent', true);
         $this->assertFalse(Beneficiary::findOrFail($first->json('beneficiary.id'))->is_recurrent);
     }
 
@@ -133,7 +136,8 @@ class BeneficiaryProjectRecurrenceTest extends TestCase
 
     public function test_form_loads_project_recurrence_and_existing_edits_do_not_reclassify_historical_rows(): void
     {
-        $this->get(route('reports.create'))->assertOk()->assertSee('beneficiary-recurrence.js')->assertSee('Se calcula automáticamente');
+        $this->get(route('reports.create'))->assertOk()->assertSee('beneficiary-recurrence.js')->assertSee('Se sugiere automáticamente')
+            ->assertSee('Puede cambiar la selección antes de guardar.');
         $first = $this->record($this->headers);
         $this->record($this->headers);
         $this->putJson(route('beneficiaries.update', $first), $this->person())->assertOk()->assertJsonPath('beneficiary.is_recurrent', false);
@@ -146,10 +150,79 @@ class BeneficiaryProjectRecurrenceTest extends TestCase
         $associated = IndicadorProyecto::create(['proyecto_id' => $this->headers['proyecto_id'],
             'sector_proyecto_id' => $this->headers['sector_proyecto_id'], 'indicador_id' => $indicator->id, 'estatus' => true]);
         IndicadorProyecto::findOrFail($this->headers['indicador_proyecto_id'])->indicadoresAsociados()->attach($associated);
-        $payload = $this->headers + ['beneficiary' => $this->person(), 'associated_indicator_ids' => [$associated->id]];
+        $person = $this->person(); unset($person['is_recurrent']);
+        $payload = $this->headers + ['beneficiary' => $person, 'associated_indicator_ids' => [$associated->id]];
         $this->postJson(route('beneficiaries.store'), $payload)->assertCreated()->assertJsonCount(1, 'associated_reports');
         $this->assertSame([false, false], Beneficiary::orderBy('id')->pluck('is_recurrent')->all());
         $this->postJson(route('beneficiaries.store'), $payload)->assertCreated();
         $this->assertSame([false, false, true, true], Beneficiary::orderBy('id')->pluck('is_recurrent')->all());
+        $payload['beneficiary']['is_recurrent'] = '0';
+        $payload['beneficiary']['recurrence_manual'] = true;
+        $this->postJson(route('beneficiaries.store'), $payload)->assertCreated();
+        $this->assertSame([false, false, true, true, false, false], Beneficiary::orderBy('id')->pluck('is_recurrent')->all());
+    }
+
+    public function test_batch_preserves_explicit_choices_and_computes_only_omitted_values(): void
+    {
+        $this->record($this->headers);
+        $automatic = $this->person(); unset($automatic['is_recurrent']);
+        $this->post(route('reports.store'), $this->headers + ['beneficiaries' => [
+            $this->person(['is_recurrent' => '0', 'recurrence_manual' => true]), $automatic,
+            $this->person(['is_recurrent' => '1', 'recurrence_manual' => true]),
+        ]])->assertSessionHasNoErrors()->assertRedirect();
+        $this->assertSame([false, false, true, true], Beneficiary::orderBy('id')->pluck('is_recurrent')->all());
+        $this->assertSame('mixto', Report::orderByDesc('id')->firstOrFail()->recurrence_status);
+    }
+
+    public function test_manual_no_is_preserved_without_cedula_and_when_appending_to_existing_list(): void
+    {
+        $first = $this->record($this->headers, ['national_id' => null]);
+        $this->check(['national_id' => null])->assertOk()->assertJsonPath('is_recurrent', true);
+        $this->postJson(route('beneficiaries.store'), $this->headers + ['report_id' => $first->report_id,
+            'beneficiary' => $this->person(['national_id' => null, 'is_recurrent' => '0', 'recurrence_manual' => true])])
+            ->assertOk()->assertJsonPath('beneficiary.is_recurrent', false)->assertJsonPath('summary.recurrence_status', 'no_recurrente');
+    }
+
+    public function test_manual_recurrence_still_rejects_non_boolean_values(): void
+    {
+        foreach (['No', 'Sí', 2, null, ['0']] as $invalid) {
+            $this->postJson(route('beneficiaries.store'), $this->headers + ['beneficiary' => $this->person(['is_recurrent' => $invalid])])
+                ->assertUnprocessable()->assertJsonValidationErrors('beneficiary.is_recurrent');
+        }
+        $this->assertSame(0, Beneficiary::count());
+    }
+
+    public function test_without_manual_correction_server_rechecks_automatic_values_when_saving(): void
+    {
+        $first = $this->postJson(route('beneficiaries.store'), $this->headers + ['beneficiary' => $this->person(['is_recurrent' => true])])
+            ->assertCreated()->assertJsonPath('beneficiary.is_recurrent', false);
+        $this->postJson(route('beneficiaries.store'), $this->headers + ['beneficiary' => $this->person(['is_recurrent' => false, 'recurrence_manual' => false])])
+            ->assertCreated()->assertJsonPath('beneficiary.is_recurrent', true);
+        $this->assertFalse(Beneficiary::findOrFail($first->json('beneficiary.id'))->is_recurrent);
+    }
+
+    public function test_manual_flag_is_validated_and_requires_an_explicit_recurrence_value(): void
+    {
+        foreach (['yes', 2, null, ['1']] as $invalid) {
+            $this->postJson(route('beneficiaries.store'), $this->headers + ['beneficiary' => $this->person(['recurrence_manual' => $invalid])])
+                ->assertUnprocessable()->assertJsonValidationErrors('beneficiary.recurrence_manual');
+        }
+        $person = $this->person(['recurrence_manual' => true]); unset($person['is_recurrent']);
+        $this->postJson(route('beneficiaries.store'), $this->headers + ['beneficiary' => $person])
+            ->assertUnprocessable()->assertJsonValidationErrors('beneficiary.is_recurrent');
+        $this->post(route('reports.store'), $this->headers + ['beneficiaries' => [$this->person(), $person]])
+            ->assertSessionHasErrors('beneficiaries.1.is_recurrent');
+        $this->assertSame(0, Beneficiary::count());
+    }
+
+    public function test_browser_form_string_flags_preserve_manual_no_and_leave_automatic_rechecks_enabled(): void
+    {
+        $this->record($this->headers);
+        $this->post(route('beneficiaries.store'), $this->headers + [
+            'beneficiary' => $this->person(['is_recurrent' => '0', 'recurrence_manual' => '1']),
+        ], ['Accept' => 'application/json'])->assertCreated()->assertJsonPath('beneficiary.is_recurrent', false);
+        $this->post(route('beneficiaries.store'), $this->headers + [
+            'beneficiary' => $this->person(['is_recurrent' => '0', 'recurrence_manual' => '0']),
+        ], ['Accept' => 'application/json'])->assertCreated()->assertJsonPath('beneficiary.is_recurrent', true);
     }
 }

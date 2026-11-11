@@ -8,11 +8,6 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class IndicatorReportController extends GeneralReportController
 {
-    protected function projectFilterEnabled(): bool
-    {
-        return false;
-    }
-
     public function export(Request $request): StreamedResponse
     {
         return $this->exportReport($request, true);
