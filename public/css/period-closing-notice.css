@@ -1,0 +1,6 @@
+.period-closing-notice{padding:1.5rem;margin:0 0 1.25rem;border:1px solid #f3c66c;border-left:5px solid #d99016;border-radius:12px;background:#fff8e8;color:#513c16;line-height:1.6}
+.period-closing-heading{display:flex;align-items:center;gap:.75rem;margin-bottom:1rem}.period-closing-heading i{font-size:1.9rem;flex-shrink:0}.period-closing-heading h2{font-size:1.3rem;color:inherit;margin:0;font-weight:700}
+.period-closing-notice p{margin:0 0 .85rem}.period-closing-actions{display:flex;justify-content:flex-end;margin-top:1rem}.period-closing-notice[hidden],.period-closing-notice [hidden]{display:none!important}
+.period-closing-dialog{width:calc(100% - 2rem);max-width:640px;max-height:calc(100dvh - 2rem);overflow:auto;margin:auto;padding:0;border:0;border-radius:12px;box-shadow:0 16px 60px #0004;background:transparent}.period-closing-dialog::backdrop{background:rgba(8,22,36,.55)}.period-closing-dialog .period-closing-notice{margin:0}
+html[data-layout-mode="dark"] .period-closing-notice{background:#302719;color:#f9e6bb;border-color:#9b742f}
+@media(max-width:480px){.period-closing-notice{padding:1rem}.period-closing-actions .button{width:100%}}

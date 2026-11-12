@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\BuzonEntry;
+use App\Models\BuzonList;
 use App\Models\Proyecto;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -11,7 +12,12 @@ class SaveBuzonEntryRequest extends FormRequest
 {
     public function authorize(): bool
     {
+        if (! $this->user()) return false;
         $entry = $this->route('entry');
+        $listId = filter_var($this->input('buzon_list_id'), FILTER_VALIDATE_INT);
+        if (! $entry && $listId && ! BuzonList::appendableBy($this->user())->whereKey($listId)->exists()) {
+            return false;
+        }
         return $this->user()?->can($entry ? 'editar buzon' : 'crear buzon')
             && (! $entry || ($this->user()->can('ver buzon')
                 && BuzonEntry::visibleTo($this->user())->whereKey($entry->id)->exists()
@@ -21,11 +27,14 @@ class SaveBuzonEntryRequest extends FormRequest
     public function rules(): array
     {
         $current = $this->route('entry');
+        $listing = $current?->listing ?? BuzonList::find(filter_var($this->input('buzon_list_id'), FILTER_VALIDATE_INT) ?: 0);
         $projects = Proyecto::query()->where(fn ($query) => $query->where('estatus', true)
             ->when($current, fn ($query) => $query->orWhere('proyectos.id', $current->proyecto_id)))
-            ->when(! $this->user()->isAdministrator(), fn ($query) => $query->whereHas('users', fn ($query) => $query->whereKey($this->user()->id)));
+            ->when(! $this->user()->isAdministrator(), fn ($query) => $query->whereHas('users', fn ($query) => $query->whereKey($this->user()->id)))
+            ->when($listing, fn ($query) => $query->whereKey($listing->proyecto_id));
 
         return [
+            'buzon_list_id' => ['bail', $current ? 'prohibited' : 'nullable', 'integer', 'min:1', 'exists:buzon_lists,id'],
             'proyecto_id' => ['required', 'integer', Rule::in($projects->pluck('id')->all())],
             'opinion_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
             'place_name' => ['required', 'string', 'max:200'],

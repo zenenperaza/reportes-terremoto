@@ -21,6 +21,8 @@ Nombre, teléfono, edad, género, discapacidad, afrodescendencia, comentario y p
 
 La valoración admite «Muy buena», «Ni buena ni mala» o «Mala». La clasificación del personal admite una de «Sugerencia», «Comentario» o «Queja» por formulario.
 
+Al guardar una **nueva opinión**, se muestra una confirmación y se vuelve automáticamente a `/buzon/nuevo`, listo para registrar la siguiente dentro del mismo listado. Se conserva únicamente el proyecto del listado; la fecha vuelve a hoy y los demás campos, selecciones y transcripciones quedan limpios. Las opiniones guardadas aparecen debajo para usuarios con permiso de consulta. Si falla la validación, se conserva lo escrito para corregirlo. Recargar la página nueva no repite el envío. **Consultar listados** permite retomarlos después de salir y agregar, editar o eliminar opiniones según los permisos existentes. Las opiniones antiguas no se agrupan. Esta ampliación requiere una migración nueva: consultar [Listados del Buzón](listados-buzon.md) antes de desplegar; los modos antiguos de mantenimiento no la ejecutan.
+
 La consulta permite uno o varios proyectos, fecha de opinión desde/hasta, valoración y tipo de retroalimentación, combinados. Las tarjetas resumen cuentan todos los formularios filtrados, no solo la página visible. Los proyectos inactivos conservan sus consultas y permiten corregir entradas ya existentes, pero no crear nuevas.
 
 ## Dictado de comentarios y mejoras

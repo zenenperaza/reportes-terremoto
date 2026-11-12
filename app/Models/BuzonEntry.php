@@ -33,6 +33,11 @@ class BuzonEntry extends Model
         return $this->belongsTo(User::class, 'created_by')->withTrashed();
     }
 
+    public function listing(): BelongsTo
+    {
+        return $this->belongsTo(BuzonList::class, 'buzon_list_id');
+    }
+
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
         // Routes require their action permission; admin status is not a bypass.

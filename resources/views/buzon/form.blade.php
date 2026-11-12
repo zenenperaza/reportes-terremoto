@@ -4,9 +4,9 @@
 @section('content')
 @php
     $schema = \App\Models\BuzonEntry::class;
-    $backUrl = auth()->user()->can('ver buzon')
+    $backUrl = $canViewList ? route('buzon.lists.show', $listing) : (auth()->user()->can('ver buzon')
         ? route('buzon.index', $selectedProject ? ['project_ids' => [$selectedProject]] : [])
-        : route('dashboard');
+        : route('dashboard'));
     $formValue = function ($field, $fallback) use ($readOnly) {
         $value = $readOnly ? $fallback : old($field, $fallback);
         return is_scalar($value) || $value === null ? $value : '';
@@ -15,12 +15,17 @@
     $selectedDisabilities = is_array($selectedDisabilities) ? $selectedDisabilities : [];
 @endphp
 <section class="page-heading"><div><p class="eyebrow">{{ $schema::INDICATOR_NAME }}</p><h1>{{ $readOnly ? 'Opinión registrada' : ($entry->exists ? 'Editar opinión' : 'Registrar opinión') }}</h1><p class="muted">Formato de registro de comentarios y quejas · {{ $schema::INDICATOR_CODE }}</p></div>
-    <a class="button button-secondary" href="{{ $backUrl }}">{{ auth()->user()->can('ver buzon') ? 'Volver al Buzón' : 'Volver al panel' }}</a>
+    <div class="buzon-entry-actions">
+        @if($listing && ! $entry->exists)<a class="button button-secondary" href="{{ route('buzon.create', ['proyecto_id' => $selectedProject]) }}">Iniciar nuevo listado</a>@endif
+        <a class="button button-secondary" href="{{ $backUrl }}">{{ $canViewList ? 'Volver al listado' : (auth()->user()->can('ver buzon') ? 'Volver al Buzón' : 'Volver al panel') }}</a>
+    </div>
 </section>
 <section class="content-card">
     <p class="buzon-notice">Este formulario pertenece exclusivamente al Buzón. No crea beneficiarios ni registros de otros indicadores. El nombre y el teléfono son opcionales; puede registrar una opinión anónima.</p>
+    @if($listing)<p class="buzon-list-context">Listado #{{ $listing->id }} · Creado el {{ $listing->created_at->format('d/m/Y H:i') }}. {{ $entry->exists ? 'Esta opinión pertenece al listado.' : 'Cada opinión guardada se agregará a este mismo listado.' }}</p>@endif
     <form method="post" action="{{ $entry->exists ? route('buzon.update', $entry) : route('buzon.store') }}" autocomplete="off" data-buzon-entry>
         @csrf
+        @if($listing && ! $entry->exists)<input type="hidden" name="buzon_list_id" value="{{ $listing->id }}">@endif
         @if($entry->exists) @method('PUT')<input type="hidden" name="version" value="{{ $formValue('version', $entry->version) }}">@endif
         <fieldset @disabled($readOnly) class="buzon-fieldset">
             @unless($readOnly)
@@ -41,7 +46,9 @@
                 </section>
             @endunless
             <div class="form-grid two-cols">
-                <label>Proyecto *<select name="proyecto_id" required><option value="">Seleccione un proyecto</option>@foreach($projects as $project)<option value="{{ $project->id }}" @selected((string) $selectedProject === (string) $project->id)>{{ $project->codigo }} — {{ $project->nombre_alias ?: $project->descripcion }}</option>@endforeach</select></label>
+                <label>Proyecto *<select name="proyecto_id" required @disabled($listing !== null)><option value="">Seleccione un proyecto</option>@foreach($projects as $project)<option value="{{ $project->id }}" @selected((string) $selectedProject === (string) $project->id)>{{ $project->codigo }} — {{ $project->nombre_alias ?: $project->descripcion }}</option>@endforeach</select>
+                    @if($listing)<input type="hidden" name="proyecto_id" value="{{ $listing->proyecto_id }}"><small>El proyecto corresponde al listado. Para otro proyecto, inicie un nuevo listado.</small>@endif
+                </label>
                 <label>Fecha de la opinión *<input type="date" name="opinion_date" value="{{ $formValue('opinion_date', $entry->opinion_date?->format('Y-m-d')) }}" max="{{ today()->toDateString() }}" required></label>
                 <label class="span-two">Lugar de la queja o sugerencia *<input type="text" name="place_name" value="{{ $formValue('place_name', $entry->place_name) }}" maxlength="200" required><small>Indique el centro, comunidad o lugar al que se refiere esta opinión.</small></label>
                 <label>Nombre (opcional)<input type="text" name="full_name" value="{{ $formValue('full_name', $entry->full_name) }}" maxlength="150"></label>
@@ -75,6 +82,15 @@
         </div>
     @endif
 </section>
+@if(! $entry->exists)
+    @if($canViewList)
+        @include('buzon.lists.partials.entries')
+    @else
+        <section class="content-card"><h2>Opiniones guardadas en este listado</h2>
+            <p class="muted">{{ auth()->user()->can('ver buzon') ? 'Al guardar la primera opinión se creará un listado y sus registros aparecerán aquí. Podrá retomarlo desde Consultar listados.' : 'Puede seguir guardando opiniones. Para consultar el listado y las opiniones anteriores necesita el permiso «ver buzon».' }}</p>
+        </section>
+    @endif
+@endif
 @endsection
 @push('scripts')<script src="{{ asset('js/buzon.js') }}?v={{ filemtime(public_path('js/buzon.js')) }}"></script>@endpush
 @unless($readOnly) @push('scripts')<script src="{{ asset('js/buzon-voice-data.js') }}?v={{ filemtime(public_path('js/buzon-voice-data.js')) }}"></script><script src="{{ asset('js/buzon-dictation.js') }}?v={{ filemtime(public_path('js/buzon-dictation.js')) }}"></script>@endpush @endunless

@@ -5,7 +5,9 @@
 @php($schema = \App\Models\BuzonEntry::class)
 <section class="page-heading">
     <div><p class="eyebrow">Opiniones y encuestas</p><h1>Buzón</h1><p class="muted">{{ $schema::INDICATOR_CODE }} · {{ $schema::INDICATOR_NAME }}</p></div>
-    @can('crear buzon')<a class="button button-primary" href="{{ route('buzon.create', count($filters['project_ids']) === 1 ? ['proyecto_id' => $filters['project_ids'][0]] : []) }}">+ Registrar opinión</a>@endcan
+    <div class="buzon-entry-actions"><a class="button button-secondary" href="{{ route('buzon.lists') }}">Consultar listados</a>
+        @can('crear buzon')<a class="button button-primary" href="{{ route('buzon.create', count($filters['project_ids']) === 1 ? ['proyecto_id' => $filters['project_ids'][0]] : []) }}">+ Registrar opinión</a>@endcan
+    </div>
 </section>
 <section class="content-card">
     <h2>Consultar opiniones</h2>
@@ -34,6 +36,7 @@
             <td>{{ $entry->place_name }}</td><td>{{ $schema::OPINIONS[$entry->opinion] }}</td><td>{{ $schema::FEEDBACK_TYPES[$entry->feedback_type] }}</td>
             <td>{{ $entry->full_name ?: 'Anónimo / Sin nombre' }}</td><td>
                 <div class="buzon-entry-actions"><a href="{{ route('buzon.show', $entry) }}">Ver formulario</a>
+                    @if(in_array($entry->buzon_list_id, $visibleListIds, true))<a href="{{ route('buzon.lists.show', $entry->buzon_list_id) }}">Listado #{{ $entry->buzon_list_id }}</a>@endif
                     @if(in_array($entry->id, $manageableEntryIds, true))
                         @can('editar buzon')<a href="{{ route('buzon.edit', $entry) }}">Editar</a>@endcan
                     @endif

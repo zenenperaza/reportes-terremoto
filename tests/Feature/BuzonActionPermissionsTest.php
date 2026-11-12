@@ -65,8 +65,8 @@ class BuzonActionPermissionsTest extends TestCase
         $this->user(['crear buzon']);
         $this->get(route('buzon.create'))->assertOk()->assertDontSee('Contenido reservado de prueba')
             ->assertDontSee('href="'.route('buzon.index').'"', false)->assertSee('Volver al panel');
-        $this->post(route('buzon.store'), $this->payload(['comment' => 'Nueva opinión']))
-            ->assertSessionHasNoErrors()->assertRedirect(route('buzon.create', ['proyecto_id' => $this->project->id]));
+        $response = $this->post(route('buzon.store'), $this->payload(['comment' => 'Nueva opinión']))->assertSessionHasNoErrors();
+        $response->assertRedirect(route('buzon.create', ['proyecto_id' => $this->project->id, 'list_id' => BuzonEntry::latest('id')->firstOrFail()->buzon_list_id]));
         $this->get(route('buzon.index'))->assertForbidden();
         $this->get(route('buzon.show', $this->entry))->assertForbidden();
         $this->get(route('buzon.edit', $this->entry))->assertForbidden();

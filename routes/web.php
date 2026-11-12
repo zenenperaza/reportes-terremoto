@@ -73,6 +73,8 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
     Route::prefix('buzon')->name('buzon.')->middleware(\App\Http\Middleware\PrivateBuzonResponse::class)->group(function (): void {
         Route::get('/', [BuzonController::class, 'index'])->middleware('permission:ver buzon')->name('index');
         Route::get('/nuevo', [BuzonController::class, 'create'])->middleware('permission:crear buzon')->name('create');
+        Route::get('/listados', [BuzonController::class, 'lists'])->middleware('permission:ver buzon')->name('lists');
+        Route::get('/listados/{listing}', [BuzonController::class, 'showList'])->middleware('permission:ver buzon')->name('lists.show');
         Route::post('/', [BuzonController::class, 'store'])->middleware('permission:crear buzon')->name('store');
         Route::get('/{entry}/editar', [BuzonController::class, 'edit'])->middleware(['permission:ver buzon', 'permission:editar buzon'])->name('edit');
         Route::put('/{entry}', [BuzonController::class, 'update'])->middleware(['permission:ver buzon', 'permission:editar buzon'])->name('update');

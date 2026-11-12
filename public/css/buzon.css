@@ -18,6 +18,8 @@
 .buzon-voice-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
 .buzon-data-voice [hidden]{display:none!important}
 .buzon-entry-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.buzon-list-context{padding:.75rem 1rem;border:1px solid var(--border-color,#d2deeb);border-radius:.5rem;background:rgba(18,174,223,.04)}
+#buzon-list-entries{margin-top:1.5rem;scroll-margin-top:6rem}
 .buzon-delete-form{margin:0}.buzon-delete-button{color:#b42318;border-color:#b42318}
 .buzon-voice-filled{outline:2px solid #23815a;outline-offset:1px}
 @media(max-width:760px){.buzon-voice-heading{align-items:stretch;flex-direction:column}.buzon-voice-heading .button{width:100%;justify-content:center}}

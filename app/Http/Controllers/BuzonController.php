@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\SaveBuzonEntryRequest;
 use App\Models\BuzonEntry;
+use App\Models\BuzonList;
 use App\Models\Proyecto;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -40,17 +41,65 @@ class BuzonController extends Controller
             ->when(filled($filters['feedback_type']), fn ($query) => $query->where('feedback_type', $filters['feedback_type']));
         $counts = (clone $query)->selectRaw('opinion, COUNT(*) as total')->groupBy('opinion')->pluck('total', 'opinion');
         $entries = $query->with('proyecto')->latest('opinion_date')->latest('id')->paginate(20)->withQueryString();
+        $visibleListIds = BuzonList::visibleTo($request->user())->whereIn('id', $entries->pluck('buzon_list_id')->filter())->pluck('id')->all();
         $manageableEntryIds = ($request->user()->can('editar buzon') || $request->user()->can('eliminar buzon'))
             ? BuzonEntry::manageableBy($request->user())->whereKey($entries->modelKeys())->pluck('id')->all() : [];
-        return view('buzon.index', compact('projects', 'filters', 'counts', 'entries', 'manageableEntryIds'));
+        return view('buzon.index', compact('projects', 'filters', 'counts', 'entries', 'manageableEntryIds', 'visibleListIds'));
     }
 
-    private function formData(Request $request, BuzonEntry $entry, bool $readOnly = false): array
+    public function lists(Request $request)
     {
+        $projects = $this->projects($request)->get();
+        $filters = $request->validate([
+            'project_ids' => ['nullable', 'array'],
+            'project_ids.*' => ['required', 'integer', 'distinct', Rule::in($projects->modelKeys())],
+        ]) + ['project_ids' => []];
+        $filters['project_ids'] ??= [];
+        $lists = BuzonList::visibleTo($request->user())
+            ->when($filters['project_ids'], fn ($query, $ids) => $query->whereIn('proyecto_id', $ids))
+            ->with(['proyecto', 'creator'])
+            ->withCount(['entries' => fn ($query) => $query->visibleTo($request->user())])
+            ->latest('id')->paginate(20)->withQueryString();
+        $appendableListIds = $request->user()->can('crear buzon')
+            ? BuzonList::appendableBy($request->user())->whereKey($lists->modelKeys())->pluck('id')->all() : [];
+
+        return view('buzon.lists.index', compact('projects', 'filters', 'lists', 'appendableListIds'));
+    }
+
+    public function showList(Request $request, BuzonList $listing)
+    {
+        abort_unless($this->canViewList($request, $listing), 404);
+
+        return view('buzon.lists.show', $this->listData($request, $listing));
+    }
+
+    private function canViewList(Request $request, ?BuzonList $listing): bool
+    {
+        return $listing && $request->user()->can('ver buzon')
+            && BuzonList::visibleTo($request->user())->whereKey($listing->id)->exists();
+    }
+
+    private function listData(Request $request, BuzonList $listing): array
+    {
+        $listing->loadMissing(['proyecto', 'creator']);
+        $listEntries = $listing->entries()->visibleTo($request->user())->with('creator')->latest('id')
+            ->paginate(20, ['*'], 'list_page')->withQueryString();
+        $listManageableEntryIds = ($request->user()->can('editar buzon') || $request->user()->can('eliminar buzon'))
+            ? BuzonEntry::manageableBy($request->user())->whereKey($listEntries->modelKeys())->pluck('id')->all() : [];
+        $canAppendList = $request->user()->can('crear buzon')
+            && BuzonList::appendableBy($request->user())->whereKey($listing->id)->exists();
+
+        return compact('listing', 'listEntries', 'listManageableEntryIds', 'canAppendList');
+    }
+
+    private function formData(Request $request, BuzonEntry $entry, bool $readOnly = false, ?BuzonList $listing = null): array
+    {
+        $listing ??= $entry->exists ? $entry->listing : null;
         $projects = $this->projects($request)->where(fn ($query) => $query->where('estatus', true)
             ->when($entry->exists, fn ($query) => $query->orWhere('proyectos.id', $entry->proyecto_id)))->get();
         $selectedProject = $readOnly ? $entry->proyecto_id : old('proyecto_id', $entry->proyecto_id ?? $request->query('proyecto_id')
             ?? ($projects->count() === 1 ? $projects->first()->id : ''));
+        if ($listing) $selectedProject = $listing->proyecto_id;
         if (! is_scalar($selectedProject) && $selectedProject !== null) $selectedProject = '';
         if (! $entry->exists && filled($selectedProject)) {
             $allowed = $projects->contains(fn ($project) => (string) $project->id === (string) $selectedProject);
@@ -58,21 +107,41 @@ class BuzonController extends Controller
             if (! $allowed) $selectedProject = '';
         }
         $canManageEntry = $entry->exists && BuzonEntry::manageableBy($request->user())->whereKey($entry->id)->exists();
-        return compact('entry', 'projects', 'readOnly', 'selectedProject', 'canManageEntry');
+        $canViewList = $this->canViewList($request, $listing);
+        $data = compact('entry', 'projects', 'readOnly', 'selectedProject', 'canManageEntry', 'listing', 'canViewList');
+        if ($listing && ! $entry->exists && $canViewList) $data += $this->listData($request, $listing);
+
+        return $data;
     }
 
     public function create(Request $request)
     {
-        return view('buzon.form', $this->formData($request, new BuzonEntry(['opinion_date' => today(), 'disabilities' => []])));
+        $input = validator(['list_id' => $request->query('list_id')], ['list_id' => ['nullable', 'integer', 'min:1']])->validate();
+        $listing = empty($input['list_id']) ? null : BuzonList::appendableBy($request->user())->findOrFail($input['list_id']);
+
+        return view('buzon.form', $this->formData($request, new BuzonEntry(['opinion_date' => today(), 'disabilities' => []]), false, $listing));
     }
 
     public function store(SaveBuzonEntryRequest $request)
     {
-        $entry = BuzonEntry::create($request->validated() + ['created_by' => $request->user()->id]);
-        return ($request->user()->can('ver buzon')
-            ? redirect()->route('buzon.show', $entry)
-            : redirect()->route('buzon.create', ['proyecto_id' => $entry->proyecto_id]))
-            ->with('success', 'Formulario del Buzón registrado. No se agregó a beneficiarios.');
+        $listing = DB::transaction(function () use ($request): BuzonList {
+            $data = Arr::except($request->validated(), ['buzon_list_id']);
+            $project = Proyecto::whereKey($data['proyecto_id'])->lockForUpdate()->firstOrFail();
+            abort_unless($project->estatus && ($request->user()->isAdministrator()
+                || $project->users()->whereKey($request->user()->id)->exists()), 403);
+            if ($request->filled('buzon_list_id')) {
+                $listing = BuzonList::appendableBy($request->user())->whereKey($request->integer('buzon_list_id'))->lockForUpdate()->firstOrFail();
+                abort_unless((int) $listing->proyecto_id === (int) $project->id, 403);
+            } else {
+                $listing = BuzonList::create(['proyecto_id' => $project->id, 'created_by' => $request->user()->id]);
+            }
+            $listing->entries()->create($data + ['created_by' => $request->user()->id]);
+
+            return $listing;
+        });
+        return redirect()->route('buzon.create', ['proyecto_id' => $listing->proyecto_id, 'list_id' => $listing->id])
+            ->withInput([])
+            ->with('success', 'Formulario del Buzón registrado. No se agregó a beneficiarios. Puede registrar la siguiente opinión.');
     }
 
     private function ensureVisible(Request $request, BuzonEntry $entry): void
@@ -101,10 +170,12 @@ class BuzonController extends Controller
             if ($current->version !== $request->integer('version')) {
                 throw ValidationException::withMessages(['version' => 'Otra persona modificó esta entrada. Recargue el formulario antes de guardar.']);
             }
-            $data = Arr::except($request->validated(), ['version']);
+            $data = Arr::except($request->validated(), ['version', 'buzon_list_id']);
             $current->update($data + ['disabilities' => [], 'version' => $current->version + 1]);
         });
-        return redirect()->route('buzon.show', $entry)->with('success', 'Formulario del Buzón actualizado.');
+        return ($this->canViewList($request, $entry->listing)
+            ? redirect()->route('buzon.lists.show', $entry->listing)
+            : redirect()->route('buzon.show', $entry))->with('success', 'Formulario del Buzón actualizado.');
     }
 
     public function destroy(Request $request, BuzonEntry $entry)
@@ -123,7 +194,9 @@ class BuzonController extends Controller
             $current->delete();
         });
 
-        return redirect()->route('buzon.index', ['project_ids' => [$entry->proyecto_id]])
+        return ($this->canViewList($request, $entry->listing)
+            ? redirect()->route('buzon.lists.show', $entry->listing)
+            : redirect()->route('buzon.index', ['project_ids' => [$entry->proyecto_id]]))
             ->with('success', 'Formulario del Buzón eliminado correctamente.');
     }
 

@@ -50,6 +50,7 @@
     <link rel="stylesheet" href="{{ $versionedAsset('css/select2-custom.css') }}">
     <link rel="stylesheet" href="{{ $versionedAsset('css/indicator-select2.css') }}">
     @auth<link rel="stylesheet" href="{{ asset('css/admin-shell.css') }}?v={{ @filemtime(public_path('css/admin-shell.css')) ?: 1 }}">@endauth
+    @auth @if(session()->has(\App\Support\PeriodClosingNotice::SESSION_KEY))<link rel="stylesheet" href="{{ $versionedAsset('css/period-closing-notice.css') }}">@endif @endauth
     @stack('styles')
     @auth<link rel="stylesheet" href="{{ $versionedAsset('css/dark-theme.css') }}">@endauth
     @auth<link rel="stylesheet" href="{{ $versionedAsset('css/maintenance-banner.css') }}">@endauth
@@ -160,6 +161,7 @@
         <div class="page-content"><div class="container-fluid">
             @if(session('success'))<div class="alert alert-success" role="status">{{ session('success') }}</div>@endif
             @if(session('error'))<div class="alert alert-danger" role="alert">{{ session('error') }}</div>@endif
+            @include('layouts.partials.period-closing-notice')
             @if($errors->any())<div class="alert alert-danger" role="alert"><strong>Revise los datos del formulario.</strong><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
             @yield('content')
         </div></div>

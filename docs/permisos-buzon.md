@@ -32,6 +32,8 @@ directas por URL. Los botones de editar y eliminar se ocultan por cada opinión.
 Se comprueba de nuevo al guardar o borrar: una pantalla abierta no conserva
 autorización si se retira la edición cruzada o la pertenencia al grupo.
 
+Los [listados persistentes de carga](listados-buzon.md) utilizan esos mismos permisos. Consultarlos exige `ver buzon`; agregar opiniones exige `crear buzon` y ser autor del listado o compartir un grupo activo con edición cruzada. Sin permiso de ver solo se puede continuar un listado propio, sin exponer las opiniones guardadas. Los conteos se limitan a opiniones visibles y el proyecto de cada listado permanece fijo.
+
 La eliminación pide confirmación y comprueba la versión del formulario dentro
 de una transacción: no elimina una opinión modificada después de cargar la
 pantalla sin que se vuelva a revisar. Es un borrado permanente. No afecta a

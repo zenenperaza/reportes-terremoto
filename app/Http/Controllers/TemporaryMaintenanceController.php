@@ -16,7 +16,7 @@ class TemporaryMaintenanceController extends Controller
         abort_if($token === '', 503, 'Falta configurar SERVER_MAINTENANCE_TOKEN en el archivo .env.');
         abort_unless(hash_equals($token, (string) request('token')), 403);
 
-        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto', 'actualizacion-buzon', 'indicadores-resumen', 'nacionalidad-beneficiarios', 'actualizacion-beneficiarios', 'actualizacion-buzon-registros'], true),
+        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto', 'actualizacion-buzon', 'indicadores-resumen', 'nacionalidad-beneficiarios', 'actualizacion-beneficiarios', 'actualizacion-buzon-registros', 'actualizacion-buzon-listados'], true),
             422, 'Modo de mantenimiento no reconocido.');
         $permissionsOnly = request('only') === 'permisos-beneficiarios';
         $groupEditingOnly = request('only') === 'edicion-cruzada-grupos';
@@ -33,6 +33,9 @@ class TemporaryMaintenanceController extends Controller
         $nationalityOnly = request('only') === 'nacionalidad-beneficiarios';
         $beneficiaryUpdateOnly = request('only') === 'actualizacion-beneficiarios';
         $buzonRecordsOnly = request('only') === 'actualizacion-buzon-registros';
+        $buzonListsOnly = request('only') === 'actualizacion-buzon-listados';
+        abort_if($buzonListsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
+            422, 'El modo actualizacion-buzon-listados no se puede combinar con opciones de caché o importación.');
         abort_if($buzonRecordsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
             422, 'El modo actualizacion-buzon-registros no se puede combinar con opciones de caché o importación.');
         abort_if($beneficiaryUpdateOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
@@ -275,6 +278,48 @@ class TemporaryMaintenanceController extends Controller
                 'routes/web.php', 'routes/maintenance.php',
             ] as $file) {
                 abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
+            }
+        }
+
+        $buzonListsMigration = ['name' => 'migrate', 'parameters' => [
+            '--path' => 'database/migrations/2026_11_11_120000_create_buzon_lists.php', '--force' => true,
+        ]];
+        if ($buzonListsOnly) {
+            foreach ([
+                $buzonListsMigration['parameters']['--path'],
+                'app/Http/Controllers/TemporaryMaintenanceController.php',
+                'app/Http/Controllers/BuzonController.php', 'app/Http/Controllers/ProyectoController.php',
+                'app/Http/Requests/SaveBuzonEntryRequest.php',
+                'app/Models/BuzonList.php', 'app/Models/BuzonEntry.php', 'app/Models/Proyecto.php',
+                'app/Models/User.php', 'app/Models/UserGroup.php',
+                'app/Models/SystemSetting.php', 'app/Models/ReportingPeriod.php',
+                'app/Providers/AppServiceProvider.php', 'app/Support/PeriodClosingNotice.php', 'app/Support/ReportPeriod.php',
+                'app/Http/Middleware/PrivateBuzonResponse.php', 'app/Http/Middleware/RecordAuditLog.php',
+                'resources/views/buzon/form.blade.php', 'resources/views/buzon/index.blade.php',
+                'resources/views/buzon/lists/index.blade.php', 'resources/views/buzon/lists/show.blade.php',
+                'resources/views/buzon/lists/partials/entries.blade.php', 'resources/views/buzon/partials/delete-button.blade.php',
+                'resources/views/layouts/app.blade.php', 'resources/views/layouts/partials/period-closing-notice.blade.php',
+                'public/css/buzon.css', 'public/css/period-closing-notice.css',
+                'public/js/buzon.js', 'public/js/buzon-dictation.js', 'public/js/buzon-voice-data.js',
+                'public/js/period-closing-notice.js', 'routes/web.php', 'routes/maintenance.php',
+            ] as $file) {
+                abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
+            }
+            abort_unless($this->groupAuthorScopesAvailable(), 422,
+                'Suba app/Models/User.php actualizado: el Buzón necesita los métodos públicos de autores visibles y editables del grupo.');
+            abort_unless($this->buzonListsRuntimeAvailable(), 422,
+                'Suba los modelos, el controlador del Buzón y PeriodClosingNotice actualizados: faltan métodos de listados o del aviso de cierre.');
+            foreach ([
+                'app/Providers/AppServiceProvider.php' => 'Event::listen(Login::class',
+                'resources/views/layouts/app.blade.php' => 'layouts.partials.period-closing-notice',
+                'resources/views/buzon/form.blade.php' => 'buzon.lists.partials.entries',
+                'resources/views/buzon/index.blade.php' => 'buzon.lists',
+                'app/Http/Requests/SaveBuzonEntryRequest.php' => 'BuzonList::appendableBy',
+                'app/Http/Controllers/ProyectoController.php' => '->buzonLists()',
+                'routes/web.php' => '/listados/{listing}',
+            ] as $file => $marker) {
+                abort_unless($this->deploymentFileContains($file, $marker), 422,
+                    'El archivo '.$file.' no contiene la actualización esperada. Suba su versión actual antes de continuar.');
             }
         }
 
@@ -620,6 +665,7 @@ class TemporaryMaintenanceController extends Controller
         $includeExcel = $excelOnly || request()->boolean('import_excel');
 
         $selectedMigrations = match (true) {
+            $buzonListsOnly => [$buzonListsMigration],
             $buzonRecordsOnly => [$buzonPermissionsMigration],
             $beneficiaryUpdateOnly => [$caregiverMigration],
             $nationalityOnly => [$nationalityMigration],
@@ -787,6 +833,20 @@ class TemporaryMaintenanceController extends Controller
                 'Al finalizar, recargue SIA con Ctrl + F5, revise los cuatro permisos en Roles y pruebe continuar un listado antes de retirar el mantenimiento manualmente.',
             ];
         }
+        if ($buzonListsOnly) {
+            $results = [
+                'ACTUALIZACIÓN DE LISTADOS DEL BUZÓN Y AVISO DE CIERRE: se comprueban los archivos y las referencias principales del despliegue, se ejecuta únicamente la nueva migración de listados y se reconstruyen las cachés.',
+                'La migración crea buzon_lists y agrega buzon_list_id opcional en buzon_entries. No agrupa, modifica ni elimina opiniones históricas.',
+                'Las nuevas cargas conservan un listado por proyecto: formulario limpio después de guardar, opiniones debajo, consulta posterior, continuación y edición o eliminación individual con los permisos correspondientes.',
+                'Se conservan los cuatro permisos existentes del Buzón, los proyectos asignados y la visibilidad por autor o grupo activo. Modificar opiniones de compañeros o agregar a sus listados requiere edición cruzada habilitada y el permiso de la acción. Crear sin ver sigue sin permitir consultar opiniones anteriores.',
+                'Incluye el aviso al iniciar sesión desde cinco días antes del último día del mes, hasta fin de mes, en America/Caracas, solo para el período configurado abierto. Se muestra una vez por acceso, también después del código de correo o al recuperar sesión con Recordarme.',
+                'El aviso no cierra períodos, no cambia permisos ni envía datos al donante. Este mantenimiento tampoco activa ni cancela bloqueos o avisos programados.',
+                'No se ejecutan seeders, importaciones, correcciones de parroquias ni migraciones de permisos. No se crean ni se eliminan registros, beneficiarios, opiniones o listados durante este mantenimiento; solo se añade la estructura para las nuevas cargas.',
+                'La migración ya aplicada se omite. Repetir este modo conserva los listados, sus opiniones, permisos y cierres guardados.',
+                'Este modo presupone las actualizaciones anteriores del servidor, incluido el Buzón y sus cuatro permisos. No ejecuta todas las migraciones pendientes.',
+                'Al finalizar, recargue SIA con Ctrl + F5 y pruebe crear, consultar y retomar un listado antes de retirar el mantenimiento manualmente. El aviso de cierre no aparecerá fuera de su ventana de fechas.',
+            ];
+        }
         $exitCode = 1;
 
         try {
@@ -831,6 +891,28 @@ class TemporaryMaintenanceController extends Controller
     {
         return is_file(base_path($path))
             || (str_starts_with($path, 'public/') && is_file(public_path(substr($path, 7))));
+    }
+
+    protected function buzonListsRuntimeAvailable(): bool
+    {
+        foreach ([
+            \App\Http\Controllers\BuzonController::class => ['lists', 'showList'],
+            \App\Models\BuzonList::class => ['entries', 'scopeVisibleTo', 'scopeAppendableBy'],
+            \App\Models\BuzonEntry::class => ['listing'],
+            \App\Models\Proyecto::class => ['buzonLists'],
+            \App\Support\PeriodClosingNotice::class => ['current'],
+        ] as $class => $methods) {
+            foreach ($methods as $method) {
+                if (! method_exists($class, $method) || ! (new \ReflectionMethod($class, $method))->isPublic()) return false;
+            }
+        }
+
+        return true;
+    }
+
+    protected function deploymentFileContains(string $path, string $marker): bool
+    {
+        return is_file(base_path($path)) && str_contains((string) file_get_contents(base_path($path)), $marker);
     }
 
     protected function maintenanceToken(): string

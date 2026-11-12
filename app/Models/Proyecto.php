@@ -69,6 +69,11 @@ class Proyecto extends Model
         return $this->hasMany(BuzonEntry::class);
     }
 
+    public function buzonLists(): HasMany
+    {
+        return $this->hasMany(BuzonList::class);
+    }
+
     public function summaryIndicators(): HasMany
     {
         return $this->hasMany(SummaryIndicator::class);

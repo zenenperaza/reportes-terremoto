@@ -9,6 +9,7 @@ use App\Models\Proyecto;
 use App\Models\User;
 use App\Models\UserGroup;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -40,6 +41,83 @@ class BuzonTest extends TestCase
     private function entry(array $extra = []): BuzonEntry
     {
         return BuzonEntry::create($this->payload($extra) + ['created_by' => $this->admin->id]);
+    }
+
+    public static function registrationRoles(): array
+    {
+        return ['administrador' => ['admin', true], 'registrador' => ['reporter', true],
+            'coordinador' => ['coordinator', true], 'solo crear' => ['reporter', false]];
+    }
+
+    #[DataProvider('registrationRoles')]
+    public function test_successful_registration_opens_an_empty_new_form_without_losing_saved_opinion(string $role, bool $canView): void
+    {
+        $user = User::factory()->create(['role' => $role]);
+        $user->givePermissionTo($canView ? ['crear buzon', 'ver buzon'] : ['crear buzon']);
+        $user->projects()->attach([$this->first->id, $this->second->id]);
+        $this->actingAs($user);
+        $payload = $this->payload(['opinion_date' => today()->subDay()->toDateString(),
+            'place_name' => 'LUGAR_PRUEBA_ANTERIOR', 'full_name' => 'NOMBRE_PRUEBA_ANTERIOR', 'phone' => '04140000000',
+            'age' => '34', 'gender' => 'female', 'disabilities' => ['visual'], 'afro_descendant' => '1',
+            'comment' => 'COMENTARIO_PRUEBA_ANTERIOR', 'improvement' => 'MEJORA_PRUEBA_ANTERIOR']);
+        $response = $this->withSession(['_old_input' => $payload])->post(route('buzon.store'), $payload)
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success', 'Formulario del Buzón registrado. No se agregó a beneficiarios. Puede registrar la siguiente opinión.')
+            ->assertSessionHas('_old_input', []);
+        $saved = BuzonEntry::sole();
+        $nextUrl = route('buzon.create', ['proyecto_id' => $this->first->id, 'list_id' => $saved->buzon_list_id]);
+        $response->assertRedirect($nextUrl);
+        $this->assertSame($user->id, $saved->created_by);
+        $this->assertSame($payload['comment'], $saved->comment);
+        $this->assertSame($payload['improvement'], $saved->improvement);
+        $this->assertSame(['visual'], $saved->disabilities);
+
+        $page = $this->get($nextUrl)->assertOk()->assertViewHas('readOnly', false)
+            ->assertViewHas('entry', fn ($entry) => ! $entry->exists)
+            ->assertSee('Puede registrar la siguiente opinión.')
+            ->assertDontSee('COMENTARIO_PRUEBA_ANTERIOR')->assertDontSee('MEJORA_PRUEBA_ANTERIOR');
+        if (! $canView) $page->assertDontSee('NOMBRE_PRUEBA_ANTERIOR')->assertDontSee('LUGAR_PRUEBA_ANTERIOR');
+        $dom = new \DOMDocument;
+        @$dom->loadHTML('<?xml encoding="UTF-8">'.$page->getContent());
+        $xpath = new \DOMXPath($dom);
+        $form = '//form[@data-buzon-entry]';
+        $this->assertSame(route('buzon.store'), $xpath->evaluate('string('.$form.'/@action)'));
+        $this->assertSame(0, $xpath->query($form.'//fieldset[@disabled]')->length);
+        foreach (['place_name', 'full_name', 'phone', 'age'] as $field) {
+            $this->assertSame('', $xpath->evaluate('string('.$form.'//input[@name="'.$field.'"]/@value)'));
+        }
+        foreach (['comment', 'improvement'] as $field) {
+            $this->assertSame('', $xpath->evaluate('string('.$form.'//textarea[@name="'.$field.'"])'));
+        }
+        $this->assertSame('', $xpath->evaluate('string(//*[@data-buzon-data-transcript])'));
+        foreach (['gender', 'afro_descendant', 'feedback_type'] as $field) {
+            $this->assertSame(0, $xpath->query($form.'//select[@name="'.$field.'"]/option[@selected and @value!=""]')->length);
+        }
+        $this->assertSame(0, $xpath->query($form.'//input[@checked]')->length);
+        $this->assertSame((string) $this->first->id, $xpath->evaluate('string('.$form.'//select[@name="proyecto_id"]/option[@selected]/@value)'));
+        $this->assertSame(today()->toDateString(), $xpath->evaluate('string('.$form.'//input[@name="opinion_date"]/@value)'));
+
+        $this->get($nextUrl)->assertOk(); // Refreshing never resubmits the previous opinion.
+        $this->assertDatabaseCount('buzon_entries', 1);
+        $this->post(route('buzon.store'), $this->payload(['comment' => 'SEGUNDA_OPINION_PRUEBA', 'buzon_list_id' => $saved->buzon_list_id]))
+            ->assertSessionHasNoErrors()->assertRedirect($nextUrl);
+        $this->assertDatabaseCount('buzon_entries', 2);
+        $this->assertSame($payload['comment'], $saved->fresh()->comment);
+        $this->assertNull(BuzonEntry::latest('id')->firstOrFail()->full_name);
+        $this->assertDatabaseCount('reports', 0);
+        $this->assertDatabaseCount('beneficiaries', 0);
+    }
+
+    public function test_validation_errors_keep_buzon_values_so_the_registrant_can_correct_them(): void
+    {
+        $url = route('buzon.create', ['proyecto_id' => $this->first->id]);
+        $payload = $this->payload(['feedback_type' => '', 'comment' => 'COMENTARIO_POR_CORREGIR',
+            'improvement' => 'MEJORA_POR_CORREGIR', 'disabilities' => ['visual']]);
+        $this->from($url)->post(route('buzon.store'), $payload)->assertRedirect($url)
+            ->assertSessionHasErrors('feedback_type')->assertSessionHasInput('comment', $payload['comment']);
+        $this->get($url)->assertOk()->assertSee('COMENTARIO_POR_CORREGIR')->assertSee('MEJORA_POR_CORREGIR')
+            ->assertViewHas('entry', fn ($entry) => ! $entry->exists);
+        $this->assertDatabaseCount('buzon_entries', 0);
     }
 
     public function test_dictation_is_available_only_on_editable_buzon_forms_and_never_creates_records(): void
@@ -203,7 +281,8 @@ class BuzonTest extends TestCase
     public function test_edit_preserves_creator_clears_disabilities_and_prevents_lost_updates(): void
     {
         $entry = $this->entry(['full_name' => 'Original', 'disabilities' => ['visual']]);
-        $this->put(route('buzon.update', $entry), $this->payload(['version' => '1', 'full_name' => 'Corregido', 'created_by' => 99999]))->assertSessionHasNoErrors()->assertRedirect();
+        $this->put(route('buzon.update', $entry), $this->payload(['version' => '1', 'full_name' => 'Corregido', 'created_by' => 99999]))
+            ->assertSessionHasNoErrors()->assertRedirect(route('buzon.show', $entry));
         $this->assertSame('Corregido', $entry->fresh()->full_name);
         $this->assertSame([], $entry->fresh()->disabilities);
         $this->assertSame(2, $entry->fresh()->version);
