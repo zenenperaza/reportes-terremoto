@@ -70,6 +70,17 @@
         <button class="button button-secondary" type="submit">Cancelar bloqueo programado</button>
     </form>
 </section>
+
+@if(auth()->user()->isAdministrator())
+<section class="content-card maintenance-schedule" aria-labelledby="period-closing-preview-title">
+    <h2 id="period-closing-preview-title">Prueba del aviso de cierre de período</h2>
+    <p>Vea el aviso como si faltaran cinco días para terminar el mes del período configurado. Solo se muestra en su pantalla: no cambia fechas, períodos, bloqueos ni datos, y no avisa a otros usuarios.</p>
+    <a class="button button-secondary" href="{{ route('system-maintenance.period-closing-preview') }}">Simular aviso de cierre</a>
+    @isset($periodClosingPreview)
+        <a class="button button-secondary" href="{{ route('system-maintenance.index') }}">Volver al mantenimiento</a>
+    @endisset
+</section>
+@endif
 @endsection
 
 @push('scripts')

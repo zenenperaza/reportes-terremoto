@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\SystemSetting;
 use App\Models\UserPresence;
+use App\Support\PeriodClosingNotice;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -57,6 +59,14 @@ class SystemMaintenanceController extends Controller
                 ? 'El sistema fue bloqueado para registradores y coordinadores.'
                 : 'El sistema fue habilitado y se canceló cualquier bloqueo programado.')
         );
+    }
+
+    public function previewPeriodClosing(Request $request): Response
+    {
+        abort_unless($request->user()->isAdministrator(), 403);
+
+        return response($this->index()->with('periodClosingPreview', PeriodClosingNotice::preview()))
+            ->header('Cache-Control', 'private, no-store');
     }
 
     public function status(Request $request): JsonResponse

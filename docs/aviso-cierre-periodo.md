@@ -38,3 +38,26 @@ Renovar las cachés de código/vistas por el procedimiento habitual y recargar e
 Para subir conjuntamente los cambios pendientes del Buzón y de este aviso, se preparó `only=actualizacion-buzon-listados` en el controlador temporal. La [guía de despliegue del 12 de noviembre](despliegue-buzon-listados-aviso-2026-11-12.md) detalla todos los archivos y el enlace de ejecución; incluye únicamente la migración de listados y las cachés, sin volver a instalar permisos.
 
 Pruebas: `PeriodClosingNoticeTest`, `TwoFactorAuthenticationTest` y `period-closing-notice.test.cjs`. Las comprobaciones de fechas usan un reloj simulado con SQLite en memoria; no cambian la fecha real ni datos del servidor o de usuarios locales.
+
+## Simulación manual para administradores
+
+En **Configuración → Configuraciones → Mantenimiento**, el botón **Simular aviso de cierre** abre el mismo aviso y su botón **Entendido**, con una etiqueta explícita de simulación. La dirección autenticada es `/configuracion/mantenimiento/simular-cierre`.
+
+La vista previa calcula una fecha de ejemplo cinco días antes del último día del **período configurado**: si es noviembre de 2026, muestra 25/11/2026 y el fin de mes 30/11/2026. No cambia el reloj ni fuerza la condición del aviso real. También puede previsualizarse un período cerrado: el mensaje de simulación aclara que no representa ni cambia su estado real.
+
+Solo los administradores activos pueden abrirla, incluso mediante enlace directo. No usa el controlador temporal ni su token. No se escribe una marca de simulación en sesión, no se consumen avisos reales pendientes, no se envían notificaciones y no se alteran registros, cierres o bloqueos programados. Las tareas normales de la aplicación, como la bitácora de consultas, siguen funcionando. La respuesta lleva `Cache-Control: private, no-store`.
+
+Cerrar con Entendido o Escape solo cierra la ventana. **Volver al mantenimiento** abre la página habitual sin simulación; navegar a otra página no repite la vista previa. Recargar la dirección de simulación o pulsar de nuevo el botón permite volver a probarla. Sin JavaScript se conserva el aviso visible como texto.
+
+Para publicar esta simulación sobre la actualización ya instalada, subir estos seis archivos y renovar las cachés de rutas y vistas. **No requiere migraciones ni seeders.**
+
+```text
+app/Http/Controllers/SystemMaintenanceController.php
+app/Support/PeriodClosingNotice.php
+resources/views/maintenance/index.blade.php
+resources/views/layouts/app.blade.php
+resources/views/layouts/partials/period-closing-notice.blade.php
+routes/web.php
+```
+
+Se reutilizan los CSS y JavaScript del aviso ya desplegados. Pruebas adicionales: `PeriodClosingPreviewTest`, junto con `PeriodClosingNoticeTest` y `SystemMaintenanceTest` para verificar la autorización, las fechas, el aislamiento de la simulación y los bloqueos existentes.

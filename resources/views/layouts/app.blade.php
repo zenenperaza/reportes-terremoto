@@ -50,7 +50,7 @@
     <link rel="stylesheet" href="{{ $versionedAsset('css/select2-custom.css') }}">
     <link rel="stylesheet" href="{{ $versionedAsset('css/indicator-select2.css') }}">
     @auth<link rel="stylesheet" href="{{ asset('css/admin-shell.css') }}?v={{ @filemtime(public_path('css/admin-shell.css')) ?: 1 }}">@endauth
-    @auth @if(session()->has(\App\Support\PeriodClosingNotice::SESSION_KEY))<link rel="stylesheet" href="{{ $versionedAsset('css/period-closing-notice.css') }}">@endif @endauth
+    @auth @if(isset($periodClosingPreview) || session()->has(\App\Support\PeriodClosingNotice::SESSION_KEY))<link rel="stylesheet" href="{{ $versionedAsset('css/period-closing-notice.css') }}">@endif @endauth
     @stack('styles')
     @auth<link rel="stylesheet" href="{{ $versionedAsset('css/dark-theme.css') }}">@endauth
     @auth<link rel="stylesheet" href="{{ $versionedAsset('css/maintenance-banner.css') }}">@endauth
