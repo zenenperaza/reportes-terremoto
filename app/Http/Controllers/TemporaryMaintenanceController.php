@@ -16,7 +16,9 @@ class TemporaryMaintenanceController extends Controller
         abort_if($token === '', 503, 'Falta configurar SERVER_MAINTENANCE_TOKEN en el archivo .env.');
         abort_unless(hash_equals($token, (string) request('token')), 403);
 
-        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto', 'actualizacion-buzon', 'indicadores-resumen', 'nacionalidad-beneficiarios', 'actualizacion-beneficiarios', 'actualizacion-buzon-registros', 'actualizacion-buzon-listados'], true),
+        abort_if(request()->has('nly'), 422, 'El parámetro correcto es only. Corrija la dirección antes de ejecutar el mantenimiento.');
+
+        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto', 'actualizacion-buzon', 'indicadores-resumen', 'nacionalidad-beneficiarios', 'actualizacion-beneficiarios', 'actualizacion-buzon-registros', 'actualizacion-buzon-listados', 'actualizacion-buzon-publico'], true),
             422, 'Modo de mantenimiento no reconocido.');
         $permissionsOnly = request('only') === 'permisos-beneficiarios';
         $groupEditingOnly = request('only') === 'edicion-cruzada-grupos';
@@ -34,6 +36,9 @@ class TemporaryMaintenanceController extends Controller
         $beneficiaryUpdateOnly = request('only') === 'actualizacion-beneficiarios';
         $buzonRecordsOnly = request('only') === 'actualizacion-buzon-registros';
         $buzonListsOnly = request('only') === 'actualizacion-buzon-listados';
+        $buzonPublicOnly = request('only') === 'actualizacion-buzon-publico';
+        abort_if($buzonPublicOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
+            422, 'El modo actualizacion-buzon-publico no se puede combinar con opciones de caché o importación.');
         abort_if($buzonListsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
             422, 'El modo actualizacion-buzon-listados no se puede combinar con opciones de caché o importación.');
         abort_if($buzonRecordsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
@@ -278,6 +283,62 @@ class TemporaryMaintenanceController extends Controller
                 'routes/web.php', 'routes/maintenance.php',
             ] as $file) {
                 abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
+            }
+        }
+
+        $buzonPublicMigrations = array_map(fn (string $path): array => [
+            'name' => 'migrate', 'parameters' => ['--path' => $path, '--force' => true],
+        ], [
+            'database/migrations/2026_11_17_120000_add_public_source_to_buzon_entries.php',
+            'database/migrations/2026_11_17_140000_add_logo_to_donantes.php',
+        ]);
+        if ($buzonPublicOnly) {
+            // Check the complete upload and previous installation before changing caches or schema.
+            foreach (array_merge(array_column(array_column($buzonPublicMigrations, 'parameters'), '--path'), [
+                'app/Http/Controllers/TemporaryMaintenanceController.php',
+                'app/Http/Controllers/BuzonController.php', 'app/Http/Controllers/PublicBuzonController.php',
+                'app/Http/Controllers/DonanteController.php', 'app/Http/Controllers/DonorLogoController.php',
+                'app/Http/Requests/SavePublicBuzonEntryRequest.php', 'app/Http/Requests/SaveBuzonEntryRequest.php',
+                'app/Http/Middleware/PublicBuzonAccess.php', 'app/Http/Middleware/RecordAuditLog.php',
+                'app/Models/BuzonEntry.php', 'app/Models/Donante.php', 'app/Models/Proyecto.php',
+                'app/Models/User.php', 'app/Models/UserGroup.php',
+                'app/Support/PublicBuzonLink.php', 'app/Support/DonorLogo.php',
+                'app/Providers/AppServiceProvider.php', 'bootstrap/app.php',
+                'resources/views/buzon/index.blade.php', 'resources/views/buzon/form.blade.php',
+                'resources/views/buzon/public/form.blade.php', 'resources/views/buzon/public/unavailable.blade.php',
+                'resources/views/donantes/create.blade.php', 'resources/views/donantes/edit.blade.php',
+                'resources/views/donantes/form.blade.php',
+                'public/css/buzon.css', 'public/css/buzon-public.css', 'public/css/donor-logo.css',
+                'public/js/buzon-public-link.js', 'public/vendor/qrcodegen/qrcodegen.js',
+                'public/vendor/qrcodegen/README.md', 'public/icons/asonacop-app.png',
+                'routes/web.php', 'routes/maintenance.php',
+            ]) as $file) {
+                abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
+            }
+            abort_unless($this->groupAuthorScopesAvailable() && $this->buzonPublicRuntimeAvailable(), 422,
+                'Suba los modelos, controladores y soportes actualizados del Buzón público y del logo de Donantes: faltan métodos requeridos.');
+            abort_unless($this->buzonPublicPrerequisitesAvailable(), 422,
+                'Este modo requiere el Buzón ya instalado con sus listados y cuatro permisos. Complete esas actualizaciones antes de continuar.');
+            foreach ([
+                'app/Http/Controllers/BuzonController.php' => ['DonorLogo::url', 'publicLinkProjects'],
+                'app/Http/Controllers/PublicBuzonController.php' => ['submitted_via_public_link = true', "away('https://asonacop.org/', 303)"],
+                'app/Http/Controllers/DonanteController.php' => ['DonorLogo::store', 'remove_logo'],
+                'app/Models/Donante.php' => ["protected \$hidden = ['logo_path']"],
+                'app/Models/BuzonEntry.php' => ['public_recipient_id', 'submitted_via_public_link'],
+                'app/Http/Middleware/PublicBuzonAccess.php' => ['hasValidSignature', 'maintenanceEnabled'],
+                'app/Providers/AppServiceProvider.php' => ["RateLimiter::for('public-buzon-submit'"],
+                'bootstrap/app.php' => ["routeIs('public-buzon.*')", 'buzon.public.unavailable', 'public_buzon_error'],
+                'resources/views/buzon/index.blade.php' => ['data-project-logo', 'buzon-public-link.js', 'qrcodegen.js', 'Enlace externo'],
+                'resources/views/donantes/create.blade.php' => ['multipart/form-data'],
+                'resources/views/donantes/edit.blade.php' => ['multipart/form-data'],
+                'resources/views/donantes/form.blade.php' => ['Logo del donante', 'remove_logo'],
+                'routes/web.php' => ["prefix('buzon-publico')", 'PublicBuzonAccess::class', 'public-buzon-submit',
+                    'RecordAuditLog::class', 'DonorLogoController::class', "name('donantes.logo')"],
+            ] as $file => $markers) {
+                foreach ($markers as $marker) {
+                    abort_unless($this->deploymentFileContains($file, $marker), 422,
+                        'El archivo '.$file.' no contiene la actualización esperada. Suba su versión actual antes de continuar.');
+                }
             }
         }
 
@@ -665,6 +726,7 @@ class TemporaryMaintenanceController extends Controller
         $includeExcel = $excelOnly || request()->boolean('import_excel');
 
         $selectedMigrations = match (true) {
+            $buzonPublicOnly => $buzonPublicMigrations,
             $buzonListsOnly => [$buzonListsMigration],
             $buzonRecordsOnly => [$buzonPermissionsMigration],
             $beneficiaryUpdateOnly => [$caregiverMigration],
@@ -847,6 +909,22 @@ class TemporaryMaintenanceController extends Controller
                 'Al finalizar, recargue SIA con Ctrl + F5 y pruebe crear, consultar y retomar un listado antes de retirar el mantenimiento manualmente. El aviso de cierre no aparecerá fuera de su ventana de fechas.',
             ];
         }
+        if ($buzonPublicOnly) {
+            $results = [
+                'ACTUALIZACIÓN DE BUZÓN PÚBLICO, QR Y LOGOS DE DONANTES: se comprueban los archivos y las actualizaciones previas, se ejecutan únicamente dos migraciones y se reconstruyen las cachés.',
+                'Se agregan submitted_via_public_link y public_recipient_id al Buzón, y logo_path a Donantes. Las opiniones anteriores conservan sus autores y quedan identificadas como internas; no se les asigna un responsable externo.',
+                'Incluye enlace público firmado por proyecto, formulario sin inicio de sesión, columnas Usuario y Origen, y redirección a https://asonacop.org/ después de enviar correctamente.',
+                'El enlace externo solo permite enviar opiniones: no muestra opiniones anteriores, listados ni datos internos. Respeta proyecto activo, disponibilidad del responsable y mantenimiento, con límites de envío y protección CSRF.',
+                'Los QR se generan en el navegador y se descargan como PNG, sin enviar enlaces a servicios externos. Comparta los generados desde el servidor publicado, no los de localhost.',
+                'El logo se configura en Donantes, no en Proyectos. Sus proyectos usan ese logo en el QR; sin imagen o si falla la carga se ofrece el QR normal. Se puede reemplazar o quitar desde Editar donante.',
+                'No se ejecutan seeders, importaciones, correcciones de parroquias ni migraciones de permisos. No se crean, eliminan, agrupan ni reclasifican registros, beneficiarios, opiniones o listados durante este mantenimiento.',
+                'Se conservan los cuatro permisos del Buzón, los proyectos asignados y la visibilidad por autor o grupo activo. Las opiniones externas quedan dentro del alcance del responsable del enlace y sus grupos; modificar las de compañeros sigue requiriendo edición cruzada y el permiso correspondiente.',
+                'No se activa ni se cancela el mantenimiento: se conservan bloqueos, avisos programados, períodos y cierres. Tampoco se modifican las asignaciones ni se envían datos al donante.',
+                'Las migraciones ya aplicadas se omiten. Repetir este modo conserva opiniones, logos, listados, permisos y enlaces existentes. No ejecuta todas las migraciones pendientes.',
+                'Este modo presupone el Buzón instalado con sus cuatro permisos y listados. Conserve el directorio privado storage del servidor y no cambie APP_KEY al publicar.',
+                'Al finalizar, recargue SIA con Ctrl + F5, cargue el logo en Donantes, genere un QR y pruebe el enlace en una ventana privada. Revise Usuario, Origen y permisos antes de retirar el mantenimiento manualmente.',
+            ];
+        }
         $exitCode = 1;
 
         try {
@@ -873,6 +951,40 @@ class TemporaryMaintenanceController extends Controller
         } catch (Throwable $exception) {
             return response('<pre>ERROR: '.e($exception->getMessage()).'</pre>', 500)->header('Cache-Control', 'no-store');
         }
+    }
+
+    protected function buzonPublicRuntimeAvailable(): bool
+    {
+        foreach ([
+            \App\Http\Controllers\PublicBuzonController::class => ['show', 'store'],
+            \App\Http\Controllers\DonorLogoController::class => ['show'],
+            \App\Http\Requests\SavePublicBuzonEntryRequest::class => ['authorize', 'rules'],
+            \App\Http\Middleware\PublicBuzonAccess::class => ['handle'],
+            \App\Models\BuzonEntry::class => ['publicRecipient', 'scopeVisibleTo', 'scopeManageableBy'],
+            \App\Support\PublicBuzonLink::class => ['code', 'available', 'url'],
+            \App\Support\DonorLogo::class => ['validPath', 'store', 'url', 'delete'],
+        ] as $class => $methods) {
+            foreach ($methods as $method) {
+                if (! method_exists($class, $method) || ! (new \ReflectionMethod($class, $method))->isPublic()) return false;
+            }
+        }
+        return true;
+    }
+
+    protected function buzonPublicPrerequisitesAvailable(): bool
+    {
+        foreach ([
+            'buzon_entries' => ['proyecto_id', 'created_by', 'buzon_list_id'],
+            'buzon_lists' => ['proyecto_id', 'created_by'],
+            'donantes' => ['nombre'], 'proyectos' => ['donante_id'],
+            'users' => ['is_active'], 'permissions' => ['name', 'guard_name'],
+        ] as $table => $columns) {
+            if (! \Illuminate\Support\Facades\Schema::hasTable($table)
+                || ! \Illuminate\Support\Facades\Schema::hasColumns($table, $columns)) return false;
+        }
+        return \Spatie\Permission\Models\Permission::where('guard_name', 'web')->whereIn('name', [
+            'ver buzon', 'crear buzon', 'editar buzon', 'eliminar buzon',
+        ])->count() === 4;
     }
 
     protected function groupAuthorScopesAvailable(): bool

@@ -20,7 +20,8 @@ class BuzonEntry extends Model
 
     protected function casts(): array
     {
-        return ['opinion_date' => 'date', 'age' => 'integer', 'disabilities' => 'array', 'afro_descendant' => 'boolean', 'version' => 'integer'];
+        return ['opinion_date' => 'date', 'age' => 'integer', 'disabilities' => 'array', 'afro_descendant' => 'boolean', 'version' => 'integer',
+            'submitted_via_public_link' => 'boolean'];
     }
 
     public function proyecto(): BelongsTo
@@ -38,12 +39,19 @@ class BuzonEntry extends Model
         return $this->belongsTo(BuzonList::class, 'buzon_list_id');
     }
 
+    public function publicRecipient(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'public_recipient_id')->withTrashed();
+    }
+
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
         // Routes require their action permission; admin status is not a bypass.
         return $query->when(! $user->isAdministrator(), fn (Builder $query) => $query
             ->whereIn('proyecto_id', $user->projects()->select('proyectos.id'))
-            ->whereIn('created_by', $user->visibleGroupUserIds()));
+            ->where(fn (Builder $authors) => $authors->whereIn('created_by', $user->visibleGroupUserIds())
+                ->orWhere(fn (Builder $public) => $public->where('submitted_via_public_link', true)
+                    ->whereIn('public_recipient_id', $user->visibleGroupUserIds()))));
     }
 
     /** Ownership scope only. Each action must additionally require its permission. */
@@ -51,6 +59,8 @@ class BuzonEntry extends Model
     {
         return $query->when(! $user->isAdministrator(), fn (Builder $query) => $query
             ->whereIn('proyecto_id', $user->projects()->select('proyectos.id'))
-            ->whereIn('created_by', $user->editableGroupUserIds()));
+            ->where(fn (Builder $authors) => $authors->whereIn('created_by', $user->editableGroupUserIds())
+                ->orWhere(fn (Builder $public) => $public->where('submitted_via_public_link', true)
+                    ->whereIn('public_recipient_id', $user->editableGroupUserIds()))));
     }
 }

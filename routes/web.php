@@ -44,6 +44,16 @@ use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/panel');
 
+// Public submission only: no authentication, internal navigation or access to previous opinions.
+Route::prefix('buzon-publico')->name('public-buzon.')
+    ->middleware(\App\Http\Middleware\PublicBuzonAccess::class)
+    ->withoutMiddleware(\App\Http\Middleware\RecordAuditLog::class)->group(function (): void {
+        Route::get('/{proyecto}/{codigo}/{recipient}', [\App\Http\Controllers\PublicBuzonController::class, 'show'])
+            ->middleware('throttle:60,1')->name('show');
+        Route::post('/{proyecto}/{codigo}/{recipient}', [\App\Http\Controllers\PublicBuzonController::class, 'store'])
+            ->middleware('throttle:public-buzon-submit')->name('store');
+    });
+
 // Heartbeats must keep working during a lock, without backups or audit noise.
 Route::post('/sistema/estado', [SystemMaintenanceController::class, 'status'])
     ->middleware(['auth', EnsureActiveUser::class, 'throttle:60,1'])
@@ -82,6 +92,8 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
         Route::get('/{entry}', [BuzonController::class, 'show'])->middleware('permission:ver buzon')->name('show');
     });
     Route::get('/panel', DashboardController::class)->name('dashboard');
+    Route::get('/donantes/{donante}/logo', [\App\Http\Controllers\DonorLogoController::class, 'show'])
+        ->withoutMiddleware(\App\Http\Middleware\RunAutomaticBackup::class)->name('donantes.logo');
     Route::post('/salir', [AuthController::class, 'logout'])->name('logout');
     Route::get('/mi-perfil', [ProfileController::class, 'show'])->name('profile.show');
     Route::put('/mi-perfil', [ProfileController::class, 'update'])->name('profile.update');

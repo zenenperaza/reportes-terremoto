@@ -73,7 +73,7 @@
         @unless($readOnly)<div class="form-actions"><a class="button button-secondary" href="{{ $backUrl }}">Cancelar</a><button class="button button-primary" type="submit">{{ $entry->exists ? 'Guardar cambios' : 'Guardar formulario del Buzón' }}</button></div>@endunless
     </form>
     @if($readOnly)
-        <p class="muted">Registrado por {{ $entry->creator?->name ?: 'Usuario no disponible' }} · {{ $entry->created_at?->format('d/m/Y H:i') }}</p>
+        <p class="muted">@if($entry->submitted_via_public_link)Recibido mediante enlace público · Responsable del enlace: {{ $entry->publicRecipient?->name ?: 'Usuario no disponible' }}@else Registrado por {{ $entry->creator?->name ?: 'Usuario no disponible' }}@endif · {{ $entry->created_at?->format('d/m/Y H:i') }}</p>
         <div class="buzon-entry-actions">
             @if($canManageEntry)
                 @can('editar buzon')<a class="button button-primary" href="{{ route('buzon.edit', $entry) }}">Editar formulario</a>@endcan

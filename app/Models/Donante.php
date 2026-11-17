@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Donante extends Model
 {
     protected $fillable = ['nombre', 'estatus', 'enlaces'];
+    protected $hidden = ['logo_path'];
 
     protected function casts(): array
     {

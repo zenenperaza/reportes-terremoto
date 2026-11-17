@@ -22,7 +22,10 @@ class BuzonController extends Controller
 
     public function index(Request $request)
     {
-        $projects = $this->projects($request)->get();
+        $projects = $this->projects($request)->with('donante')->get();
+        $publicLinkProjects = $request->user()->can('crear buzon') ? $projects->filter(fn ($project) => $project->estatus)
+            ->map(fn ($project) => ['project' => $project, 'url' => \App\Support\PublicBuzonLink::url($project, $request->user()),
+                'logo_url' => \App\Support\DonorLogo::url($project->donante)]) : collect();
         $filters = $request->validate([
             'project_ids' => ['nullable', 'array'],
             'project_ids.*' => ['required', 'integer', 'distinct', Rule::in($projects->modelKeys())],
@@ -40,11 +43,11 @@ class BuzonController extends Controller
             ->when(filled($filters['opinion']), fn ($query) => $query->where('opinion', $filters['opinion']))
             ->when(filled($filters['feedback_type']), fn ($query) => $query->where('feedback_type', $filters['feedback_type']));
         $counts = (clone $query)->selectRaw('opinion, COUNT(*) as total')->groupBy('opinion')->pluck('total', 'opinion');
-        $entries = $query->with('proyecto')->latest('opinion_date')->latest('id')->paginate(20)->withQueryString();
+        $entries = $query->with(['proyecto', 'creator', 'publicRecipient'])->latest('opinion_date')->latest('id')->paginate(20)->withQueryString();
         $visibleListIds = BuzonList::visibleTo($request->user())->whereIn('id', $entries->pluck('buzon_list_id')->filter())->pluck('id')->all();
         $manageableEntryIds = ($request->user()->can('editar buzon') || $request->user()->can('eliminar buzon'))
             ? BuzonEntry::manageableBy($request->user())->whereKey($entries->modelKeys())->pluck('id')->all() : [];
-        return view('buzon.index', compact('projects', 'filters', 'counts', 'entries', 'manageableEntryIds', 'visibleListIds'));
+        return view('buzon.index', compact('projects', 'publicLinkProjects', 'filters', 'counts', 'entries', 'manageableEntryIds', 'visibleListIds'));
     }
 
     public function lists(Request $request)
