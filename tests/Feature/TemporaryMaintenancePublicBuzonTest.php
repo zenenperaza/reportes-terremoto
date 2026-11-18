@@ -41,6 +41,7 @@ class TemporaryMaintenancePublicBuzonTest extends TestCase
         'public/vendor/select2/js/jquery.min.js', 'public/vendor/select2/js/select2.full.min.js',
         'public/vendor/select2/css/select2.min.css',
         'public/vendor/qrcodegen/README.md', 'public/icons/asonacop-app.png',
+        'public/assets/images/asonacop/logo.png',
         'routes/web.php', 'routes/maintenance.php',
     ];
     private const MARKER_FILES = [
@@ -112,7 +113,8 @@ class TemporaryMaintenancePublicBuzonTest extends TestCase
                 ->assertSee('únicamente tres migraciones')->assertSee('logo_path a Donantes')
                 ->assertSee('public_submission_key')->assertSee('No se borran ni se unen duplicados ya existentes')
                 ->assertSee('anteriores conservan sus autores')->assertSee('https://asonacop.org/')
-                ->assertSee('logo se configura en Donantes, no en Proyectos')
+                ->assertSee('logo del donante se configura en Donantes, no en Proyectos')
+                ->assertSee('ASONACOP a la izquierda y el donante a la derecha')->assertSee('nunca el donante solo')
                 ->assertSee('No se ejecutan seeders, importaciones, correcciones de parroquias ni migraciones de permisos.')
                 ->assertSee('No se crean, eliminan, agrupan ni reclasifican registros, beneficiarios, opiniones o listados')
                 ->assertSee('No se activa ni se cancela el mantenimiento')->assertSee('edición cruzada')

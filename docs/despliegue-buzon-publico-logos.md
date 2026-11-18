@@ -11,9 +11,15 @@ Preparado en `TemporaryMaintenanceController`, modo **actualizacion-buzon-public
 
 ## Archivos que subir
 
+### QR con ASONACOP y donante, sobre la actualización ya instalada
+
+Este ajuste no agrega migraciones ni cambia enlaces. Subir `resources/views/buzon/index.blade.php`, `public/js/buzon-public-link.js` y **`public/assets/images/asonacop/logo.png`**. Actualizar también `TemporaryMaintenanceController.php` para que compruebe ese logo antes de ejecutar el modo existente. Renovar vistas/cachés con el modo preparado y recargar con Ctrl + F5; volver a generar los PNG que se vayan a compartir, porque las imágenes ya descargadas no cambian.
+
+El centro debe mostrar ASONACOP a la izquierda y donante a la derecha, sin deformar los logos. Sin donante se mantiene ASONACOP; si falla ASONACOP, se ofrece un QR sin logos y un aviso, nunca el donante solo.
+
 ### Si ya se aplicó la versión inicial del Buzón público
 
-Para la corrección de envíos duplicados, la confirmación de guardado y la identificación visual del donante en el selector, actualizar estos doce archivos sobre esa instalación completa:
+Para la corrección de envíos duplicados, la confirmación de guardado, la identificación visual del donante y ambos logos en el QR, actualizar estos catorce archivos sobre esa instalación completa:
 
 ```text
 app/Http/Controllers/TemporaryMaintenanceController.php
@@ -28,6 +34,8 @@ public/js/buzon-public-submit.js
 resources/views/buzon/index.blade.php
 public/css/buzon.css
 public/js/buzon-share-project.js
+public/js/buzon-public-link.js
+public/assets/images/asonacop/logo.png
 ```
 
 Ejecutar el mismo modo `only=actualizacion-buzon-publico` con el controlador actualizado. Las dos primeras migraciones ya aplicadas se omitirán; solo se añadirá `public_submission_key`, sin borrar duplicados existentes. Recargar el formulario con Ctrl + F5 antes de probar. No ejecutar el controlador antiguo para esta corrección: no conoce la tercera migración.
@@ -69,6 +77,7 @@ public/js/buzon-share-project.js
 public/js/buzon-public-submit.js
 public/vendor/qrcodegen/qrcodegen.js
 public/vendor/qrcodegen/README.md
+public/assets/images/asonacop/logo.png
 routes/web.php
 ```
 

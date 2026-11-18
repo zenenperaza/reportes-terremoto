@@ -4,7 +4,7 @@ const librarySource = fs.readFileSync('public/vendor/qrcodegen/qrcodegen.js', 'u
 const source = fs.readFileSync('public/js/buzon-public-link.js', 'utf8');
 
 function fixture({library = true, contextAvailable = true, encodeFailure = false, pngFailure = false,
-    code = 'VNZ/PCA202380/PD2023237', present = true, logoUrl = '', drawLogoFailure = false} = {}) {
+    code = 'VNZ/PCA202380/PD2023237', present = true, logoUrl = '', organizationLogoUrl = '', drawLogoFailure = false} = {}) {
     const field = () => ({value: '', hidden: false, dataset: {}, handlers: {}, attrs: {},
         addEventListener(name, fn) {this.handlers[name] = fn;}, removeAttribute(name) {delete this[name]; delete this.attrs[name];},
         setAttribute(name, value) {this.attrs[name] = value;}, focus() {}, select() {}});
@@ -19,7 +19,13 @@ function fixture({library = true, contextAvailable = true, encodeFailure = false
         measureText(text) {return {width: [...text].length * 10};},
         fillRect(x, y, width, height) {this.rectangles.push({x, y, width, height, color: this.fillStyle});},
         fillText(text, x, y) {this.texts.push({text, x, y});},
-        drawImage(image, x, y, width, height) {if (drawLogoFailure) throw new Error('Image draw failed'); this.images.push({image, x, y, width, height});}};
+        drawImage(image, x, y, width, height) {if (drawLogoFailure === true || (typeof drawLogoFailure === 'function' && drawLogoFailure(image))) throw new Error('Image draw failed'); this.images.push({image, x, y, width, height});}};
+    for (const property of ['width', 'height']) {
+        let value;
+        Object.defineProperty(canvas, property, {get() {return value;}, set(next) {
+            value = next; context.rectangles = []; context.texts = []; context.images = [];
+        }});
+    }
     canvas.getContext = () => contextAvailable ? context : null;
     canvas.toDataURL = format => {canvas.format = format; if (pngFailure) throw new Error('PNG failed'); return 'data:image/png;base64,TEST';};
     const fields = {'[data-public-project]': select, '[data-public-link-panel]': panel, '[data-public-link-input]': input,
@@ -31,7 +37,7 @@ function fixture({library = true, contextAvailable = true, encodeFailure = false
         Image: class {constructor() {this.naturalWidth = 160; this.naturalHeight = 100; images.push(this);}},
         setTimeout(fn) {timers.set(++nextTimer, fn); return nextTimer;}, clearTimeout(id) {timers.delete(id);}, document: {
         addEventListener(name, fn) {fn();},
-        querySelector() {return present ? {querySelector(selector) {return fields[selector];}} : null;},
+        querySelector() {return present ? {dataset: {asonacopLogo: organizationLogoUrl}, querySelector(selector) {return fields[selector];}} : null;},
     }});
     const encoded = [], symbols = [];
     if (library) {

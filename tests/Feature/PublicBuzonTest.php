@@ -46,6 +46,7 @@ class PublicBuzonTest extends TestCase
         $this->actingAs($this->owner)->get(route('buzon.index'))->assertOk()->assertSee('Enlace público del Buzón')
             ->assertSee('data-public-url="'.e($this->url()).'"', false)->assertDontSee('OTHER-PRIVATE')
             ->assertSee('Descargar QR (PNG)')->assertSee('data-public-qr-canvas', false)
+            ->assertSee('data-asonacop-logo=', false)->assertSee('assets/images/asonacop/logo.png')
             ->assertSee('vendor/qrcodegen/qrcodegen.js')->assertSee('data-project-code="'.e($this->project->codigo).'"', false);
         $this->project->update(['estatus' => false]);
         $this->get(route('buzon.index'))->assertOk()->assertSee('No tiene proyectos activos')

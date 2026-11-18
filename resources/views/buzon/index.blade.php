@@ -10,7 +10,7 @@
     </div>
 </section>
 @can('crear buzon')
-<section class="content-card buzon-share-card" data-buzon-public-link aria-labelledby="buzon-share-title">
+<section class="content-card buzon-share-card" data-buzon-public-link data-asonacop-logo="{{ asset('assets/images/asonacop/logo.png') }}?v={{ @filemtime(public_path('assets/images/asonacop/logo.png')) ?: 1 }}" aria-labelledby="buzon-share-title">
     <div class="buzon-share-heading">
         <div class="buzon-share-intro"><span class="buzon-share-icon" aria-hidden="true"><i class="ri-share-line"></i></span><div>
             <h2 id="buzon-share-title">Enlace público del Buzón</h2>

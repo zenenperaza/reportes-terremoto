@@ -2,20 +2,20 @@
 
 ## Uso
 
-En **Donantes → Crear/Editar donante** se configura **Logo del donante (opcional)**. Se usa en el centro del QR del Buzón de todos los proyectos asociados a ese donante. No hay campo de logo en Proyectos.
+En **Donantes → Crear/Editar donante** se configura **Logo del donante (opcional)**. En el centro del QR se combina **ASONACOP a la izquierda y donante a la derecha** para todos los proyectos asociados a ese donante. ASONACOP usa `public/assets/images/asonacop/logo.png`. No hay campo de logo en Proyectos.
 
 - PNG, JPG/JPEG o WebP; máximo 2 MB, dimensiones entre 32 y 2000 píxeles de ancho y alto.
 - No se aceptan SVG, archivos corruptos ni extensiones ajenas a esos formatos.
 - Editar sin subir imagen ni marcar Quitar conserva el logo actual.
-- Subir otra imagen reemplaza el logo; **Quitar logo actual** vuelve al QR normal.
+- Subir otra imagen reemplaza el logo del donante; **Quitar logo actual** deja solo ASONACOP en el QR.
 - No se puede subir y quitar simultáneamente.
 - La carga respeta el acceso administrativo existente de Donantes.
 
-Cambiar el logo afecta a los QR que se generen después de recargar el Buzón; no modifica los enlaces firmados ni las imágenes PNG ya descargadas. El proyecto mantiene su código y su propio enlace, aunque comparta logo con otros proyectos del mismo donante. Sin logo se genera el QR normal.
+Cambiar el logo afecta a los QR que se generen después de recargar el Buzón; no modifica los enlaces firmados ni las imágenes PNG ya descargadas. El proyecto mantiene su código y su propio enlace, aunque comparta logo con otros proyectos del mismo donante. Sin logo del donante se genera el QR con ASONACOP centrado.
 
 ## Seguridad y lectura del QR
 
-El QR conserva la URL completa y usa corrección HIGH al insertar logo, una placa blanca pequeña, proporción de imagen original y margen exterior de cuatro módulos. Si la imagen falla, tarda más de ocho segundos o no puede dibujarse, se ofrece el QR normal. Cambiar de proyecto descarta cargas tardías. La generación ocurre localmente en el navegador, sin enviar enlaces ni imágenes a servicios externos.
+El QR conserva la URL completa y usa corrección HIGH al insertar los logos, una placa blanca rectangular centrada, una separación entre las imágenes, proporción original de cada una y margen exterior de cuatro módulos. La posición no depende del orden de carga: siempre ASONACOP a la izquierda y donante a la derecha. Cada imagen tiene un límite de ocho segundos. Si falla el donante, se conserva ASONACOP solo; si falta/falla ASONACOP, se ofrece un QR sin logos, nunca el donante solo. Cambiar de proyecto descarta cargas tardías. La generación ocurre localmente en el navegador, sin enviar enlaces ni imágenes a servicios externos.
 
 Los archivos se guardan con nombres aleatorios en el disco privado `local`, bajo `storage/app/private/donor-logos/`. No requiere `storage:link`. La ruta autenticada `/donantes/{donante}/logo` permite administradores o usuarios con **ver buzon**, **crear buzon** y al menos un proyecto asignado de ese donante. No permite explorar archivos; valida ruta y tipo de imagen, con cabeceras privadas y nosniff. El PNG descargado contiene el logo y puede compartirse.
 
@@ -38,6 +38,7 @@ resources/views/donantes/form.blade.php
 resources/views/buzon/index.blade.php
 public/css/donor-logo.css
 public/js/buzon-public-link.js
+public/assets/images/asonacop/logo.png
 routes/web.php
 ```
 

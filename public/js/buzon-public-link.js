@@ -22,11 +22,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (qrCanvas) {qrCanvas.width = 1; qrCanvas.height = 1;}
     };
-    const drawQr = (url, code, projectId, logo = null) => {
+    const drawQr = (url, code, projectId, organizationLogo = null, donorLogo = null) => {
         if (!qrPanel || !qrCanvas || !qrDownload) return;
         const encoder = globalThis.qrcodegen?.QrCode;
         if (!encoder) throw new Error('QR encoder unavailable');
-        const qr = encoder.encodeText(url, logo ? encoder.Ecc.HIGH : encoder.Ecc.MEDIUM);
+        const qr = encoder.encodeText(url, organizationLogo ? encoder.Ecc.HIGH : encoder.Ecc.MEDIUM);
         const border = 4; // White quiet zone, never covered by the caption.
         const scale = Math.max(4, Math.ceil(480 / (qr.size + border * 2)));
         const qrPixels = (qr.size + border * 2) * scale;
@@ -49,19 +49,26 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let y = 0; y < qr.size; y++) for (let x = 0; x < qr.size; x++) {
             if (qr.getModule(x, y)) context.fillRect((x + border) * scale, (y + border) * scale, scale, scale);
         }
-        if (logo) {
+        if (organizationLogo) {
             const logoModules = Math.max(3, Math.floor(qr.size * 0.12));
-            const plateModules = logoModules + 2;
-            const plateStart = Math.floor((qr.size - plateModules) / 2);
-            const plateX = (border + plateStart) * scale;
-            const plateWidth = plateModules * scale;
+            const logos = donorLogo ? [organizationLogo, donorLogo] : [organizationLogo];
+            const gapModules = donorLogo ? 1 : 0;
+            const plateModulesWide = logoModules * logos.length + gapModules + 2;
+            const plateModulesHigh = logoModules + 2;
+            const plateX = (border + Math.floor((qr.size - plateModulesWide) / 2)) * scale;
+            const plateY = (border + Math.floor((qr.size - plateModulesHigh) / 2)) * scale;
             context.fillStyle = '#fff';
-            context.fillRect(plateX, plateX, plateWidth, plateWidth);
-            const factor = Math.min(logoModules * scale / logo.naturalWidth, logoModules * scale / logo.naturalHeight);
-            const width = Math.max(1, Math.round(logo.naturalWidth * factor));
-            const height = Math.max(1, Math.round(logo.naturalHeight * factor));
+            context.fillRect(plateX, plateY, plateModulesWide * scale, plateModulesHigh * scale);
             context.imageSmoothingEnabled = true;
-            context.drawImage(logo, Math.round(plateX + (plateWidth - width) / 2), Math.round(plateX + (plateWidth - height) / 2), width, height);
+            logos.forEach((logo, index) => {
+                const factor = Math.min(logoModules * scale / logo.naturalWidth, logoModules * scale / logo.naturalHeight);
+                const width = Math.max(1, Math.round(logo.naturalWidth * factor));
+                const height = Math.max(1, Math.round(logo.naturalHeight * factor));
+                const boxX = plateX + scale + index * (logoModules + gapModules) * scale;
+                const boxY = plateY + scale;
+                context.drawImage(logo, Math.round(boxX + (logoModules * scale - width) / 2),
+                    Math.round(boxY + (logoModules * scale - height) / 2), width, height);
+            });
         }
         context.fillStyle = '#000';
         context.textAlign = 'center';
@@ -95,41 +102,73 @@ document.addEventListener('DOMContentLoaded', () => {
         if (url) {
             const code = option.dataset.projectCode || `Proyecto ${select.value}`;
             const projectId = select.value;
-            const render = (logo = null) => {
+            const render = (organizationLogo = null, donorLogo = null) => {
                 if (generation !== currentGeneration) return;
-                try {drawQr(url, code, projectId, logo);}
+                try {drawQr(url, code, projectId, organizationLogo, donorLogo);}
                 catch (_) {
                     clearQr();
-                    if (logo) {
-                        try {drawQr(url, code, projectId); status.textContent = 'No se pudo incluir el logo. Puede descargar el QR sin logo.'; return;}
+                    if (organizationLogo) {
+                        if (donorLogo) {
+                            try {drawQr(url, code, projectId, organizationLogo); status.textContent = 'No se pudo incluir el logo del donante. El QR conserva el logo de ASONACOP.'; return;}
+                            catch (_) {clearQr();}
+                        }
+                        try {drawQr(url, code, projectId); status.textContent = 'No se pudieron incluir los logos. Puede descargar el QR sin logos.'; return;}
                         catch (_) {clearQr();}
                     }
                     status.textContent = 'No fue posible generar el QR. Puede copiar y compartir el enlace.';
                 }
             };
-            const logoUrl = option.dataset.projectLogo;
-            if (!logoUrl) {render(); return;}
-            try {
-                const address = new URL(logoUrl, location.href);
-                if (address.origin !== location.origin || !['https:', 'http:'].includes(address.protocol)) throw new Error('Invalid logo origin');
-                const image = new Image();
-                let completed = false;
-                const finish = (success) => {
-                    if (completed || generation !== currentGeneration) return;
-                    completed = true;
-                    cancelLogo();
-                    if (success && image.naturalWidth && image.naturalHeight) {status.textContent = ''; render(image);}
-                    else {status.textContent = 'No se pudo cargar el logo. El QR está disponible sin logo.'; render();}
-                };
-                const timer = setTimeout(() => finish(false), 8000);
-                cancelLogo = () => {clearTimeout(timer); image.onload = null; image.onerror = null;};
-                image.onload = () => finish(true);
-                image.onerror = () => finish(false);
-                status.textContent = 'Preparando el QR con el logo del donante…';
-                image.src = address.href;
-            } catch (_) {
-                status.textContent = 'No se pudo cargar el logo. El QR está disponible sin logo.';
-                render();
+            const organizationUrl = section.dataset?.asonacopLogo;
+            const donorUrl = option.dataset.projectLogo;
+            if (!organizationUrl) {
+                status.textContent = 'No se pudo cargar el logo de ASONACOP. El QR está disponible sin logos.';
+                render(); return;
+            }
+            const cleanups = [];
+            cancelLogo = () => cleanups.forEach(cleanup => cleanup());
+            let organizationDone = false, donorDone = !donorUrl, finished = false;
+            let organizationImage = null, donorImage = null;
+            const finish = () => {
+                if (finished || generation !== currentGeneration || !organizationDone || !donorDone) return;
+                finished = true;
+                cancelLogo();
+                if (!organizationImage) {
+                    status.textContent = 'No se pudo cargar el logo de ASONACOP. El QR está disponible sin logos.';
+                    render();
+                } else {
+                    status.textContent = donorUrl && !donorImage
+                        ? 'No se pudo cargar el logo del donante. El QR conserva el logo de ASONACOP.' : '';
+                    render(organizationImage, donorImage);
+                }
+            };
+            const loadLogo = (logoUrl, ready) => {
+                try {
+                    const address = new URL(logoUrl, location.href);
+                    if (address.origin !== location.origin || !['https:', 'http:'].includes(address.protocol)) throw new Error('Invalid logo origin');
+                    const image = new Image();
+                    let completed = false;
+                    const cleanup = () => {clearTimeout(timer); image.onload = null; image.onerror = null;};
+                    const loaded = success => {
+                        if (completed || generation !== currentGeneration) return;
+                        completed = true; cleanup();
+                        ready(success && image.naturalWidth && image.naturalHeight ? image : null);
+                    };
+                    const timer = setTimeout(() => loaded(false), 8000);
+                    cleanups.push(cleanup);
+                    image.onload = () => loaded(true);
+                    image.onerror = () => loaded(false);
+                    image.src = address.href;
+                } catch (_) {ready(null);}
+            };
+            status.textContent = 'Preparando el QR con los logos de ASONACOP y del donante…';
+            loadLogo(organizationUrl, image => {
+                organizationImage = image; organizationDone = true;
+                if (!image) donorDone = true;
+                finish();
+            });
+            if (!organizationDone || organizationImage) {
+                if (donorUrl) loadLogo(donorUrl, image => {donorImage = image; donorDone = true; finish();});
+                else finish();
             }
         }
     };

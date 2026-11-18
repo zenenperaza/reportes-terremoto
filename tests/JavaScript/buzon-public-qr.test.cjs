@@ -75,48 +75,128 @@ test('missing library, canvas support or PNG export leaves the link usable and c
     }
 });
 
-test('a project logo loads from the same origin and is drawn small in the center with high correction', () => {
-    const h = fixture({logoUrl: 'https://registros.example.test/proyectos/1/logo?v=sample'}); h.choose(1);
-    assert.equal(h.qrPanel.hidden, true); assert.equal(h.images.length, 1); assert.equal(h.copy.disabled, false);
-    assert.equal(h.images[0].src, 'https://registros.example.test/proyectos/1/logo?v=sample');
+const organizationLogoUrl = '/assets/images/asonacop/logo.png?v=test';
+
+test('draws ASONACOP on the left and the donor on the right in a white centered plate', () => {
+    const h = fixture({organizationLogoUrl, logoUrl: '/donantes/1/logo'}); h.choose(1);
+    assert.equal(h.qrPanel.hidden, true); assert.equal(h.images.length, 2); assert.equal(h.copy.disabled, false);
+    assert.equal(h.images[0].src, 'https://registros.example.test' + organizationLogoUrl);
+    h.images[0].naturalWidth = 150; h.images[0].naturalHeight = 89;
     h.images[0].onload();
+    assert.equal(h.qrPanel.hidden, true);
+    h.images[1].onload();
     assert.equal(h.qrPanel.hidden, false); assert.equal(h.timers.size, 0);
     assert.equal(h.symbols[0].errorCorrectionLevel.ordinal, 3);
     assert.equal(h.encoded[0], h.input.value);
-    assert.equal(h.context.images.length, 1);
-    const icon = h.context.images[0], plate = h.context.rectangles.at(-1);
-    assert.equal(plate.color, '#fff'); assert.ok(icon.x > plate.x && icon.y > plate.y);
-    assert.ok(icon.x + icon.width < plate.x + plate.width); assert.ok(icon.y + icon.height < plate.y + plate.height);
-    assert.ok(plate.width < h.canvas.width * 0.20);
-    assert.ok(Math.abs(icon.width / icon.height - 160 / 100) < 0.08);
+    assert.equal(h.context.images.length, 2);
+    const [organization, donor] = h.context.images, plate = h.context.rectangles.at(-1);
+    assert.equal(organization.image, h.images[0]); assert.equal(donor.image, h.images[1]);
+    assert.ok(organization.x + organization.width < donor.x);
+    assert.equal(plate.color, '#fff');
+    for (const icon of [organization, donor]) {
+        assert.ok(icon.x > plate.x && icon.y > plate.y);
+        assert.ok(icon.x + icon.width < plate.x + plate.width);
+        assert.ok(icon.y + icon.height < plate.y + plate.height);
+    }
+    assert.ok(plate.width < h.canvas.width * 0.30);
+    assert.ok(plate.height < h.canvas.width * 0.18);
+    assert.ok(Math.abs((plate.x + plate.width / 2) - h.canvas.width / 2) < 8);
+    assert.ok(Math.abs((plate.y + plate.height / 2) - h.canvas.width / 2) < 8);
+    assert.ok(Math.abs(organization.width / organization.height - 150 / 89) < 0.08);
+    assert.ok(Math.abs(donor.width / donor.height - 160 / 100) < 0.08);
     assert.match(h.download.href, /^data:image\/png/);
 });
 
-test('load errors, timeout and canvas errors fall back to a usable plain QR', () => {
-    for (const failure of ['load', 'timeout', 'draw']) {
-        const h = fixture({logoUrl: '/proyectos/1/logo', drawLogoFailure: failure === 'draw'}); h.choose(1);
-        if (failure === 'load') h.images[0].onerror();
-        if (failure === 'timeout') [...h.timers.values()][0]();
-        if (failure === 'draw') h.images[0].onload();
+test('completion order never swaps the organization and donor', () => {
+    const h = fixture({organizationLogoUrl, logoUrl: '/donantes/1/logo'}); h.choose(1);
+    h.images[1].onload(); assert.equal(h.qrPanel.hidden, true);
+    h.images[0].onload();
+    assert.equal(h.context.images[0].image, h.images[0]);
+    assert.equal(h.context.images[1].image, h.images[1]);
+    assert.ok(h.context.images[0].x < h.context.images[1].x);
+});
+
+test('projects without a donor logo show only ASONACOP', () => {
+    const h = fixture({organizationLogoUrl}); h.choose(1);
+    assert.equal(h.images.length, 1); h.images[0].onload();
+    assert.equal(h.qrPanel.hidden, false); assert.equal(h.context.images.length, 1);
+    assert.equal(h.context.images[0].image, h.images[0]);
+    assert.equal(h.symbols[0].errorCorrectionLevel.ordinal, 3);
+});
+
+test('donor failure or timeout retains ASONACOP and a usable PNG', () => {
+    for (const failure of ['load', 'timeout']) {
+        const h = fixture({organizationLogoUrl, logoUrl: '/donantes/1/logo'}); h.choose(1);
+        h.images[0].onload();
+        if (failure === 'load') h.images[1].onerror();
+        else [...h.timers.values()][0]();
         assert.equal(h.qrPanel.hidden, false); assert.match(h.download.href, /^data:image\/png/);
-        assert.equal(h.context.images.length, 0); assert.match(h.status.textContent, /sin logo/);
+        assert.equal(h.context.images.length, 1); assert.equal(h.context.images[0].image, h.images[0]);
+        assert.match(h.status.textContent, /conserva el logo de ASONACOP/);
     }
 });
 
-test('late image completion cannot replace the QR after switching projects or clearing selection', () => {
-    const h = fixture({logoUrl: '/proyectos/1/logo'}); h.choose(1);
-    const late = h.images[0].onload;
-    h.choose(2); const url = h.input.value; const filename = h.download.download;
-    late(); assert.equal(h.input.value, url); assert.equal(h.download.download, filename);
-    assert.equal(h.context.images.length, 0); assert.equal(h.timers.size, 0);
-    h.choose(1); const later = h.images[1].onload; h.choose(0); later();
-    assert.equal(h.qrPanel.hidden, true); assert.equal(h.download.href, undefined);
+test('organization load failure or timeout never renders the donor by itself', () => {
+    for (const failure of ['load', 'timeout']) {
+        const h = fixture({organizationLogoUrl, logoUrl: '/donantes/1/logo'}); h.choose(1);
+        h.images[1].onload();
+        if (failure === 'load') h.images[0].onerror();
+        else [...h.timers.values()][0]();
+        assert.equal(h.context.images.length, 0); assert.equal(h.qrPanel.hidden, false);
+        assert.match(h.status.textContent, /ASONACOP.*sin logos/);
+        assert.equal(h.timers.size, 0);
+    }
 });
 
-test('foreign-origin or non-HTTP logo sources are not requested', () => {
-    for (const logoUrl of ['https://external.example.test/logo.png', 'data:image/png;base64,fake', 'javascript:alert(1)']) {
-        const h = fixture({logoUrl}); h.choose(1);
+test('canvas failures try ASONACOP alone, then fall back to an unbranded QR if necessary', () => {
+    for (const failAll of [false, true]) {
+        const h = fixture({organizationLogoUrl, logoUrl: '/donantes/1/logo',
+            drawLogoFailure: failAll || (image => image.src.includes('/donantes/'))});
+        h.choose(1); h.images[0].onload(); h.images[1].onload();
+        assert.equal(h.qrPanel.hidden, false); assert.match(h.download.href, /^data:image\/png/);
+        assert.equal(h.context.images.length, failAll ? 0 : 1);
+        if (!failAll) assert.equal(h.context.images[0].image, h.images[0]);
+    }
+});
+
+test('organization failure cancels the pending donor and ignores its late completion', () => {
+    const h = fixture({organizationLogoUrl, logoUrl: '/donantes/1/logo'}); h.choose(1);
+    const lateDonor = h.images[1].onload;
+    h.images[0].onerror();
+    assert.equal(h.qrPanel.hidden, false); assert.equal(h.context.images.length, 0);
+    assert.equal(h.images[1].onload, null); assert.equal(h.timers.size, 0);
+    const renders = h.encoded.length;
+    lateDonor();
+    assert.equal(h.encoded.length, renders); assert.equal(h.context.images.length, 0);
+});
+
+test('late completion cannot replace either logo after switching or clearing projects', () => {
+    const h = fixture({organizationLogoUrl, logoUrl: '/donantes/1/logo'}); h.choose(1);
+    const lateOrganization = h.images[0].onload, lateDonor = h.images[1].onload;
+    h.choose(2);
+    lateOrganization(); lateDonor(); assert.equal(h.qrPanel.hidden, true);
+    h.images[2].onload();
+    const url = h.input.value, filename = h.download.download;
+    lateDonor(); assert.equal(h.input.value, url); assert.equal(h.download.download, filename);
+    assert.equal(h.context.images.length, 1); assert.equal(h.timers.size, 0);
+    h.choose(1); const later = h.images[3].onload; h.choose(0); later();
+    assert.equal(h.qrPanel.hidden, true); assert.equal(h.download.href, undefined);
+    assert.equal(h.timers.size, 0);
+});
+
+test('missing or unsafe organization source never requests the donor or exposes it alone', () => {
+    for (const organizationLogoUrl of ['', 'https://external.example.test/logo.png', 'data:image/png;base64,fake', 'javascript:alert(1)']) {
+        const h = fixture({organizationLogoUrl, logoUrl: '/donantes/1/logo'}); h.choose(1);
         assert.equal(h.images.length, 0); assert.equal(h.qrPanel.hidden, false);
-        assert.match(h.status.textContent, /sin logo/);
+        assert.match(h.status.textContent, /sin logos/);
+    }
+});
+
+test('unsafe donor sources are ignored without requesting third-party images', () => {
+    for (const logoUrl of ['https://external.example.test/logo.png', 'data:image/png;base64,fake', 'javascript:alert(1)']) {
+        const h = fixture({organizationLogoUrl, logoUrl}); h.choose(1);
+        assert.equal(h.images.length, 1); h.images[0].onload();
+        assert.equal(h.qrPanel.hidden, false); assert.equal(h.context.images.length, 1);
+        assert.match(h.status.textContent, /ASONACOP/);
     }
 });
