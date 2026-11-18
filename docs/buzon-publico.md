@@ -22,6 +22,8 @@ La sección interna coloca el selector y el enlace en una columna compacta y el 
 
 Si se carga un **logo en Crear/Editar donante**, los QR del Buzón de sus proyectos lo incorporan en el centro y aumentan su corrección de errores. Sin logo o si falla su carga, se mantiene el QR normal. Requiere una migración adicional: consultar [Logo del donante y QR del Buzón](logos-donantes.md).
 
+El selector «Proyecto para compartir» reutiliza Select2 local para mostrar el logo junto al nombre del donante y el código/nombre del proyecto, tanto en sus opciones como en la selección. Se puede buscar por esos textos. También aparece una tarjeta del donante al lado, o debajo en móvil. Sin logo o si falla la imagen, se muestra la inicial sin perder el nombre. Sin Select2, sigue disponible el select nativo y la tarjeta seleccionada. El script `public/js/buzon-share-project.js` sincroniza el cambio con el enlace y QR existentes; no altera permisos, firmas ni proyectos. Esta mejora visual no agrega migraciones.
+
 El QR se genera en el navegador con la biblioteca local [Project Nayuki, versión 1.8.0](https://github.com/nayuki/QR-Code-generator/releases/tag/v1.8.0), con licencia MIT conservada en su cabecera. No se envía la URL a un servicio de QR ni se usan CDN, extensiones PHP o dependencias nuevas de Composer/npm. Se guarda la imagen usando la descarga del navegador, sin crear archivos en el servidor ni entradas adicionales en la base de datos.
 
 Cambiar el proyecto reemplaza el QR y el archivo descargable; quitar la selección los retira. Si no puede generarse el QR, el enlace sigue disponible para copiarlo. Sin JavaScript no hay generación del QR. El QR respeta las mismas condiciones de validez y permisos del enlace y no permite consultar opiniones. Si se genera desde localhost/127.0.0.1, apunta a ese equipo: para compartirlo con otras personas hay que generarlo desde el dominio publicado. La interfaz local muestra esta advertencia.
@@ -30,7 +32,9 @@ Cambiar el proyecto reemplaza el QR y el archivo descargable; quitar la selecci�
 
 El proyecto queda fijo por el enlace; no puede seleccionarse ni modificarse mediante campos ocultos. Se recoge fecha, lugar, valoración y tipo de retroalimentación, además del comentario o propuesta de mejora. Los datos personales y demográficos son opcionales; permite una opinión anónima. Se exige al menos un texto de comentario o mejora.
 
-Después de guardar correctamente el envío, el navegador se redirige mediante HTTP 303 (GET) a **https://asonacop.org/**. Es un destino fijo: no acepta otra dirección desde el formulario, no añade datos personales, identificadores ni la firma del enlace al destino y no envía el referente. La política CSP permite este destino para no bloquear la redirección del formulario. Los errores de validación permanecen en el formulario público para corregirlos; no se redirigen a la web institucional. Al volver a abrir el enlace después de guardar, el formulario queda limpio.
+Después de guardar correctamente, HTTP 303 dirige a una confirmación GET en el mismo enlace firmado. Muestra **Gracias por su opinión, fue registrada satisfactoriamente** y después de cinco segundos redirige a **https://asonacop.org/** mediante meta refresh, también sin JavaScript; incluye un enlace para ir inmediatamente. Es un destino fijo, sin datos personales, identificadores ni firma del enlace, y sin referente. La confirmación se habilita en la sesión solo tras un guardado exitoso o un reintento ya guardado, y no muestra datos de la opinión. Los errores de validación permanecen en el formulario público; no muestran confirmación. Al volver a abrir el enlace, el formulario queda limpio.
+
+Cada formulario contiene un identificador aleatorio de envío, separado de CSRF. El servidor deriva una clave vinculada al proyecto y responsable y la guarda en `public_submission_key`, con restricción única en la base de datos y dentro de la transacción con bloqueo del proyecto. Reenviar el mismo formulario (incluso sin conservar la sesión) devuelve confirmación sin insertar ni actualizar otra opinión. El botón también se deshabilita durante el envío. Formularios nuevos tienen claves nuevas: no se deduplican opiniones por nombres, textos, IP o datos personales. No se borran ni se unen duplicados anteriores. Los límites de envío siguen aplicándose a los reintentos.
 
 No se devuelven el identificador ni los datos de la opinión guardada. No hay listados, conteos, datos del usuario responsable, otras opiniones, enlaces internos ni acceso a beneficiarios. Tampoco se agrupan automáticamente los envíos en listados de carga interna.
 
@@ -64,7 +68,7 @@ El bloqueo de mantenimiento de SIA impide también las cargas públicas. Un avis
 
 ## Despliegue
 
-Requiere una nueva migración **aditiva**, sin seeders ni importaciones. No cambia asignaciones o permisos ni agrupa opiniones históricas. Con copia de seguridad y bloqueo activado, subir conjuntamente:
+La instalación inicial requiere la migración aditiva de origen; la protección contra duplicados agrega otra migración aditiva, ambas sin seeders ni importaciones. No cambia asignaciones o permisos ni agrupa opiniones históricas. Para publicación completa con logos y protección contra duplicados, usar [la guía de despliegue](despliegue-buzon-publico-logos.md). Los archivos base del Buzón público son:
 
 ```text
 app/Http/Controllers/BuzonController.php
@@ -76,25 +80,29 @@ app/Providers/AppServiceProvider.php
 app/Support/PublicBuzonLink.php
 bootstrap/app.php
 database/migrations/2026_11_17_120000_add_public_source_to_buzon_entries.php
+database/migrations/2026_11_17_150000_add_public_submission_key_to_buzon_entries.php
 resources/views/buzon/index.blade.php
 resources/views/buzon/form.blade.php
 resources/views/buzon/public/form.blade.php
+resources/views/buzon/public/thanks.blade.php
 resources/views/buzon/public/unavailable.blade.php
 public/css/buzon.css
 public/css/buzon-public.css
+public/js/buzon-public-submit.js
 public/js/buzon-public-link.js
 public/vendor/qrcodegen/qrcodegen.js
 public/vendor/qrcodegen/README.md
 routes/web.php
 ```
 
-Aplicar únicamente esta migración y renovar las cachés habituales:
+Aplicar únicamente estas migraciones del Buzón público y renovar las cachés habituales:
 
 ```text
 php artisan migrate --path=database/migrations/2026_11_17_120000_add_public_source_to_buzon_entries.php --force
+php artisan migrate --path=database/migrations/2026_11_17_150000_add_public_submission_key_to_buzon_entries.php --force
 ```
 
-Los modos antiguos del controlador temporal **no aplican esta migración**. Ya está preparado el modo **only=actualizacion-buzon-publico** para esta migración, la de logos de Donantes y las cachés: [guía de despliegue](despliegue-buzon-publico-logos.md). No ejecutar el modo general del controlador: contiene seeders ajenos a este cambio.
+El controlador temporal actualizado tiene el modo **only=actualizacion-buzon-publico** para las tres migraciones específicas (origen, logos de Donantes e identificador de envío) y las cachés: [guía de despliegue](despliegue-buzon-publico-logos.md). Las ya aplicadas se omiten. No ejecutar el modo general del controlador: contiene seeders ajenos a este cambio.
 
 Los enlaces se generan con el dominio del entorno donde se abre SIA: un enlace de `127.0.0.1` es solo una prueba local y no debe compartirse como enlace de producción. Compartir el enlace generado desde el servidor HTTPS. No cambiar `APP_KEY` para desplegar esta función.
 

@@ -22,9 +22,14 @@
             };
             $disabilities = $errors->publicBuzon->any() ? old('disabilities', []) : [];
             $disabilities = is_array($disabilities) ? $disabilities : [];
+            $submissionToken = $errors->publicBuzon->any() ? old('submission_token') : null;
+            if (! is_string($submissionToken) || preg_match('/\A[a-zA-Z0-9]{64}\z/', $submissionToken) !== 1) {
+                $submissionToken = \Illuminate\Support\Str::random(64);
+            }
         @endphp
-        <form method="post" action="{{ $publicUrl }}" autocomplete="off">
+        <form method="post" action="{{ $publicUrl }}" autocomplete="off" data-public-buzon-form>
             @csrf
+            <input type="hidden" name="submission_token" value="{{ $submissionToken }}">
             <div class="honeypot" aria-hidden="true"><label>Deje este campo vacío<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
             <div class="grid">
                 <label>Fecha de la opinión *<input type="date" name="opinion_date" value="{{ $value('opinion_date', today()->toDateString()) }}" max="{{ today()->toDateString() }}" required></label>
@@ -40,10 +45,12 @@
                 <label class="full">Comentario, sugerencia o queja<textarea name="comment" rows="5" maxlength="10000">{{ $value('comment') }}</textarea></label>
                 <label class="full">¿Qué podemos hacer para mejorar?<textarea name="improvement" rows="4" maxlength="10000">{{ $value('improvement') }}</textarea><small>Complete al menos uno de los dos campos de texto.</small></label>
             </div>
-            <button type="submit">Enviar opinión</button>
+            <button type="submit" data-public-buzon-submit>Enviar opinión</button>
+            <p data-public-buzon-status role="status" aria-live="polite" hidden></p>
         </form>
     </section>
     <footer>ASONACOP · Buzón de opiniones. Este enlace no permite consultar opiniones anteriores.</footer>
 </main>
+<script src="{{ asset('js/buzon-public-submit.js') }}?v={{ filemtime(public_path('js/buzon-public-submit.js')) }}" defer></script>
 </body>
 </html>

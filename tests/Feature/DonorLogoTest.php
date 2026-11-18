@@ -140,6 +140,9 @@ class DonorLogoTest extends TestCase
         $this->assertNotSame($url, $newUrl);
         $html = $this->get(route('buzon.index'))->assertOk()->getContent();
         $this->assertSame(2, substr_count($html, 'data-project-logo="'.e($newUrl).'"'));
+        $this->assertSame(2, substr_count($html, 'data-donor-name="'.e($donor->nombre).'"'));
+        $this->assertStringContainsString('data-public-donor-preview', $html);
+        $this->assertStringContainsString('js/buzon-share-project.js', $html);
         $this->assertSame($firstLink, \App\Support\PublicBuzonLink::url($first->fresh(), $this->admin));
         $this->assertDatabaseHas('proyectos', ['id' => $first->id, 'codigo' => 'FIRST', 'donante_id' => $donor->id]);
         $this->get(route('proyectos.edit', $first))->assertOk()->assertDontSee('name="logo"', false);

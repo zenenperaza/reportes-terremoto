@@ -47,7 +47,7 @@ Con respaldo y mantenimiento activado, aplicar únicamente:
 php artisan migrate --path=database/migrations/2026_11_17_140000_add_logo_to_donantes.php --force
 ```
 
-Añade `logo_path` nullable a Donantes; no cambia donantes existentes, proyectos, opiniones, beneficiarios, permisos, períodos o cierres. No requiere seeders. Para publicar esta mejora junto con el Buzón público desde el navegador, ya está preparado el modo **only=actualizacion-buzon-publico**, que ejecuta solo las dos nuevas migraciones y cachés: [guía de despliegue](despliegue-buzon-publico-logos.md). No usar el modo general con seeders.
+Añade `logo_path` nullable a Donantes; no cambia donantes existentes, proyectos, opiniones, beneficiarios, permisos, períodos o cierres. No requiere seeders. Para publicar esta mejora junto con el Buzón público desde el navegador, usar el modo **only=actualizacion-buzon-publico** del controlador actualizado: ejecuta únicamente las tres migraciones específicas de origen, logo y protección contra duplicados, omitiendo las ya aplicadas, y cachés. Véase [guía de despliegue](despliegue-buzon-publico-logos.md). No usar el modo general con seeders.
 
 Conservar y respaldar los logos privados del servidor; no sobrescribir `storage` al subir código. Renovar cachés habituales y recargar con Ctrl + F5. Probar subir imagen en Editar donante, generar QR de sus proyectos, descargar y escanear desde un teléfono. Compartir QR generados desde producción, no desde localhost.
 

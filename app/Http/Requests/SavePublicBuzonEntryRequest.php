@@ -23,6 +23,7 @@ class SavePublicBuzonEntryRequest extends SaveBuzonEntryRequest
     public function rules(): array
     {
         return [
+            'submission_token' => ['required', 'string', 'regex:/\A[a-zA-Z0-9]{64}\z/'],
             'opinion_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
             'place_name' => ['required', 'string', 'max:200'],
             'full_name' => ['nullable', 'string', 'max:150'],
@@ -39,11 +40,17 @@ class SavePublicBuzonEntryRequest extends SaveBuzonEntryRequest
             'website' => ['nullable', 'string', 'max:0'],
             'proyecto_id' => ['prohibited'], 'created_by' => ['prohibited'], 'buzon_list_id' => ['prohibited'],
             'public_recipient_id' => ['prohibited'], 'submitted_via_public_link' => ['prohibited'], 'version' => ['prohibited'],
+            'public_submission_key' => ['prohibited'],
         ];
     }
 
     public function messages(): array
     {
-        return parent::messages() + ['comment.required_without' => 'Escriba su comentario, sugerencia, queja o propuesta de mejora.'];
+        return parent::messages() + [
+            'comment.required_without' => 'Escriba su comentario, sugerencia, queja o propuesta de mejora.',
+            'submission_token.required' => 'El formulario se actualizó. Recargue la página antes de enviar su opinión.',
+            'submission_token.string' => 'Recargue la página para obtener un formulario válido.',
+            'submission_token.regex' => 'Recargue la página para obtener un formulario válido.',
+        ];
     }
 }

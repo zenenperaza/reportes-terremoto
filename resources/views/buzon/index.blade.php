@@ -20,9 +20,12 @@
     </div>
     <div class="buzon-share-layout">
         <div class="buzon-share-controls">
-            <label class="buzon-share-field">Proyecto para compartir<select data-public-project><option value="">Seleccione un proyecto</option>
-                @foreach($publicLinkProjects as $item)<option value="{{ $item['project']->id }}" data-project-code="{{ $item['project']->codigo }}" data-project-logo="{{ $item['logo_url'] }}" data-public-url="{{ $item['url'] }}">{{ $item['project']->codigo }} — {{ $item['project']->nombre_alias ?: $item['project']->descripcion }}</option>@endforeach
-            </select></label>
+            <div class="buzon-share-project-row">
+                <label class="buzon-share-field">Proyecto para compartir<select id="buzon-share-project" data-public-project><option value="">Seleccione un proyecto</option>
+                    @foreach($publicLinkProjects as $item)<option value="{{ $item['project']->id }}" data-project-code="{{ $item['project']->codigo }}" data-project-title="{{ $item['project']->nombre_alias ?: $item['project']->descripcion }}" data-donor-name="{{ $item['project']->donante?->nombre ?: 'Donante no disponible' }}" data-project-logo="{{ $item['logo_url'] }}" data-public-url="{{ $item['url'] }}">{{ $item['project']->codigo }} — {{ $item['project']->nombre_alias ?: $item['project']->descripcion }} · {{ $item['project']->donante?->nombre ?: 'Donante no disponible' }}</option>@endforeach
+                </select></label>
+                <div class="buzon-share-donor" data-public-donor-preview aria-live="polite" hidden></div>
+            </div>
             <p class="buzon-share-help">El enlace y el QR corresponden únicamente al proyecto seleccionado.</p>
             <div class="buzon-share-link" data-public-link-panel hidden>
                 <label class="buzon-share-field">Enlace público de este proyecto<input type="url" readonly data-public-link-input aria-label="Enlace público del proyecto"></label>
@@ -91,4 +94,4 @@
 </section>
 @endsection
 @push('scripts')<script src="{{ asset('js/buzon.js') }}?v={{ filemtime(public_path('js/buzon.js')) }}"></script>@endpush
-@can('crear buzon')@push('scripts')<script src="{{ asset('vendor/qrcodegen/qrcodegen.js') }}?v={{ filemtime(public_path('vendor/qrcodegen/qrcodegen.js')) }}"></script><script src="{{ asset('js/buzon-public-link.js') }}?v={{ filemtime(public_path('js/buzon-public-link.js')) }}"></script>@endpush @endcan
+@can('crear buzon')@push('scripts')<script src="{{ asset('js/buzon-share-project.js') }}?v={{ filemtime(public_path('js/buzon-share-project.js')) }}"></script><script src="{{ asset('vendor/qrcodegen/qrcodegen.js') }}?v={{ filemtime(public_path('vendor/qrcodegen/qrcodegen.js')) }}"></script><script src="{{ asset('js/buzon-public-link.js') }}?v={{ filemtime(public_path('js/buzon-public-link.js')) }}"></script>@endpush @endcan

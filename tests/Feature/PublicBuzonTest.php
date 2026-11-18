@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Models\{AuditLog, BuzonEntry, Donante, Proyecto, User, UserGroup};
 use App\Support\PublicBuzonLink;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\{RateLimiter, URL};
+use Illuminate\Support\Facades\URL;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -31,7 +31,8 @@ class PublicBuzonTest extends TestCase
 
     private function payload(array $extra = []): array
     {
-        return array_replace(['opinion_date' => today()->toDateString(), 'place_name' => 'Comunidad de prueba',
+        return array_replace(['submission_token' => \Illuminate\Support\Str::random(64),
+            'opinion_date' => today()->toDateString(), 'place_name' => 'Comunidad de prueba',
             'opinion' => 'neutral', 'feedback_type' => 'suggestion', 'comment' => 'SUGERENCIA_PUBLICA_PRIVADA'], $extra);
     }
 
@@ -87,13 +88,13 @@ class PublicBuzonTest extends TestCase
         $this->assertGuest();
     }
 
-    public function test_anonymous_post_saves_opinion_then_redirects_to_fixed_asonacop_home_without_personal_data(): void
+    public function test_anonymous_post_saves_opinion_then_shows_confirmation_before_redirecting_to_fixed_home(): void
     {
         $auditCount = AuditLog::count();
         $this->post($this->url(), $this->payload(['full_name' => 'NOMBRE_EXTERNO_PRUEBA', 'phone' => '0000000000',
             'redirect_to' => 'https://example.test/untrusted']))
-            ->assertStatus(303)->assertRedirect('https://asonacop.org/')->assertSessionHasNoErrors()
-            ->assertSessionMissing('public_buzon_success')->assertHeader('Referrer-Policy', 'no-referrer');
+            ->assertStatus(303)->assertRedirect($this->url())->assertSessionHasNoErrors()
+            ->assertSessionHas('public_buzon_success')->assertHeader('Referrer-Policy', 'no-referrer');
         $entry = BuzonEntry::sole();
         $this->assertNull($entry->created_by);
         $this->assertNull($entry->buzon_list_id);
@@ -102,7 +103,11 @@ class PublicBuzonTest extends TestCase
         $this->assertTrue($entry->submitted_via_public_link);
         $this->assertSame(1, $entry->version);
         $this->assertSame('NOMBRE_EXTERNO_PRUEBA', $entry->full_name);
-        $this->get($this->url())->assertOk()->assertDontSee('NOMBRE_EXTERNO_PRUEBA')->assertDontSee('SUGERENCIA_PUBLICA_PRIVADA');
+        $this->get($this->url())->assertOk()->assertSee('Gracias por su opinión, fue registrada satisfactoriamente.')
+            ->assertSee('content="5;url=https://asonacop.org/"', false)->assertDontSee('example.test/untrusted')
+            ->assertDontSee('NOMBRE_EXTERNO_PRUEBA')->assertDontSee('SUGERENCIA_PUBLICA_PRIVADA')
+            ->assertDontSee('Enviar opinión');
+        $this->get($this->url())->assertOk()->assertSee('Enviar opinión')->assertDontSee('NOMBRE_EXTERNO_PRUEBA');
         $this->assertDatabaseCount('buzon_entries', 1);
         $this->assertDatabaseCount('buzon_lists', 0);
         $this->assertDatabaseCount('reports', 0);
@@ -118,6 +123,72 @@ class PublicBuzonTest extends TestCase
         $this->assertNull(BuzonEntry::sole()->created_by);
         $this->assertDatabaseMissing('audit_logs', ['route_name' => 'public-buzon.store']);
         $this->assertAuthenticatedAs($admin);
+    }
+
+    public function test_replaying_one_form_even_without_session_never_inserts_another_opinion(): void
+    {
+        $page = $this->get($this->url())->assertOk()->assertSee('js/buzon-public-submit.js');
+        preg_match('/name="submission_token" value="([a-zA-Z0-9]{64})"/', $page->getContent(), $match);
+        $this->assertCount(2, $match);
+        $payload = $this->payload(['submission_token' => $match[1]]);
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            $this->flushSession();
+            $this->post($this->url(), $payload)->assertStatus(303)->assertRedirect($this->url());
+            $this->get($this->url())->assertOk()->assertSee('Gracias por su opinión, fue registrada satisfactoriamente.');
+        }
+        $entry = BuzonEntry::sole();
+        $this->assertSame(hash('sha256', $this->project->id.'|'.$this->owner->id.'|'.$match[1]), $entry->public_submission_key);
+        $this->assertArrayNotHasKey('public_submission_key', $entry->toArray());
+        $this->assertDatabaseCount('buzon_entries', 1);
+        $this->assertDatabaseCount('buzon_lists', 0);
+        $this->assertDatabaseCount('beneficiaries', 0);
+        // A replay with altered text cannot update the already-saved opinion either.
+        $this->post($this->url(), array_replace($payload, ['comment' => 'DO_NOT_OVERWRITE']))->assertStatus(303);
+        $this->assertSame('SUGERENCIA_PUBLICA_PRIVADA', $entry->fresh()->comment);
+        $this->assertDatabaseCount('buzon_entries', 1);
+    }
+
+    public function test_distinct_forms_with_identical_content_are_not_merged_or_removed(): void
+    {
+        $first = $this->payload();
+        $second = array_replace($first, ['submission_token' => \Illuminate\Support\Str::random(64)]);
+        $this->post($this->url(), $first)->assertStatus(303);
+        $this->post($this->url(), $second)->assertStatus(303);
+        $this->assertDatabaseCount('buzon_entries', 2);
+        $this->assertSame(2, BuzonEntry::distinct()->count('public_submission_key'));
+    }
+
+    public function test_invalid_form_preserves_its_intent_token_until_corrected_and_does_not_show_success(): void
+    {
+        $payload = $this->payload(['place_name' => '']);
+        $this->post($this->url(), $payload)->assertSessionHasErrors('place_name', null, 'publicBuzon')
+            ->assertSessionMissing('public_buzon_success');
+        $this->get($this->url())->assertOk()->assertSee('name="submission_token" value="'.$payload['submission_token'].'"', false)
+            ->assertDontSee('Gracias por su opinión, fue registrada satisfactoriamente.');
+        $payload['place_name'] = 'Lugar corregido';
+        $this->post($this->url(), $payload)->assertStatus(303);
+        $this->post($this->url(), $payload)->assertStatus(303);
+        $this->assertDatabaseCount('buzon_entries', 1);
+    }
+
+    public function test_submission_keys_and_success_confirmation_are_scoped_to_the_project_and_recipient(): void
+    {
+        $payload = $this->payload();
+        $this->post($this->url(), $payload)->assertStatus(303);
+        $this->owner->projects()->attach($this->other);
+        $this->get($this->url($this->other))->assertOk()->assertSee('Enviar opinión')
+            ->assertDontSee('Gracias por su opinión, fue registrada satisfactoriamente.');
+        $this->post($this->url($this->other), $payload)->assertStatus(303);
+        $this->assertDatabaseCount('buzon_entries', 2);
+        $this->assertSame(2, BuzonEntry::distinct()->count('public_submission_key'));
+    }
+
+    public function test_the_database_enforces_unique_submission_keys(): void
+    {
+        $this->post($this->url(), $this->payload())->assertStatus(303);
+        $duplicate = BuzonEntry::sole()->replicate();
+        $this->expectException(\Illuminate\Database\QueryException::class);
+        $duplicate->save();
     }
 
     public function test_index_distinguishes_participant_staff_author_and_external_link_recipient(): void
@@ -199,11 +270,12 @@ class PublicBuzonTest extends TestCase
         foreach ([['proyecto_id' => $this->other->id], ['created_by' => $this->owner->id], ['public_recipient_id' => $this->owner->id],
             ['submitted_via_public_link' => true], ['version' => 99], ['buzon_list_id' => 99], ['website' => 'spam'],
             ['opinion_date' => today()->addDay()->toDateString()], ['full_name' => ['bad']], ['comment' => '', 'improvement' => ''],
-        ] as $invalid) {
-            $this->postJson($this->url(), $this->payload($invalid))->assertUnprocessable();
-            // Validation tests cover independent visitors rather than exhausting the IP rate limit.
-            RateLimiter::clear('buzon-minute:'.hash('sha256', '127.0.0.1'));
-            RateLimiter::clear('buzon-hour:'.hash('sha256', '127.0.0.1'));
+            ['submission_token' => null], ['submission_token' => []], ['submission_token' => 'short'],
+            ['public_submission_key' => str_repeat('a', 64)],
+        ] as $index => $invalid) {
+            // Independent synthetic visitors, not repeated hits against one IP's rate limit.
+            $this->withServerVariables(['REMOTE_ADDR' => '192.0.2.'.($index + 1)])
+                ->postJson($this->url(), $this->payload($invalid))->assertUnprocessable();
         }
         $this->assertDatabaseCount('buzon_entries', 0);
     }

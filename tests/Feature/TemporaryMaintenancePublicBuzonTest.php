@@ -17,6 +17,7 @@ class TemporaryMaintenancePublicBuzonTest extends TestCase
     private const MIGRATIONS = [
         'database/migrations/2026_11_17_120000_add_public_source_to_buzon_entries.php',
         'database/migrations/2026_11_17_140000_add_logo_to_donantes.php',
+        'database/migrations/2026_11_17_150000_add_public_submission_key_to_buzon_entries.php',
     ];
     private const FILES = [
         'app/Http/Controllers/TemporaryMaintenanceController.php',
@@ -30,10 +31,15 @@ class TemporaryMaintenancePublicBuzonTest extends TestCase
         'app/Providers/AppServiceProvider.php', 'bootstrap/app.php',
         'resources/views/buzon/index.blade.php', 'resources/views/buzon/form.blade.php',
         'resources/views/buzon/public/form.blade.php', 'resources/views/buzon/public/unavailable.blade.php',
+        'resources/views/buzon/public/thanks.blade.php',
         'resources/views/donantes/create.blade.php', 'resources/views/donantes/edit.blade.php',
         'resources/views/donantes/form.blade.php',
         'public/css/buzon.css', 'public/css/buzon-public.css', 'public/css/donor-logo.css',
         'public/js/buzon-public-link.js', 'public/vendor/qrcodegen/qrcodegen.js',
+        'public/js/buzon-public-submit.js',
+        'public/js/buzon-share-project.js',
+        'public/vendor/select2/js/jquery.min.js', 'public/vendor/select2/js/select2.full.min.js',
+        'public/vendor/select2/css/select2.min.css',
         'public/vendor/qrcodegen/README.md', 'public/icons/asonacop-app.png',
         'routes/web.php', 'routes/maintenance.php',
     ];
@@ -43,6 +49,8 @@ class TemporaryMaintenancePublicBuzonTest extends TestCase
         'app/Http/Middleware/PublicBuzonAccess.php', 'app/Providers/AppServiceProvider.php', 'bootstrap/app.php',
         'resources/views/buzon/index.blade.php', 'resources/views/donantes/create.blade.php',
         'resources/views/donantes/edit.blade.php', 'resources/views/donantes/form.blade.php', 'routes/web.php',
+        'app/Http/Requests/SavePublicBuzonEntryRequest.php', 'resources/views/buzon/public/form.blade.php',
+        'resources/views/buzon/public/thanks.blade.php',
     ];
 
     protected function setUp(): void
@@ -88,19 +96,21 @@ class TemporaryMaintenancePublicBuzonTest extends TestCase
         return [['optimize:clear', []], ['cache:clear', []],
             ['migrate', ['--path' => self::MIGRATIONS[0], '--force' => true]],
             ['migrate', ['--path' => self::MIGRATIONS[1], '--force' => true]],
+            ['migrate', ['--path' => self::MIGRATIONS[2], '--force' => true]],
             ['config:cache', []], ['route:cache', []], ['view:cache', []]];
     }
 
-    public function test_only_two_new_migrations_and_caches_run_in_order_even_when_repeated(): void
+    public function test_only_three_targeted_migrations_and_caches_run_in_order_even_when_repeated(): void
     {
         for ($run = 0; $run < 2; $run++) foreach (self::commands() as [$name, $parameters]) {
             Artisan::shouldReceive('call')->once()->with($name, $parameters)->ordered()->andReturn(0);
         }
-        Artisan::shouldReceive('output')->times(14)->andReturn('OK');
+        Artisan::shouldReceive('output')->times(16)->andReturn('OK');
         for ($run = 0; $run < 2; $run++) {
             $response = $this->get($this->endpoint())->assertOk()
                 ->assertSee('ACTUALIZACIÓN DE BUZÓN PÚBLICO, QR Y LOGOS DE DONANTES:')
-                ->assertSee('únicamente dos migraciones')->assertSee('logo_path a Donantes')
+                ->assertSee('únicamente tres migraciones')->assertSee('logo_path a Donantes')
+                ->assertSee('public_submission_key')->assertSee('No se borran ni se unen duplicados ya existentes')
                 ->assertSee('anteriores conservan sus autores')->assertSee('https://asonacop.org/')
                 ->assertSee('logo se configura en Donantes, no en Proyectos')
                 ->assertSee('No se ejecutan seeders, importaciones, correcciones de parroquias ni migraciones de permisos.')

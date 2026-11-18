@@ -17,6 +17,7 @@ class BuzonEntry extends Model
 
     protected $fillable = ['proyecto_id', 'created_by', 'opinion_date', 'place_name', 'full_name', 'phone', 'age',
         'gender', 'disabilities', 'afro_descendant', 'opinion', 'feedback_type', 'comment', 'improvement', 'version'];
+    protected $hidden = ['public_submission_key'];
 
     protected function casts(): array
     {

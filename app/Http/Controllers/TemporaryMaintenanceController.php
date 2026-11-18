@@ -291,6 +291,7 @@ class TemporaryMaintenanceController extends Controller
         ], [
             'database/migrations/2026_11_17_120000_add_public_source_to_buzon_entries.php',
             'database/migrations/2026_11_17_140000_add_logo_to_donantes.php',
+            'database/migrations/2026_11_17_150000_add_public_submission_key_to_buzon_entries.php',
         ]);
         if ($buzonPublicOnly) {
             // Check the complete upload and previous installation before changing caches or schema.
@@ -306,10 +307,15 @@ class TemporaryMaintenanceController extends Controller
                 'app/Providers/AppServiceProvider.php', 'bootstrap/app.php',
                 'resources/views/buzon/index.blade.php', 'resources/views/buzon/form.blade.php',
                 'resources/views/buzon/public/form.blade.php', 'resources/views/buzon/public/unavailable.blade.php',
+                'resources/views/buzon/public/thanks.blade.php',
                 'resources/views/donantes/create.blade.php', 'resources/views/donantes/edit.blade.php',
                 'resources/views/donantes/form.blade.php',
                 'public/css/buzon.css', 'public/css/buzon-public.css', 'public/css/donor-logo.css',
                 'public/js/buzon-public-link.js', 'public/vendor/qrcodegen/qrcodegen.js',
+                'public/js/buzon-public-submit.js',
+                'public/js/buzon-share-project.js',
+                'public/vendor/select2/js/jquery.min.js', 'public/vendor/select2/js/select2.full.min.js',
+                'public/vendor/select2/css/select2.min.css',
                 'public/vendor/qrcodegen/README.md', 'public/icons/asonacop-app.png',
                 'routes/web.php', 'routes/maintenance.php',
             ]) as $file) {
@@ -321,14 +327,17 @@ class TemporaryMaintenanceController extends Controller
                 'Este modo requiere el Buzón ya instalado con sus listados y cuatro permisos. Complete esas actualizaciones antes de continuar.');
             foreach ([
                 'app/Http/Controllers/BuzonController.php' => ['DonorLogo::url', 'publicLinkProjects'],
-                'app/Http/Controllers/PublicBuzonController.php' => ['submitted_via_public_link = true', "away('https://asonacop.org/', 303)"],
+                'app/Http/Controllers/PublicBuzonController.php' => ['submitted_via_public_link = true', 'public_submission_key', 'public_buzon_success', 'buzon.public.thanks'],
+                'app/Http/Requests/SavePublicBuzonEntryRequest.php' => ['submission_token', 'public_submission_key'],
+                'resources/views/buzon/public/form.blade.php' => ['submission_token', 'buzon-public-submit.js'],
+                'resources/views/buzon/public/thanks.blade.php' => ['Gracias por su opinión, fue registrada satisfactoriamente.', '5;url=https://asonacop.org/'],
                 'app/Http/Controllers/DonanteController.php' => ['DonorLogo::store', 'remove_logo'],
                 'app/Models/Donante.php' => ["protected \$hidden = ['logo_path']"],
                 'app/Models/BuzonEntry.php' => ['public_recipient_id', 'submitted_via_public_link'],
                 'app/Http/Middleware/PublicBuzonAccess.php' => ['hasValidSignature', 'maintenanceEnabled'],
                 'app/Providers/AppServiceProvider.php' => ["RateLimiter::for('public-buzon-submit'"],
                 'bootstrap/app.php' => ["routeIs('public-buzon.*')", 'buzon.public.unavailable', 'public_buzon_error'],
-                'resources/views/buzon/index.blade.php' => ['data-project-logo', 'buzon-public-link.js', 'qrcodegen.js', 'Enlace externo'],
+                'resources/views/buzon/index.blade.php' => ['data-project-logo', 'data-donor-name', 'data-public-donor-preview', 'buzon-share-project.js', 'buzon-public-link.js', 'qrcodegen.js', 'Enlace externo'],
                 'resources/views/donantes/create.blade.php' => ['multipart/form-data'],
                 'resources/views/donantes/edit.blade.php' => ['multipart/form-data'],
                 'resources/views/donantes/form.blade.php' => ['Logo del donante', 'remove_logo'],
@@ -911,9 +920,11 @@ class TemporaryMaintenanceController extends Controller
         }
         if ($buzonPublicOnly) {
             $results = [
-                'ACTUALIZACIÓN DE BUZÓN PÚBLICO, QR Y LOGOS DE DONANTES: se comprueban los archivos y las actualizaciones previas, se ejecutan únicamente dos migraciones y se reconstruyen las cachés.',
+                'ACTUALIZACIÓN DE BUZÓN PÚBLICO, QR Y LOGOS DE DONANTES: se comprueban los archivos y las actualizaciones previas, se ejecutan únicamente tres migraciones y se reconstruyen las cachés.',
                 'Se agregan submitted_via_public_link y public_recipient_id al Buzón, y logo_path a Donantes. Las opiniones anteriores conservan sus autores y quedan identificadas como internas; no se les asigna un responsable externo.',
-                'Incluye enlace público firmado por proyecto, formulario sin inicio de sesión, columnas Usuario y Origen, y redirección a https://asonacop.org/ después de enviar correctamente.',
+                'Incluye enlace público firmado por proyecto, formulario sin inicio de sesión, columnas Usuario y Origen, confirmación de guardado y redirección a https://asonacop.org/ después de cinco segundos.',
+                'Se agrega public_submission_key opcional y único a las opiniones. Cada formulario público lleva un identificador de envío: los reintentos del mismo formulario no crean otra opinión. También se bloquea el doble clic en Enviar. No se comparan nombres ni comentarios para unir opiniones de personas distintas.',
+                'La confirmación Gracias por su opinión, fue registrada satisfactoriamente aparece solo después de guardar. No se borran ni se unen duplicados ya existentes; su revisión sigue siendo manual y sujeta a permisos.',
                 'El enlace externo solo permite enviar opiniones: no muestra opiniones anteriores, listados ni datos internos. Respeta proyecto activo, disponibilidad del responsable y mantenimiento, con límites de envío y protección CSRF.',
                 'Los QR se generan en el navegador y se descargan como PNG, sin enviar enlaces a servicios externos. Comparta los generados desde el servidor publicado, no los de localhost.',
                 'El logo se configura en Donantes, no en Proyectos. Sus proyectos usan ese logo en el QR; sin imagen o si falla la carga se ofrece el QR normal. Se puede reemplazar o quitar desde Editar donante.',
