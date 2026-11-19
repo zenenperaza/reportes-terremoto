@@ -15,7 +15,7 @@ Preparado en `TemporaryMaintenanceController`, modo **actualizacion-buzon-public
 
 Este ajuste no agrega migraciones ni cambia enlaces. Subir `resources/views/buzon/index.blade.php`, `public/js/buzon-public-link.js` y **`public/assets/images/asonacop/logo.png`**. Actualizar también `TemporaryMaintenanceController.php` para que compruebe ese logo antes de ejecutar el modo existente. Renovar vistas/cachés con el modo preparado y recargar con Ctrl + F5; volver a generar los PNG que se vayan a compartir, porque las imágenes ya descargadas no cambian.
 
-El centro debe mostrar ASONACOP a la izquierda y donante a la derecha, sin deformar los logos. Sin donante se mantiene ASONACOP; si falla ASONACOP, se ofrece un QR sin logos y un aviso, nunca el donante solo.
+El centro debe mostrar donante a la izquierda y ASONACOP a la derecha, sin deformar los logos. Sin donante se mantiene ASONACOP; si falla ASONACOP, se ofrece un QR sin logos y un aviso, nunca el donante solo.
 
 ### Si ya se aplicó la versión inicial del Buzón público
 

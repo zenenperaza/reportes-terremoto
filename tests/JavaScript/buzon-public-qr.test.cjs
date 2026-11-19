@@ -77,7 +77,7 @@ test('missing library, canvas support or PNG export leaves the link usable and c
 
 const organizationLogoUrl = '/assets/images/asonacop/logo.png?v=test';
 
-test('draws ASONACOP on the left and the donor on the right in a white centered plate', () => {
+test('draws the donor on the left and ASONACOP on the right in a white centered plate', () => {
     const h = fixture({organizationLogoUrl, logoUrl: '/donantes/1/logo'}); h.choose(1);
     assert.equal(h.qrPanel.hidden, true); assert.equal(h.images.length, 2); assert.equal(h.copy.disabled, false);
     assert.equal(h.images[0].src, 'https://registros.example.test' + organizationLogoUrl);
@@ -89,9 +89,9 @@ test('draws ASONACOP on the left and the donor on the right in a white centered 
     assert.equal(h.symbols[0].errorCorrectionLevel.ordinal, 3);
     assert.equal(h.encoded[0], h.input.value);
     assert.equal(h.context.images.length, 2);
-    const [organization, donor] = h.context.images, plate = h.context.rectangles.at(-1);
+    const [donor, organization] = h.context.images, plate = h.context.rectangles.at(-1);
     assert.equal(organization.image, h.images[0]); assert.equal(donor.image, h.images[1]);
-    assert.ok(organization.x + organization.width < donor.x);
+    assert.ok(donor.x + donor.width < organization.x);
     assert.equal(plate.color, '#fff');
     for (const icon of [organization, donor]) {
         assert.ok(icon.x > plate.x && icon.y > plate.y);
@@ -111,8 +111,8 @@ test('completion order never swaps the organization and donor', () => {
     const h = fixture({organizationLogoUrl, logoUrl: '/donantes/1/logo'}); h.choose(1);
     h.images[1].onload(); assert.equal(h.qrPanel.hidden, true);
     h.images[0].onload();
-    assert.equal(h.context.images[0].image, h.images[0]);
-    assert.equal(h.context.images[1].image, h.images[1]);
+    assert.equal(h.context.images[0].image, h.images[1]);
+    assert.equal(h.context.images[1].image, h.images[0]);
     assert.ok(h.context.images[0].x < h.context.images[1].x);
 });
 

@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (organizationLogo) {
             const logoModules = Math.max(3, Math.floor(qr.size * 0.12));
-            const logos = donorLogo ? [organizationLogo, donorLogo] : [organizationLogo];
+            const logos = donorLogo ? [donorLogo, organizationLogo] : [organizationLogo];
             const gapModules = donorLogo ? 1 : 0;
             const plateModulesWide = logoModules * logos.length + gapModules + 2;
             const plateModulesHigh = logoModules + 2;

@@ -114,7 +114,7 @@ class TemporaryMaintenancePublicBuzonTest extends TestCase
                 ->assertSee('public_submission_key')->assertSee('No se borran ni se unen duplicados ya existentes')
                 ->assertSee('anteriores conservan sus autores')->assertSee('https://asonacop.org/')
                 ->assertSee('logo del donante se configura en Donantes, no en Proyectos')
-                ->assertSee('ASONACOP a la izquierda y el donante a la derecha')->assertSee('nunca el donante solo')
+                ->assertSee('el donante a la izquierda y ASONACOP a la derecha')->assertSee('nunca el donante solo')
                 ->assertSee('No se ejecutan seeders, importaciones, correcciones de parroquias ni migraciones de permisos.')
                 ->assertSee('No se crean, eliminan, agrupan ni reclasifican registros, beneficiarios, opiniones o listados')
                 ->assertSee('No se activa ni se cancela el mantenimiento')->assertSee('edición cruzada')
