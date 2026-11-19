@@ -30,11 +30,15 @@ class TemporaryMaintenancePublicBuzonTest extends TestCase
         'app/Support/PublicBuzonLink.php', 'app/Support/DonorLogo.php',
         'app/Providers/AppServiceProvider.php', 'bootstrap/app.php',
         'resources/views/buzon/index.blade.php', 'resources/views/buzon/form.blade.php',
+        'resources/views/buzon/partials/feedback-type.blade.php',
+        'resources/views/buzon/partials/demographic-radios.blade.php',
         'resources/views/buzon/public/form.blade.php', 'resources/views/buzon/public/unavailable.blade.php',
         'resources/views/buzon/public/thanks.blade.php',
         'resources/views/donantes/create.blade.php', 'resources/views/donantes/edit.blade.php',
         'resources/views/donantes/form.blade.php',
         'public/css/buzon.css', 'public/css/buzon-public.css', 'public/css/donor-logo.css',
+        'public/css/buzon-feedback.css', 'public/js/buzon-feedback.js',
+        'public/js/buzon-dictation.js', 'public/js/buzon-voice-data.js',
         'public/js/buzon-public-link.js', 'public/vendor/qrcodegen/qrcodegen.js',
         'public/js/buzon-public-submit.js',
         'public/js/buzon-share-project.js',
@@ -52,6 +56,9 @@ class TemporaryMaintenancePublicBuzonTest extends TestCase
         'resources/views/donantes/edit.blade.php', 'resources/views/donantes/form.blade.php', 'routes/web.php',
         'app/Http/Requests/SavePublicBuzonEntryRequest.php', 'resources/views/buzon/public/form.blade.php',
         'resources/views/buzon/public/thanks.blade.php',
+        'app/Http/Requests/SaveBuzonEntryRequest.php', 'resources/views/buzon/form.blade.php',
+        'resources/views/buzon/partials/feedback-type.blade.php',
+        'resources/views/buzon/partials/demographic-radios.blade.php',
     ];
 
     protected function setUp(): void
@@ -112,6 +119,9 @@ class TemporaryMaintenancePublicBuzonTest extends TestCase
                 ->assertSee('ACTUALIZACIÓN DE BUZÓN PÚBLICO, QR Y LOGOS DE DONANTES:')
                 ->assertSee('únicamente tres migraciones')->assertSee('logo_path a Donantes')
                 ->assertSee('public_submission_key')->assertSee('No se borran ni se unen duplicados ya existentes')
+                ->assertSee('Sugerencia, Comentario, Queja y Solicitud')
+                ->assertSee('Nombre y teléfono están siempre visibles')->assertSee('solo son obligatorios para Solicitud')
+                ->assertSee('Género y Afrodescendiente son grupos de radio opcionales')
                 ->assertSee('anteriores conservan sus autores')->assertSee('https://asonacop.org/')
                 ->assertSee('logo del donante se configura en Donantes, no en Proyectos')
                 ->assertSee('el donante a la izquierda y ASONACOP a la derecha')->assertSee('nunca el donante solo')

@@ -38,8 +38,8 @@ class SaveBuzonEntryRequest extends FormRequest
             'proyecto_id' => ['required', 'integer', Rule::in($projects->pluck('id')->all())],
             'opinion_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
             'place_name' => ['required', 'string', 'max:200'],
-            'full_name' => ['nullable', 'string', 'max:150'],
-            'phone' => ['nullable', 'string', 'max:40'],
+            'full_name' => ['required_if:feedback_type,request', 'nullable', 'string', 'max:150'],
+            'phone' => ['required_if:feedback_type,request', 'nullable', 'string', 'max:40'],
             'age' => ['nullable', 'integer', 'between:0,120'],
             'gender' => ['nullable', Rule::in(array_keys(BuzonEntry::GENDERS))],
             'disabilities' => ['nullable', 'array', 'max:4'],
@@ -76,6 +76,8 @@ class SaveBuzonEntryRequest extends FormRequest
     public function messages(): array
     {
         return ['proyecto_id.in' => 'Seleccione un proyecto activo asignado a su usuario.',
+            'full_name.required_if' => 'El nombre es obligatorio cuando la retroalimentación es una Solicitud.',
+            'phone.required_if' => 'El teléfono es obligatorio cuando la retroalimentación es una Solicitud.',
             'required' => 'El campo :attribute es obligatorio.',
             'in' => 'Seleccione una opción válida en :attribute.',
             'integer' => 'El campo :attribute debe ser un número entero.',

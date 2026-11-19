@@ -51,6 +51,7 @@ test('disabilities do not combine none with another selection, and demographics 
 });
 
 test('opinion and feedback type are only set when explicitly dictated and never inferred from a narrative', () => {
+    assert.deepEqual(parse('tipo solicitud').values, {feedback_type: 'request'});
     assert.deepEqual(parse('opinión ni buena ni mala, tipo queja').values, {opinion: 'neutral', feedback_type: 'complaint'});
     assert.deepEqual(parse('La atención fue mala y tengo una queja').values, {});
     assert.deepEqual(parse('guardar formulario').values, {});

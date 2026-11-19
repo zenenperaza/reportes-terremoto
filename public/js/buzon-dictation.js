@@ -40,6 +40,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 count++;
                 continue;
             }
+            if (['feedback_type', 'gender', 'afro_descendant'].includes(name)) {
+                const radios = Array.from(form.querySelectorAll(`input[name="${name}"]`));
+                const selected = radios.find(input => input.value === value);
+                if (selected && !selected.disabled) {
+                    radios.forEach(input => {input.checked = input === selected;});
+                    selected.dispatchEvent(new Event('change', {bubbles: true}));
+                    count++;
+                }
+                continue;
+            }
             const field = form.elements.namedItem(name);
             if (!field || field.disabled || field.readOnly) continue;
             field.value = value;

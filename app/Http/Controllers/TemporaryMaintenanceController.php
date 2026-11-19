@@ -306,11 +306,15 @@ class TemporaryMaintenanceController extends Controller
                 'app/Support/PublicBuzonLink.php', 'app/Support/DonorLogo.php',
                 'app/Providers/AppServiceProvider.php', 'bootstrap/app.php',
                 'resources/views/buzon/index.blade.php', 'resources/views/buzon/form.blade.php',
+                'resources/views/buzon/partials/feedback-type.blade.php',
+                'resources/views/buzon/partials/demographic-radios.blade.php',
                 'resources/views/buzon/public/form.blade.php', 'resources/views/buzon/public/unavailable.blade.php',
                 'resources/views/buzon/public/thanks.blade.php',
                 'resources/views/donantes/create.blade.php', 'resources/views/donantes/edit.blade.php',
                 'resources/views/donantes/form.blade.php',
                 'public/css/buzon.css', 'public/css/buzon-public.css', 'public/css/donor-logo.css',
+                'public/css/buzon-feedback.css', 'public/js/buzon-feedback.js',
+                'public/js/buzon-dictation.js', 'public/js/buzon-voice-data.js',
                 'public/js/buzon-public-link.js', 'public/vendor/qrcodegen/qrcodegen.js',
                 'public/js/buzon-public-submit.js',
                 'public/js/buzon-share-project.js',
@@ -329,12 +333,16 @@ class TemporaryMaintenanceController extends Controller
             foreach ([
                 'app/Http/Controllers/BuzonController.php' => ['DonorLogo::url', 'publicLinkProjects'],
                 'app/Http/Controllers/PublicBuzonController.php' => ['submitted_via_public_link = true', 'public_submission_key', 'public_buzon_success', 'buzon.public.thanks'],
-                'app/Http/Requests/SavePublicBuzonEntryRequest.php' => ['submission_token', 'public_submission_key'],
-                'resources/views/buzon/public/form.blade.php' => ['submission_token', 'buzon-public-submit.js'],
+                'app/Http/Requests/SavePublicBuzonEntryRequest.php' => ['submission_token', 'public_submission_key', 'required_if:feedback_type,request'],
+                'app/Http/Requests/SaveBuzonEntryRequest.php' => ['required_if:feedback_type,request'],
+                'resources/views/buzon/form.blade.php' => ['buzon.partials.feedback-type', 'buzon.partials.demographic-radios', 'buzon-feedback.js'],
+                'resources/views/buzon/partials/demographic-radios.blade.php' => ['type="radio"', 'data-buzon-demographic'],
+                'resources/views/buzon/partials/feedback-type.blade.php' => ['type="radio"', 'data-buzon-contact'],
+                'resources/views/buzon/public/form.blade.php' => ['submission_token', 'buzon-public-submit.js', 'buzon.partials.feedback-type', 'buzon.partials.demographic-radios', 'buzon-feedback.js'],
                 'resources/views/buzon/public/thanks.blade.php' => ['Gracias por su opinión, fue registrada satisfactoriamente.', '5;url=https://asonacop.org/'],
                 'app/Http/Controllers/DonanteController.php' => ['DonorLogo::store', 'remove_logo'],
                 'app/Models/Donante.php' => ["protected \$hidden = ['logo_path']"],
-                'app/Models/BuzonEntry.php' => ['public_recipient_id', 'submitted_via_public_link'],
+                'app/Models/BuzonEntry.php' => ['public_recipient_id', 'submitted_via_public_link', 'Solicitud'],
                 'app/Http/Middleware/PublicBuzonAccess.php' => ['hasValidSignature', 'maintenanceEnabled'],
                 'app/Providers/AppServiceProvider.php' => ["RateLimiter::for('public-buzon-submit'"],
                 'bootstrap/app.php' => ["routeIs('public-buzon.*')", 'buzon.public.unavailable', 'public_buzon_error'],
@@ -926,6 +934,8 @@ class TemporaryMaintenanceController extends Controller
                 'Incluye enlace público firmado por proyecto, formulario sin inicio de sesión, columnas Usuario y Origen, confirmación de guardado y redirección a https://asonacop.org/ después de cinco segundos.',
                 'Se agrega public_submission_key opcional y único a las opiniones. Cada formulario público lleva un identificador de envío: los reintentos del mismo formulario no crean otra opinión. También se bloquea el doble clic en Enviar. No se comparan nombres ni comentarios para unir opiniones de personas distintas.',
                 'La confirmación Gracias por su opinión, fue registrada satisfactoriamente aparece solo después de guardar. No se borran ni se unen duplicados ya existentes; su revisión sigue siendo manual y sujeta a permisos.',
+                'La retroalimentación aparece primero con opciones de radio: Sugerencia, Comentario, Queja y Solicitud. Nombre y teléfono están siempre visibles en formularios internos y públicos, y solo son obligatorios para Solicitud; las demás opciones siguen permitiendo anonimato. Los contactos históricos se conservan. Esta mejora no agrega otra migración.',
+                'Género y Afrodescendiente son grupos de radio opcionales, con No indicado predeterminado y diseño compacto. Se conservan las selecciones históricas y el dictado puede seleccionar estas opciones. No cambian los valores almacenados ni se agregan categorías.',
                 'El enlace externo solo permite enviar opiniones: no muestra opiniones anteriores, listados ni datos internos. Respeta proyecto activo, disponibilidad del responsable y mantenimiento, con límites de envío y protección CSRF.',
                 'Los QR se generan en el navegador y se descargan como PNG, sin enviar enlaces a servicios externos. Comparta los generados desde el servidor publicado, no los de localhost.',
                 'El logo del donante se configura en Donantes, no en Proyectos. El QR muestra el donante a la izquierda y ASONACOP a la derecha, sobre una placa blanca central. Sin donante se mantiene solo ASONACOP; si falla ASONACOP se ofrece el QR sin logos, nunca el donante solo. El logo del donante se puede reemplazar o quitar desde Editar donante.',
@@ -980,7 +990,7 @@ class TemporaryMaintenanceController extends Controller
                 if (! method_exists($class, $method) || ! (new \ReflectionMethod($class, $method))->isPublic()) return false;
             }
         }
-        return true;
+        return (\App\Models\BuzonEntry::FEEDBACK_TYPES['request'] ?? null) === 'Solicitud';
     }
 
     protected function buzonPublicPrerequisitesAvailable(): bool

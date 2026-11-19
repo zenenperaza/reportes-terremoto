@@ -11,7 +11,7 @@ class BuzonEntry extends Model
     public const INDICATOR_CODE = 'GCLCO/SCA13E/CIN3';
     public const INDICATOR_NAME = 'Uso de buzón (AAP.03)';
     public const OPINIONS = ['very_good' => 'Muy buena', 'neutral' => 'Ni buena ni mala', 'bad' => 'Mala'];
-    public const FEEDBACK_TYPES = ['suggestion' => 'Sugerencia', 'comment' => 'Comentario', 'complaint' => 'Queja'];
+    public const FEEDBACK_TYPES = ['suggestion' => 'Sugerencia', 'comment' => 'Comentario', 'complaint' => 'Queja', 'request' => 'Solicitud'];
     public const GENDERS = ['female' => 'Femenino', 'male' => 'Masculino', 'non_binary_other' => 'No binario / Otro'];
     public const DISABILITIES = ['visual' => 'Visual', 'hearing' => 'Auditiva', 'motor' => 'Motriz', 'none' => 'Ninguna'];
 

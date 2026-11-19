@@ -26,8 +26,8 @@ class SavePublicBuzonEntryRequest extends SaveBuzonEntryRequest
             'submission_token' => ['required', 'string', 'regex:/\A[a-zA-Z0-9]{64}\z/'],
             'opinion_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
             'place_name' => ['required', 'string', 'max:200'],
-            'full_name' => ['nullable', 'string', 'max:150'],
-            'phone' => ['nullable', 'string', 'max:40'],
+            'full_name' => ['required_if:feedback_type,request', 'nullable', 'string', 'max:150'],
+            'phone' => ['required_if:feedback_type,request', 'nullable', 'string', 'max:40'],
             'age' => ['nullable', 'integer', 'between:0,120'],
             'gender' => ['nullable', Rule::in(array_keys(BuzonEntry::GENDERS))],
             'disabilities' => ['nullable', 'array', 'max:4'],
@@ -47,7 +47,7 @@ class SavePublicBuzonEntryRequest extends SaveBuzonEntryRequest
     public function messages(): array
     {
         return parent::messages() + [
-            'comment.required_without' => 'Escriba su comentario, sugerencia, queja o propuesta de mejora.',
+            'comment.required_without' => 'Escriba su comentario, sugerencia, queja, solicitud o propuesta de mejora.',
             'submission_token.required' => 'El formulario se actualizó. Recargue la página antes de enviar su opinión.',
             'submission_token.string' => 'Recargue la página para obtener un formulario válido.',
             'submission_token.regex' => 'Recargue la página para obtener un formulario válido.',

@@ -90,10 +90,10 @@ class BuzonTest extends TestCase
             $this->assertSame('', $xpath->evaluate('string('.$form.'//textarea[@name="'.$field.'"])'));
         }
         $this->assertSame('', $xpath->evaluate('string(//*[@data-buzon-data-transcript])'));
-        foreach (['gender', 'afro_descendant', 'feedback_type'] as $field) {
-            $this->assertSame(0, $xpath->query($form.'//select[@name="'.$field.'"]/option[@selected and @value!=""]')->length);
+        foreach (['gender', 'afro_descendant'] as $field) {
+            $this->assertSame(1, $xpath->query($form.'//input[@name="'.$field.'" and @checked and @value=""]')->length);
         }
-        $this->assertSame(0, $xpath->query($form.'//input[@checked]')->length);
+        $this->assertSame(0, $xpath->query($form.'//input[@checked and not(@name="gender") and not(@name="afro_descendant")]')->length);
         $this->assertSame((string) $this->first->id, $xpath->evaluate('string('.$form.'//select[@name="proyecto_id"]/option[@selected]/@value)'));
         $this->assertSame(today()->toDateString(), $xpath->evaluate('string('.$form.'//input[@name="opinion_date"]/@value)'));
 
@@ -139,7 +139,7 @@ class BuzonTest extends TestCase
                 ->assertSee('id="buzon_comment"', false)->assertSee('id="buzon_improvement"', false)
                 ->assertSee('servicio externo de reconocimiento de voz')
                 ->assertSee('buzon-dictation.js')->assertSee('buzon-voice-data.js')
-                ->assertSeeInOrder(['data-buzon-dictation', 'name="proyecto_id"', 'name="full_name"'], false);
+                ->assertSeeInOrder(['name="feedback_type"', 'name="full_name"', 'data-buzon-dictation', 'name="proyecto_id"'], false);
         }
         $this->get(route('buzon.show', $entry))->assertOk()->assertSee('Texto conservado')->assertSee('Mejora conservada')
             ->assertDontSee('data-buzon-voice-target', false)->assertDontSee('buzon-dictation.js');

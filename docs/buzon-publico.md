@@ -30,7 +30,7 @@ Cambiar el proyecto reemplaza el QR y el archivo descargable; quitar la selecci�
 
 ## Formulario público
 
-El proyecto queda fijo por el enlace; no puede seleccionarse ni modificarse mediante campos ocultos. Se recoge fecha, lugar, valoración y tipo de retroalimentación, además del comentario o propuesta de mejora. Los datos personales y demográficos son opcionales; permite una opinión anónima. Se exige al menos un texto de comentario o mejora.
+El proyecto queda fijo por el enlace; no puede seleccionarse ni modificarse mediante campos ocultos. La retroalimentación aparece primero con cuatro radios: Sugerencia, Comentario, Queja y Solicitud. Se recoge fecha, lugar, valoración y comentario o propuesta de mejora. Los datos personales y demográficos son opcionales, excepto Nombre y Teléfono que son obligatorios al elegir Solicitud. Las otras opciones permiten anonimato. Se exige al menos un texto de comentario o mejora. Véase [Solicitudes y contacto condicional](buzon-solicitudes.md).
 
 Después de guardar correctamente, HTTP 303 dirige a una confirmación GET en el mismo enlace firmado. Muestra **Gracias por su opinión, fue registrada satisfactoriamente** y después de cinco segundos redirige a **https://asonacop.org/** mediante meta refresh, también sin JavaScript; incluye un enlace para ir inmediatamente. Es un destino fijo, sin datos personales, identificadores ni firma del enlace, y sin referente. La confirmación se habilita en la sesión solo tras un guardado exitoso o un reintento ya guardado, y no muestra datos de la opinión. Los errores de validación permanecen en el formulario público; no muestran confirmación. Al volver a abrir el enlace, el formulario queda limpio.
 

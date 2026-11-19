@@ -39,11 +39,20 @@ function harness({supported = true, prefixed = false, secure = true, writable = 
     });
     const disabilities = ['none', 'visual', 'hearing', 'motor'].map(value => node({value, checked: false}));
     const opinions = ['very_good', 'neutral', 'bad'].map(value => node({value, checked: false}));
+    const feedbackTypes = ['suggestion', 'comment', 'complaint', 'request'].map(value => node({value, checked: false}));
+    const genderRadios = ['', 'female', 'male', 'non_binary_other'].map(value => node({value, checked: value === ''}));
+    const afroRadios = ['', '1', '0'].map(value => node({value, checked: value === ''}));
+    if (withData) for (const [name, radios] of Object.entries({feedback_type: feedbackTypes, gender: genderRadios, afro_descendant: afroRadios})) {
+        Object.defineProperty(fields[name], 'value', {get() {return radios.find(input => input.checked)?.value || '';}});
+    }
     const form = node({elements: {namedItem: name => fields[name]},
         querySelector: () => writable ? panel : null,
         querySelectorAll: selector => selector === '[type="submit"]' ? [save]
             : selector === 'input[name="disabilities[]"]' ? disabilities
-            : selector === 'input[name="opinion"]' ? opinions : Object.values(buttons),
+            : selector === 'input[name="opinion"]' ? opinions
+            : selector === 'input[name="feedback_type"]' ? feedbackTypes
+            : selector === 'input[name="gender"]' ? genderRadios
+            : selector === 'input[name="afro_descendant"]' ? afroRadios : Object.values(buttons),
     });
     const instances = [];
     class Recognition {
@@ -62,7 +71,7 @@ function harness({supported = true, prefixed = false, secure = true, writable = 
     if (withData) vm.runInNewContext(fs.readFileSync('public/js/buzon-voice-data.js', 'utf8'), {window});
     vm.runInNewContext(source, {window, document, Event});
     return {status, preview, fields, buttons, labels, form, save, instances, window, document, transcript, apply, clear, transcriptPanel, disabilities, opinions,
-        start(name = 'comment') {buttons[name].fire('click'); return instances.at(-1);},
+        feedbackTypes, genderRadios, afroRadios, start(name = 'comment') {buttons[name].fire('click'); return instances.at(-1);},
     };
 }
 
@@ -229,6 +238,22 @@ test('data dictation fills several explicit fields when listening ends, without 
     assert.equal(h.fields.improvement.value, 'Mejora escrita');
     assert.deepEqual(h.disabilities.filter(input => input.checked).map(input => input.value), ['visual']);
     assert.deepEqual(h.opinions.filter(input => input.checked).map(input => input.value), ['very_good']);
+});
+
+test('dictation selects demographic radios and can restore No indicado without changing contact', () => {
+    const h = harness({withData: true});
+    h.fields.phone.value = '04140000000';
+    h.transcript.value = 'género masculino, afrodescendiente sí';
+    h.apply.fire('click');
+    assert.equal(h.genderRadios.find(input => input.checked).value, 'male');
+    assert.equal(h.afroRadios.find(input => input.checked).value, '1');
+    assert.equal(h.genderRadios.filter(input => input.checked).length, 1);
+    assert.equal(h.afroRadios.filter(input => input.checked).length, 1);
+    h.transcript.value = 'género no indicado, afrodescendiente no indicado';
+    h.apply.fire('click');
+    assert.equal(h.genderRadios.find(input => input.checked).value, '');
+    assert.equal(h.afroRadios.find(input => input.checked).value, '');
+    assert.equal(h.fields.phone.value, '04140000000');
 });
 
 test('corrected typed phrases can be applied manually without starting a microphone', () => {

@@ -80,7 +80,7 @@
             else issues.push('Revise la valoración de la actividad.');
         }
         if (chunks.tipo) {
-            const options = {sugerencia: 'suggestion', comentario: 'comment', queja: 'complaint'};
+            const options = {sugerencia: 'suggestion', comentario: 'comment', queja: 'complaint', solicitud: 'request'};
             const value = options[normalize(chunks.tipo)];
             if (value) values.feedback_type = value;
             else issues.push('Revise el tipo de retroalimentación.');

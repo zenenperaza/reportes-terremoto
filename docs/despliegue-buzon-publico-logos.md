@@ -11,6 +11,10 @@ Preparado en `TemporaryMaintenanceController`, modo **actualizacion-buzon-public
 
 ## Archivos que subir
 
+### Solicitud y retroalimentación como primera sección
+
+La nueva opción Solicitud, los radios de retroalimentación, Género y Afrodescendiente, y el contacto obligatorio solo para Solicitud requieren los doce archivos de [Buzón: Solicitudes](buzon-solicitudes.md). No agregan migraciones. Para una instalación que ya tiene QR y protección contra duplicados, seguir esa lista y renovar las cachés con el controlador actualizado.
+
 ### QR con ASONACOP y donante, sobre la actualización ya instalada
 
 Este ajuste no agrega migraciones ni cambia enlaces. Subir `resources/views/buzon/index.blade.php`, `public/js/buzon-public-link.js` y **`public/assets/images/asonacop/logo.png`**. Actualizar también `TemporaryMaintenanceController.php` para que compruebe ese logo antes de ejecutar el modo existente. Renovar vistas/cachés con el modo preparado y recargar con Ctrl + F5; volver a generar los PNG que se vayan a compartir, porque las imágenes ya descargadas no cambian.
@@ -19,16 +23,20 @@ El centro debe mostrar donante a la izquierda y ASONACOP a la derecha, sin defor
 
 ### Si ya se aplicó la versión inicial del Buzón público
 
-Para la corrección de envíos duplicados, la confirmación de guardado, la identificación visual del donante y ambos logos en el QR, actualizar estos catorce archivos sobre esa instalación completa:
+Para la actualización acumulada del Buzón público, QR y Solicitudes sobre la instalación inicial, actualizar los siguientes archivos:
 
 ```text
 app/Http/Controllers/TemporaryMaintenanceController.php
 app/Http/Controllers/PublicBuzonController.php
 app/Http/Requests/SavePublicBuzonEntryRequest.php
+app/Http/Requests/SaveBuzonEntryRequest.php
 app/Models/BuzonEntry.php
 database/migrations/2026_11_17_150000_add_public_submission_key_to_buzon_entries.php
 resources/views/buzon/public/form.blade.php
 resources/views/buzon/public/thanks.blade.php
+resources/views/buzon/form.blade.php
+resources/views/buzon/partials/feedback-type.blade.php
+resources/views/buzon/partials/demographic-radios.blade.php
 public/css/buzon-public.css
 public/js/buzon-public-submit.js
 resources/views/buzon/index.blade.php
@@ -36,6 +44,10 @@ public/css/buzon.css
 public/js/buzon-share-project.js
 public/js/buzon-public-link.js
 public/assets/images/asonacop/logo.png
+public/css/buzon-feedback.css
+public/js/buzon-feedback.js
+public/js/buzon-dictation.js
+public/js/buzon-voice-data.js
 ```
 
 Ejecutar el mismo modo `only=actualizacion-buzon-publico` con el controlador actualizado. Las dos primeras migraciones ya aplicadas se omitirán; solo se añadirá `public_submission_key`, sin borrar duplicados existentes. Recargar el formulario con Ctrl + F5 antes de probar. No ejecutar el controlador antiguo para esta corrección: no conoce la tercera migración.
@@ -52,6 +64,7 @@ app/Http/Controllers/DonanteController.php
 app/Http/Controllers/DonorLogoController.php
 app/Http/Middleware/PublicBuzonAccess.php
 app/Http/Requests/SavePublicBuzonEntryRequest.php
+app/Http/Requests/SaveBuzonEntryRequest.php
 app/Models/BuzonEntry.php
 app/Models/Donante.php
 app/Providers/AppServiceProvider.php
@@ -62,6 +75,8 @@ database/migrations/2026_11_17_120000_add_public_source_to_buzon_entries.php
 database/migrations/2026_11_17_140000_add_logo_to_donantes.php
 database/migrations/2026_11_17_150000_add_public_submission_key_to_buzon_entries.php
 resources/views/buzon/form.blade.php
+resources/views/buzon/partials/feedback-type.blade.php
+resources/views/buzon/partials/demographic-radios.blade.php
 resources/views/buzon/index.blade.php
 resources/views/buzon/public/form.blade.php
 resources/views/buzon/public/unavailable.blade.php
@@ -70,11 +85,15 @@ resources/views/donantes/create.blade.php
 resources/views/donantes/edit.blade.php
 resources/views/donantes/form.blade.php
 public/css/buzon.css
+public/css/buzon-feedback.css
 public/css/buzon-public.css
 public/css/donor-logo.css
 public/js/buzon-public-link.js
 public/js/buzon-share-project.js
 public/js/buzon-public-submit.js
+public/js/buzon-feedback.js
+public/js/buzon-dictation.js
+public/js/buzon-voice-data.js
 public/vendor/qrcodegen/qrcodegen.js
 public/vendor/qrcodegen/README.md
 public/assets/images/asonacop/logo.png
