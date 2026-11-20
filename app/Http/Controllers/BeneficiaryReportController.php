@@ -147,13 +147,14 @@ class BeneficiaryReportController extends Controller
 
         $headers = [
             'ID', 'Estado', 'Municipio', 'Parroquia', 'Tipo de instalación', 'Nombre específico del lugar',
-            'Latitud', 'Longitud', 'Código del proyecto', 'Sector programático', 'Código del indicador', 'Indicador a reportar',
+            'Latitud', 'Longitud', 'Código del proyecto', 'Sector programático', 'Código del indicador', 'Código del Indicador Resumen', 'Indicador a reportar',
             'Detalles adicionales de la actividad', 'Fecha de atención', 'Edad', 'Sexo', 'Discapacidad', 'Indígena',
             'Embarazada o lactante', 'Recurrente', 'Fecha de reporte', 'Fecha de inclusión', 'Usuario', 'Período',
         ];
         if ($includeNationalId) {
             $headers[] = 'Cédula';
         }
+        $summaryCodeColumn = Coordinate::stringFromColumnIndex(array_search('Código del Indicador Resumen', $headers, true) + 1);
         $locationCodeFirstColumn = Coordinate::stringFromColumnIndex(count($headers) + 1);
         array_push($headers, 'Código de estado', 'Código de municipio', 'Código de parroquia');
         $lastColumn = Coordinate::stringFromColumnIndex(count($headers));
@@ -176,7 +177,7 @@ class BeneficiaryReportController extends Controller
             'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF8DA99D']]],
         ]);
 
-        $widths = [8, 18, 20, 18, 26, 30, 13, 13, 22, 24, 24, 48, 48, 16, 10, 16, 18, 18, 22, 14, 18, 20, 28, 24];
+        $widths = [8, 18, 20, 18, 26, 30, 13, 13, 22, 24, 24, 30, 48, 48, 16, 10, 16, 18, 18, 22, 14, 18, 20, 28, 24];
         if ($includeNationalId) {
             $widths[] = 20;
         }
@@ -185,6 +186,7 @@ class BeneficiaryReportController extends Controller
             $worksheet->getColumnDimension(Coordinate::stringFromColumnIndex($index + 1))->setWidth($width);
         }
 
+        $summaryCodes = $this->summaryIndicatorCodes($request, $filters);
         $rowNumber = 2;
         foreach ($this->exportBeneficiaries($request, $filters)->cursor() as $beneficiary) {
             $values = [
@@ -199,6 +201,7 @@ class BeneficiaryReportController extends Controller
                 $beneficiary->project_code,
                 $beneficiary->sector_name,
                 $beneficiary->indicator_code,
+                $summaryCodes->get($beneficiary->summary_project_id.':'.$beneficiary->summary_assignment_id, ''),
                 $beneficiary->activity_title,
                 $beneficiary->activity_details,
                 $this->excelDate($beneficiary->report_date),
@@ -221,11 +224,11 @@ class BeneficiaryReportController extends Controller
             foreach ($values as $index => $value) {
                 $cell = Coordinate::stringFromColumnIndex($index + 1).$rowNumber;
 
-                if (in_array($index, [0, 14], true) && $value !== null && $value !== '') {
+                if (in_array($index, [0, 15], true) && $value !== null && $value !== '') {
                     $worksheet->setCellValue($cell, (int) $value);
                 } elseif (in_array($index, [6, 7], true) && $value !== null && $value !== '') {
                     $worksheet->setCellValue($cell, (float) $value);
-                } elseif (in_array($index, [13, 20, 21], true) && $value !== null) {
+                } elseif (in_array($index, [14, 21, 22], true) && $value !== null) {
                     $worksheet->setCellValue($cell, $value);
                 } else {
                     $worksheet->setCellValueExplicit($cell, $this->spreadsheetText($value), DataType::TYPE_STRING);
@@ -237,12 +240,13 @@ class BeneficiaryReportController extends Controller
 
         $lastDataRow = max(2, $rowNumber - 1);
         $worksheet->getStyle("A2:{$lastColumn}{$lastDataRow}")->getAlignment()->setVertical(Alignment::VERTICAL_TOP)->setWrapText(true);
-        $worksheet->getStyle("N2:N{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
-        $worksheet->getStyle("U2:U{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
-        $worksheet->getStyle("V2:V{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy hh:mm');
+        $worksheet->getStyle("O2:O{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+        $worksheet->getStyle("V2:V{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+        $worksheet->getStyle("W2:W{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy hh:mm');
         if ($includeNationalId) {
-            $worksheet->getStyle("Y2:Y{$lastDataRow}")->getNumberFormat()->setFormatCode('@');
+            $worksheet->getStyle("Z2:Z{$lastDataRow}")->getNumberFormat()->setFormatCode('@');
         }
+        $worksheet->getStyle("{$summaryCodeColumn}2:{$summaryCodeColumn}{$lastDataRow}")->getNumberFormat()->setFormatCode('@');
         // Geographic codes are identifiers, not numbers: preserve leading zeros.
         $worksheet->getStyle("{$locationCodeFirstColumn}2:{$lastColumn}{$lastDataRow}")->getNumberFormat()->setFormatCode('@');
 
@@ -521,6 +525,27 @@ class BeneficiaryReportController extends Controller
     }
 
     /** @param array<string, mixed> $filters */
+    private function summaryIndicatorCodes(Request $request, array $filters): Collection
+    {
+        $ids = $filters['summary_indicator_ids'] ?? [];
+        if ($ids === []) $ids = SummaryIndicatorFilter::options($request->user())->modelKeys();
+        if ($ids === []) return collect();
+
+        // Load memberships once, never join them into the beneficiary rows: one person
+        // can match several summaries without multiplying exported records.
+        return DB::table('summary_indicator_assignments as export_summary_members')
+            ->join('summary_indicators as export_summaries', 'export_summaries.id', '=', 'export_summary_members.summary_indicator_id')
+            ->join('indicador_proyecto as export_member_assignments', 'export_member_assignments.id', '=', 'export_summary_members.indicador_proyecto_id')
+            ->whereIn('export_summaries.id', $ids)->where('export_summaries.is_active', true)
+            ->whereColumn('export_summaries.proyecto_id', 'export_member_assignments.proyecto_id')
+            ->when($filters['project_ids'] ?? [], fn ($query, array $projects) => $query->whereIn('export_summaries.proyecto_id', $projects))
+            ->orderBy('export_summaries.code')
+            ->get(['export_summary_members.indicador_proyecto_id as assignment_id', 'export_member_assignments.proyecto_id', 'export_summaries.code'])
+            ->groupBy(fn ($member) => $member->proyecto_id.':'.$member->assignment_id)
+            ->map(fn (Collection $members) => $members->pluck('code')->unique()->implode(', '));
+    }
+
+    /** @param array<string, mixed> $filters */
     private function exportBeneficiaries(Request $request, array $filters): Builder
     {
         return (clone $this->filteredBeneficiaries($request, $filters))
@@ -546,6 +571,7 @@ class BeneficiaryReportController extends Controller
                 'export_reports.installation_type', 'export_reports.place_name', 'export_reports.latitude',
                 'export_reports.longitude',
                 'export_projects.codigo as project_code',
+                'export_reports.proyecto_id as summary_project_id', 'export_reports.indicador_proyecto_id as summary_assignment_id',
                 DB::raw('COALESCE(export_project_sectors.name, export_sectors.name) as sector_name'),
                 'export_indicators.codigo as indicator_code',
                 DB::raw('COALESCE(export_indicators.descripcion, export_activities.title) as activity_title'),

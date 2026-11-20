@@ -112,12 +112,13 @@
             @can('solo ver registros')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('reports.index', 'reports.show', 'reports.edit', 'reports.create') ? 'active' : '' }}" href="{{ route('reports.index') }}"><i class="ri-file-list-3-line"></i><span>Registros</span></a></li>@endcan
             @canany(['ver buzon', 'crear buzon'])<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('buzon.*') ? 'active' : '' }}" href="{{ route(auth()->user()->can('ver buzon') ? 'buzon.index' : 'buzon.create') }}"><i class="ri-inbox-line" aria-hidden="true"></i><span>Buzón</span></a></li>@endcanany
             @php($reportsMenuOpen = request()->routeIs('beneficiaries.summary', 'general-reports.*', 'indicator-reports.*', 'servicios-programados.*'))
-            @if(Route::has('cases.index'))
+            @if(Route::has('cases.index') && auth()->user()->isAdministrator())
                 @can('ver casos')
                     <li class="nav-item">
                         <a class="nav-link menu-link collapsed {{ request()->routeIs('cases.*', 'families.*') ? 'active' : '' }}" href="#sidebarCases" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarCases"><i class="ri-folder-shield-2-line"></i><span>Gestión de casos</span></a>
                         <div class="collapse menu-dropdown" id="sidebarCases" data-bs-parent="#navbar-nav"><ul class="nav nav-sm flex-column">
-                            <li class="nav-item"><span class="nav-link text-muted" role="status">Sección en construcción</span></li>
+                            <li class="nav-item"><a class="nav-link {{ request()->routeIs('cases.*') ? 'active' : '' }}" href="{{ route('cases.index') }}">Casos</a></li>
+                            <li class="nav-item"><a class="nav-link {{ request()->routeIs('families.*') ? 'active' : '' }}" href="{{ route('families.index') }}">Familias</a></li>
                         </ul></div>
                     </li>
                 @endcan

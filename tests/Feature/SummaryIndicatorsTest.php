@@ -288,6 +288,94 @@ class SummaryIndicatorsTest extends TestCase
         $this->assertSame([$this->items['A']['assignment']->id], $this->one->assignments()->get()->modelKeys());
     }
 
+    public function test_beneficiary_excel_lists_matching_summary_codes_without_duplicating_people(): void
+    {
+        $inactive = SummaryIndicator::create(['proyecto_id' => $this->items['A']['project']->id, 'code' => 'INACTIVE-CODE', 'name' => 'Inactivo', 'is_active' => false]);
+        $inactive->assignments()->attach($this->items['A']['assignment']);
+        $pending = SummaryIndicator::create(['code' => 'PENDING-CODE', 'name' => 'Sin proyecto', 'is_active' => true]);
+        $pending->assignments()->attach($this->items['A']['assignment']);
+        // A bad historical cross-project membership must not label project A with C's code.
+        $this->privateSummary->assignments()->attach($this->items['A']['assignment']);
+        $rows = $this->beneficiarySummaryCodes(['reported' => '']);
+        $this->assertCount(9, $rows); // Excluded indicator EX remains excluded.
+        foreach ($rows as [$project, $codes]) {
+            $this->assertSame(['PROY-A' => 'SUM-ONE, SUM-TWO', 'PROY-B' => 'SUM-OTHER', 'PROY-C' => 'PRIVATE-SUMMARY'][$project], $codes);
+        }
+        $this->assertDatabaseCount('beneficiaries', 10);
+        $this->assertDatabaseCount('reports', 4);
+    }
+
+    public function test_beneficiary_excel_code_column_respects_selected_summaries_and_projects(): void
+    {
+        foreach ([[$this->one->id], [$this->one->id, $this->two->id]] as $ids) {
+            $rows = $this->beneficiarySummaryCodes($this->filters($ids));
+            $this->assertCount(2, $rows);
+            foreach ($rows as [$project, $codes]) {
+                $this->assertSame('PROY-A', $project);
+                $this->assertSame(count($ids) === 1 ? 'SUM-ONE' : 'SUM-ONE, SUM-TWO', $codes);
+            }
+        }
+        $rows = $this->beneficiarySummaryCodes($this->filters([$this->one->id, $this->other->id]));
+        $this->assertCount(5, $rows);
+        foreach ($rows as [$project, $codes]) $this->assertSame($project === 'PROY-A' ? 'SUM-ONE' : 'SUM-OTHER', $codes);
+        $rows = $this->beneficiarySummaryCodes(['reported' => '', 'project_ids' => [$this->items['A']['project']->id]]);
+        $this->assertCount(2, $rows);
+        foreach ($rows as [$project, $codes]) $this->assertSame(['PROY-A', 'SUM-ONE, SUM-TWO'], [$project, $codes]);
+    }
+
+    public function test_beneficiary_excel_code_is_blank_without_membership_and_cannot_leak_other_projects(): void
+    {
+        $this->privateSummary->assignments()->detach();
+        $rows = $this->beneficiarySummaryCodes(['reported' => '']);
+        foreach ($rows as [$project, $codes]) if ($project === 'PROY-C') $this->assertSame('', (string) $codes);
+
+        $this->privateSummary->assignments()->attach($this->items['A']['assignment']);
+        $user = User::factory()->create(['role' => 'reporter']);
+        $user->givePermissionTo('exportar registros excel');
+        $user->projects()->attach($this->items['A']['project']);
+        $this->items['A']['report']->update(['user_id' => $user->id]);
+        $this->actingAs($user);
+        $book = $this->workbook($this->get(route('beneficiaries.export', ['reported' => '']))->assertOk());
+        try {
+            $sheet = $book->getActiveSheet();
+            $this->assertSame('Código del Indicador Resumen', $sheet->getCell('L1')->getValue());
+            $this->assertSame(3, $sheet->getHighestDataRow());
+            $this->assertSame('SUM-ONE, SUM-TWO', $sheet->getCell('L2')->getValue());
+            $this->assertStringNotContainsString('PRIVATE-SUMMARY', json_encode($sheet->toArray()));
+            $this->assertStringNotContainsString('SUM-OTHER', json_encode($sheet->toArray()));
+            $this->assertStringNotContainsString('Cédula', json_encode($sheet->toArray()));
+        } finally { $book->disconnectWorksheets(); }
+    }
+
+    public function test_beneficiary_excel_summary_codes_are_text_and_never_excel_formulas(): void
+    {
+        foreach (['000012', '=1+1'] as $code) {
+            $this->one->update(['code' => $code]);
+            $book = $this->workbook($this->get(route('beneficiaries.export', $this->filters([$this->one->id])))->assertOk());
+            try {
+                $sheet = $book->getActiveSheet();
+                $this->assertSame($code === '=1+1' ? "'=1+1" : $code, $sheet->getCell('L2')->getValue());
+                $this->assertSame(\PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING, $sheet->getCell('L2')->getDataType());
+                $this->assertSame('@', $sheet->getStyle('L2')->getNumberFormat()->getFormatCode());
+            } finally { $book->disconnectWorksheets(); }
+        }
+    }
+
+    private function beneficiarySummaryCodes(array $filters): array
+    {
+        $book = $this->workbook($this->get(route('beneficiaries.export', $filters))->assertOk());
+        try {
+            $sheet = $book->getActiveSheet();
+            $this->assertSame('Código del Indicador Resumen', $sheet->getCell('L1')->getValue());
+            $rows = [];
+            for ($row = 2; $row <= $sheet->getHighestDataRow(); $row++) {
+                if ($sheet->getCell('A'.$row)->getValue() === null) continue;
+                $rows[$sheet->getCell('A'.$row)->getValue()] = [$sheet->getCell('I'.$row)->getValue(), $sheet->getCell('L'.$row)->getValue()];
+            }
+            return $rows;
+        } finally { $book->disconnectWorksheets(); }
+    }
+
     public function test_corrupt_foreign_memberships_cannot_leak_records_in_reports_or_exports(): void
     {
         $this->one->assignments()->attach([$this->items['B']['assignment']->id, $this->items['C']['assignment']->id]);

@@ -13,6 +13,7 @@ use App\Models\Report;
 use App\Models\Sector;
 use App\Models\SectorProyecto;
 use App\Models\State;
+use App\Models\SummaryIndicator;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
@@ -84,6 +85,8 @@ class BeneficiaryExcelExportTest extends TestCase
             'national_id' => '001234567',
         ]);
 
+        $summary = SummaryIndicator::create(['proyecto_id' => $project->id, 'code' => '00015', 'name' => 'Resumen de prueba', 'is_active' => true]);
+        $summary->assignments()->attach($indicatorAssignment);
         $response = $this->actingAs($administrator)->get(route('beneficiaries.export', ['reported' => '']));
         $response->assertOk()->assertDownload();
 
@@ -96,41 +99,49 @@ class BeneficiaryExcelExportTest extends TestCase
             $this->assertSame('Código del proyecto', $worksheet->getCell('I1')->getValue());
             $this->assertSame('Sector programático', $worksheet->getCell('J1')->getValue());
             $this->assertSame('Código del indicador', $worksheet->getCell('K1')->getValue());
-            $this->assertSame('Indicador a reportar', $worksheet->getCell('L1')->getValue());
-            $this->assertSame('Detalles adicionales de la actividad', $worksheet->getCell('M1')->getValue());
+            $this->assertSame('Indicador a reportar', $worksheet->getCell('M1')->getValue());
+            $this->assertSame('Detalles adicionales de la actividad', $worksheet->getCell('N1')->getValue());
             $this->assertSame('Centro comunitario', $worksheet->getCell('F2')->getValue());
             $this->assertSame('PROY-01', $worksheet->getCell('I2')->getValue());
             $this->assertSame('Protección', $worksheet->getCell('J2')->getValue());
             $this->assertSame('GCLPR/SCA12/IC1/IE1', $worksheet->getCell('K2')->getValue());
-            $this->assertSame('NNA - Número de personas atendidas', $worksheet->getCell('L2')->getValue());
-            $this->assertSame('Entrega de kits y orientación', $worksheet->getCell('M2')->getValue());
-            $this->assertSame('Período', $worksheet->getCell('X1')->getValue());
-            $this->assertSame('Octubre 2026', $worksheet->getCell('X2')->getValue());
-            $this->assertSame(DataType::TYPE_STRING, $worksheet->getCell('X2')->getDataType());
-            $this->assertSame('A1:AB1', $worksheet->getAutoFilter()->getRange());
-            foreach (['Z' => ['Código de estado', 'VE24'], 'AA' => ['Código de municipio', 'VE2401'], 'AB' => ['Código de parroquia', 'VE240101']] as $column => [$header, $value]) {
+            $this->assertSame('NNA - Número de personas atendidas', $worksheet->getCell('M2')->getValue());
+            $this->assertSame('Entrega de kits y orientación', $worksheet->getCell('N2')->getValue());
+            $this->assertSame('Período', $worksheet->getCell('Y1')->getValue());
+            $this->assertSame('Octubre 2026', $worksheet->getCell('Y2')->getValue());
+            $this->assertSame(DataType::TYPE_STRING, $worksheet->getCell('Y2')->getDataType());
+            $this->assertSame('A1:AC1', $worksheet->getAutoFilter()->getRange());
+            $this->assertSame('Código del Indicador Resumen', $worksheet->getCell('L1')->getValue());
+            $this->assertSame('00015', $worksheet->getCell('L2')->getValue());
+            $this->assertSame(DataType::TYPE_STRING, $worksheet->getCell('L2')->getDataType());
+            $this->assertSame('@', $worksheet->getStyle('L2')->getNumberFormat()->getFormatCode());
+            $this->assertEquals(30, $worksheet->getColumnDimension('L')->getWidth());
+            $this->assertSame(12, $worksheet->getCell('P2')->getValue());
+            $this->assertSame(DataType::TYPE_NUMERIC, $worksheet->getCell('P2')->getDataType());
+            $this->assertSame('Mujer', $worksheet->getCell('Q2')->getValue());
+            foreach (['AA' => ['Código de estado', 'VE24'], 'AB' => ['Código de municipio', 'VE2401'], 'AC' => ['Código de parroquia', 'VE240101']] as $column => [$header, $value]) {
                 $this->assertSame($header, $worksheet->getCell($column.'1')->getValue());
                 $this->assertSame($value, $worksheet->getCell($column.'2')->getValue());
                 $this->assertSame(DataType::TYPE_STRING, $worksheet->getCell($column.'2')->getDataType());
                 $this->assertSame('@', $worksheet->getStyle($column.'2')->getNumberFormat()->getFormatCode());
-                $this->assertSame($worksheet->getStyle('X1')->getFill()->getStartColor()->getARGB(),
+                $this->assertSame($worksheet->getStyle('Y1')->getFill()->getStartColor()->getARGB(),
                     $worksheet->getStyle($column.'1')->getFill()->getStartColor()->getARGB());
             }
-            $this->assertSame('Cédula', $worksheet->getCell('Y1')->getValue());
-            $this->assertSame('001234567', $worksheet->getCell('Y2')->getValue());
-            $this->assertSame(DataType::TYPE_STRING, $worksheet->getCell('Y2')->getDataType());
-            $this->assertSame('@', $worksheet->getStyle('Y2')->getNumberFormat()->getFormatCode());
-            $this->assertEquals(20, $worksheet->getColumnDimension('Y')->getWidth());
-            $this->assertSame($worksheet->getStyle('X1')->getFill()->getStartColor()->getARGB(),
-                $worksheet->getStyle('Y1')->getFill()->getStartColor()->getARGB());
+            $this->assertSame('Cédula', $worksheet->getCell('Z1')->getValue());
+            $this->assertSame('001234567', $worksheet->getCell('Z2')->getValue());
+            $this->assertSame(DataType::TYPE_STRING, $worksheet->getCell('Z2')->getDataType());
+            $this->assertSame('@', $worksheet->getStyle('Z2')->getNumberFormat()->getFormatCode());
+            $this->assertEquals(20, $worksheet->getColumnDimension('Z')->getWidth());
+            $this->assertSame($worksheet->getStyle('Y1')->getFill()->getStartColor()->getARGB(),
+                $worksheet->getStyle('Z1')->getFill()->getStartColor()->getARGB());
             $this->assertSame('A2', $worksheet->getFreezePane());
-            $this->assertEquals(24, $worksheet->getColumnDimension('X')->getWidth());
+            $this->assertEquals(24, $worksheet->getColumnDimension('Y')->getWidth());
             $this->assertSame($worksheet->getStyle('W1')->getFill()->getStartColor()->getARGB(),
-                $worksheet->getStyle('X1')->getFill()->getStartColor()->getARGB());
-            $this->assertSame('dd/mm/yyyy', $worksheet->getStyle('N2')->getNumberFormat()->getFormatCode());
-            $this->assertSame('15/09/2026', $worksheet->getCell('N2')->getFormattedValue());
-            $this->assertSame('dd/mm/yyyy', $worksheet->getStyle('U2')->getNumberFormat()->getFormatCode());
-            $this->assertSame('dd/mm/yyyy hh:mm', $worksheet->getStyle('V2')->getNumberFormat()->getFormatCode());
+                $worksheet->getStyle('Y1')->getFill()->getStartColor()->getARGB());
+            $this->assertSame('dd/mm/yyyy', $worksheet->getStyle('O2')->getNumberFormat()->getFormatCode());
+            $this->assertSame('15/09/2026', $worksheet->getCell('O2')->getFormattedValue());
+            $this->assertSame('dd/mm/yyyy', $worksheet->getStyle('V2')->getNumberFormat()->getFormatCode());
+            $this->assertSame('dd/mm/yyyy hh:mm', $worksheet->getStyle('W2')->getNumberFormat()->getFormatCode());
         } finally {
             @unlink($path);
         }
@@ -176,13 +187,13 @@ class BeneficiaryExcelExportTest extends TestCase
             ['2026-08', []],
         ] as [$filter, $expectedRows]) {
             $worksheet = $this->exportWorksheet(['reporting_period' => $filter, 'reported' => '']);
-            $this->assertSame('Período', $worksheet->getCell('X1')->getValue());
+            $this->assertSame('Período', $worksheet->getCell('Y1')->getValue());
             $rows = [];
             for ($row = 2; $row <= $worksheet->getHighestDataRow(); $row++) {
                 $id = $worksheet->getCell('A'.$row)->getValue();
                 if ($id !== null) {
-                    $rows[(int) $id] = $worksheet->getCell('X'.$row)->getValue();
-                    $this->assertSame($nationalIds[(int) $id], $worksheet->getCell('Y'.$row)->getValue());
+                    $rows[(int) $id] = $worksheet->getCell('Y'.$row)->getValue();
+                    $this->assertSame($nationalIds[(int) $id], $worksheet->getCell('Z'.$row)->getValue());
                 }
             }
             ksort($rows);
@@ -217,12 +228,13 @@ class BeneficiaryExcelExportTest extends TestCase
         $report = $this->reportWithNationalIds($admin);
         $this->actingAs($admin);
         $sheet = $this->exportWorksheet(['reported' => '']);
-        $this->assertSame('AB', $sheet->getHighestDataColumn());
-        $this->assertSame('000987654', $sheet->getCell('Y2')->getValue());
-        $this->assertSame('', (string) $sheet->getCell('Y3')->getValue());
-        $this->assertSame("'=1+1", $sheet->getCell('Y4')->getValue());
-        foreach ([2, 4] as $row) $this->assertSame(DataType::TYPE_STRING, $sheet->getCell('Y'.$row)->getDataType());
-        $this->assertSame('@', $sheet->getStyle('Y3')->getNumberFormat()->getFormatCode());
+        $this->assertSame('AC', $sheet->getHighestDataColumn());
+        $this->assertSame('', (string) $sheet->getCell('L2')->getValue());
+        $this->assertSame('000987654', $sheet->getCell('Z2')->getValue());
+        $this->assertSame('', (string) $sheet->getCell('Z3')->getValue());
+        $this->assertSame("'=1+1", $sheet->getCell('Z4')->getValue());
+        foreach ([2, 4] as $row) $this->assertSame(DataType::TYPE_STRING, $sheet->getCell('Z'.$row)->getDataType());
+        $this->assertSame('@', $sheet->getStyle('Z3')->getNumberFormat()->getFormatCode());
         $this->assertSame(3, $report->beneficiaries()->count());
         $this->assertDatabaseCount('reports', 1);
     }
@@ -236,10 +248,11 @@ class BeneficiaryExcelExportTest extends TestCase
             $this->reportWithNationalIds($user);
             $this->actingAs($user);
             $sheet = $this->exportWorksheet(['reported' => '', 'include_national_id' => '1', 'is_admin' => '1']);
-            $this->assertSame('AA', $sheet->getHighestDataColumn());
-            $this->assertSame('A1:AA1', $sheet->getAutoFilter()->getRange());
-            $this->assertSame('Período', $sheet->getCell('X1')->getValue());
-            foreach (['Y' => ['Código de estado', 'TEST'], 'Z' => ['Código de municipio', 'TEST01'], 'AA' => ['Código de parroquia', 'TEST0101']] as $column => [$header, $code]) {
+            $this->assertSame('AB', $sheet->getHighestDataColumn());
+            $this->assertSame('A1:AB1', $sheet->getAutoFilter()->getRange());
+            $this->assertSame('Período', $sheet->getCell('Y1')->getValue());
+            $this->assertSame('Código del Indicador Resumen', $sheet->getCell('L1')->getValue());
+            foreach (['Z' => ['Código de estado', 'TEST'], 'AA' => ['Código de municipio', 'TEST01'], 'AB' => ['Código de parroquia', 'TEST0101']] as $column => [$header, $code]) {
                 $this->assertSame($header, $sheet->getCell($column.'1')->getValue());
                 $this->assertSame($code, $sheet->getCell($column.'2')->getValue());
             }
@@ -270,7 +283,7 @@ class BeneficiaryExcelExportTest extends TestCase
             $this->assertSame($stateFilter === null ? 5 : ($stateFilter === $state->id ? 2 : 4), $sheet->getHighestDataRow());
             for ($row = 2; $row <= $sheet->getHighestDataRow(); $row++) {
                 $other = (int) $sheet->getCell('A'.$row)->getValue() === $otherPerson->id;
-                foreach (['Z' => $other ? '02' : '01', 'AA' => $other ? '0201' : '0101', 'AB' => $other ? '020101' : '010101'] as $column => $code) {
+                foreach (['AA' => $other ? '02' : '01', 'AB' => $other ? '0201' : '0101', 'AC' => $other ? '020101' : '010101'] as $column => $code) {
                     $this->assertSame($code, $sheet->getCell($column.$row)->getValue());
                     $this->assertSame(DataType::TYPE_STRING, $sheet->getCell($column.$row)->getDataType());
                     $this->assertSame('@', $sheet->getStyle($column.$row)->getNumberFormat()->getFormatCode());
@@ -284,10 +297,11 @@ class BeneficiaryExcelExportTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin']);
         $this->actingAs($admin);
         $sheet = $this->exportWorksheet(['reported' => '']);
-        $this->assertSame('Código de estado', $sheet->getCell('Z1')->getValue());
-        $this->assertSame('Código de municipio', $sheet->getCell('AA1')->getValue());
-        $this->assertSame('Código de parroquia', $sheet->getCell('AB1')->getValue());
-        $this->assertSame('A1:AB1', $sheet->getAutoFilter()->getRange());
+        $this->assertSame('Código del Indicador Resumen', $sheet->getCell('L1')->getValue());
+        $this->assertSame('Código de estado', $sheet->getCell('AA1')->getValue());
+        $this->assertSame('Código de municipio', $sheet->getCell('AB1')->getValue());
+        $this->assertSame('Código de parroquia', $sheet->getCell('AC1')->getValue());
+        $this->assertSame('A1:AC1', $sheet->getAutoFilter()->getRange());
     }
 
     private function exportWorksheet(array $filters): Worksheet

@@ -20,7 +20,7 @@ class CaseManagementTest extends TestCase
     private function worker(array $extra = []): User
     {
         $user = User::factory()->create(['role' => 'reporter', 'is_active' => true]);
-        $user->givePermissionTo(array_merge(['ver casos', 'crear casos', 'editar casos', 'ver historial de casos'], $extra));
+        $user->givePermissionTo(array_merge(['administrar sistema', 'ver casos', 'crear casos', 'editar casos', 'ver historial de casos'], $extra));
 
         return $user;
     }

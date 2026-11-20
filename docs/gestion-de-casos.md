@@ -19,6 +19,8 @@ Los tipos iniciales son Protección general, Protección de la niñez y VBG. La 
 
 ## Permisos
 
+El acceso a Casos y Familias está habilitado solo para administradores (rol `admin` o permiso `administrar sistema`), tanto en el menú como en todas sus rutas. Los permisos de casos por sí solos no habilitan el módulo.
+
 Todos se crean y asignan inicialmente al rol `admin`. Se administran en Configuración → Roles.
 
 | Permiso | Alcance |

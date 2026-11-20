@@ -98,7 +98,7 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
     Route::get('/mi-perfil', [ProfileController::class, 'show'])->name('profile.show');
     Route::put('/mi-perfil', [ProfileController::class, 'update'])->name('profile.update');
 
-    Route::prefix('casos')->name('cases.')->middleware(['permission:ver casos', PrivateCaseResponse::class])->group(function (): void {
+    Route::prefix('casos')->name('cases.')->middleware(['admin', 'permission:ver casos', PrivateCaseResponse::class])->group(function (): void {
         Route::get('/', [CaseRecordController::class, 'index'])->name('index');
         Route::get('/nuevo', [CaseRecordController::class, 'start'])->name('start');
         Route::get('/crear', [CaseRecordController::class, 'create'])->name('create');
@@ -111,7 +111,7 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
         Route::get('/{caseRecord}', [CaseRecordController::class, 'show'])->name('show');
     });
 
-    Route::prefix('familias')->name('families.')->middleware(['permission:ver casos', PrivateCaseResponse::class])->group(function (): void {
+    Route::prefix('familias')->name('families.')->middleware(['admin', 'permission:ver casos', PrivateCaseResponse::class])->group(function (): void {
         Route::get('/', [FamilyRecordController::class, 'index'])->name('index');
         Route::get('/crear', [FamilyRecordController::class, 'create'])->name('create');
         Route::post('/', [FamilyRecordController::class, 'store'])->name('store');
