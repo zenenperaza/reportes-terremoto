@@ -19,6 +19,7 @@ use Illuminate\Validation\Rule;
 
 class StoreReportRequest extends FormRequest
 {
+    use \App\Http\Requests\Concerns\CalculatesBeneficiaryAge;
     use \App\Http\Requests\Concerns\ValidatesBeneficiaryCaregiver;
     use \App\Http\Requests\Concerns\ValidatesAssociatedIndicators;
     use \App\Http\Requests\Concerns\PreservesReportLocation;
@@ -67,6 +68,7 @@ class StoreReportRequest extends FormRequest
 
             'beneficiaries' => ['required', 'array', 'min:1', 'max:1000'],
             'beneficiaries.*.full_name' => ['required', 'string', 'max:150'],
+            'beneficiaries.*.birth_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:report_date'],
             'beneficiaries.*.age' => ['required', 'integer', 'min:0', 'max:120'],
             'beneficiaries.*.sex' => ['required', Rule::in($beneficiaryOptions['sexes'])],
             'beneficiaries.*.national_id' => ['nullable', 'string', 'max:30'],
@@ -87,6 +89,7 @@ class StoreReportRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $this->normalizeBirthAge('beneficiaries', true);
         $this->normalizeCaregiverPayload('beneficiaries', true);
         $this->merge(ReportRegistrant::fields($this->user(), $this->route('report')));
 
@@ -238,6 +241,7 @@ class StoreReportRequest extends FormRequest
             'servicio_actividad_ids' => 'servicios',
             'beneficiaries' => 'beneficiarios',
             'beneficiaries.*.full_name' => 'nombre y apellido del beneficiario',
+            'beneficiaries.*.birth_date' => 'fecha de nacimiento',
             'beneficiaries.*.caregiver_national_id' => 'cédula del cuidador',
             'beneficiaries.*.caregiver_full_name' => 'nombre del cuidador',
             'beneficiaries.*.caregiver_relationship' => 'parentesco del cuidador',

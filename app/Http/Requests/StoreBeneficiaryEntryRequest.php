@@ -19,6 +19,7 @@ use Illuminate\Validation\Rule;
 
 class StoreBeneficiaryEntryRequest extends FormRequest
 {
+    use \App\Http\Requests\Concerns\CalculatesBeneficiaryAge;
     use \App\Http\Requests\Concerns\ValidatesBeneficiaryCaregiver;
     use \App\Http\Requests\Concerns\ValidatesAssociatedIndicators;
     use \App\Http\Requests\Concerns\PreservesReportLocation;
@@ -73,6 +74,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             'beneficiary' => ['required', 'array'],
             'beneficiary.has_informed_consent' => ['required', 'accepted'],
             'beneficiary.full_name' => ['required', 'string', 'max:150'],
+            'beneficiary.birth_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:report_date'],
             'beneficiary.age' => ['required', 'integer', 'min:0', 'max:120'],
             'beneficiary.sex' => ['required', Rule::in($beneficiaryOptions['sexes'])],
             'beneficiary.national_id' => ['nullable', 'string', 'max:30'],
@@ -88,6 +90,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $this->normalizeBirthAge('beneficiary');
         $this->normalizeCaregiverPayload('beneficiary');
         $reportId = filter_var($this->input('report_id'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         $report = $reportId ? Report::query()->whereKey($reportId)
@@ -153,6 +156,7 @@ class StoreBeneficiaryEntryRequest extends FormRequest
             'beneficiary.caregiver_full_name' => 'nombre del cuidador',
             'beneficiary.caregiver_relationship' => 'parentesco del cuidador',
             'beneficiary.has_informed_consent' => 'consentimiento informado del beneficiario',
+            'beneficiary.birth_date' => 'fecha de nacimiento',
             'beneficiary.age' => 'edad del beneficiario',
             'beneficiary.sex' => 'sexo del beneficiario',
             'beneficiary.nationality' => 'nacionalidad del beneficiario',

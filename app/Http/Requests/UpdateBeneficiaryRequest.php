@@ -8,10 +8,12 @@ use Illuminate\Validation\Rule;
 
 class UpdateBeneficiaryRequest extends FormRequest
 {
+    use \App\Http\Requests\Concerns\CalculatesBeneficiaryAge;
     use \App\Http\Requests\Concerns\ValidatesBeneficiaryCaregiver;
 
     protected function prepareForValidation(): void
     {
+        $this->normalizeBirthAge();
         $this->normalizeCaregiverPayload();
     }
     public function authorize(): bool
@@ -26,6 +28,7 @@ class UpdateBeneficiaryRequest extends FormRequest
         return $this->caregiverRules() + [
             'has_informed_consent' => ['required', 'accepted'],
             'full_name' => ['nullable', 'string', 'max:150'],
+            'birth_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.$this->route('beneficiary')?->report?->report_date?->format('Y-m-d')],
             'age' => ['required', 'integer', 'min:0', 'max:120'],
             'sex' => ['required', Rule::in($beneficiaryOptions['sexes'])],
             'national_id' => ['nullable', 'string', 'max:30'],
@@ -72,6 +75,7 @@ class UpdateBeneficiaryRequest extends FormRequest
     {
         return [
             'full_name' => 'nombre y apellido',
+            'birth_date' => 'fecha de nacimiento',
             'age' => 'edad',
             'sex' => 'sexo',
             'national_id' => 'cédula',

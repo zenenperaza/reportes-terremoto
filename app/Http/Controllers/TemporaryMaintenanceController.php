@@ -18,7 +18,7 @@ class TemporaryMaintenanceController extends Controller
 
         abort_if(request()->has('nly'), 422, 'El parámetro correcto es only. Corrija la dirección antes de ejecutar el mantenimiento.');
 
-        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto', 'actualizacion-buzon', 'indicadores-resumen', 'nacionalidad-beneficiarios', 'actualizacion-beneficiarios', 'actualizacion-buzon-registros', 'actualizacion-buzon-listados', 'actualizacion-buzon-publico'], true),
+        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto', 'actualizacion-buzon', 'indicadores-resumen', 'nacionalidad-beneficiarios', 'actualizacion-beneficiarios', 'actualizacion-buzon-registros', 'actualizacion-buzon-listados', 'actualizacion-buzon-publico', 'fecha-nacimiento-beneficiarios'], true),
             422, 'Modo de mantenimiento no reconocido.');
         $permissionsOnly = request('only') === 'permisos-beneficiarios';
         $groupEditingOnly = request('only') === 'edicion-cruzada-grupos';
@@ -34,6 +34,7 @@ class TemporaryMaintenanceController extends Controller
         $summaryIndicatorsOnly = request('only') === 'indicadores-resumen';
         $nationalityOnly = request('only') === 'nacionalidad-beneficiarios';
         $beneficiaryUpdateOnly = request('only') === 'actualizacion-beneficiarios';
+        $birthDateOnly = request('only') === 'fecha-nacimiento-beneficiarios';
         $buzonRecordsOnly = request('only') === 'actualizacion-buzon-registros';
         $buzonListsOnly = request('only') === 'actualizacion-buzon-listados';
         $buzonPublicOnly = request('only') === 'actualizacion-buzon-publico';
@@ -43,6 +44,8 @@ class TemporaryMaintenanceController extends Controller
             422, 'El modo actualizacion-buzon-listados no se puede combinar con opciones de caché o importación.');
         abort_if($buzonRecordsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
             422, 'El modo actualizacion-buzon-registros no se puede combinar con opciones de caché o importación.');
+        abort_if($birthDateOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
+            422, 'El modo fecha-nacimiento-beneficiarios no se puede combinar con otras opciones.');
         abort_if($beneficiaryUpdateOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
             422, 'El modo actualizacion-beneficiarios no se puede combinar con opciones de caché o importación.');
         abort_if($nationalityOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
@@ -581,6 +584,34 @@ class TemporaryMaintenanceController extends Controller
             }
         }
 
+        $birthDateMigration = ['name' => 'migrate', 'parameters' => [
+            '--path' => 'database/migrations/2026_11_20_000000_add_birth_date_to_beneficiaries.php',
+            '--force' => true,
+        ]];
+        if ($birthDateOnly) {
+            foreach ([
+                $birthDateMigration['parameters']['--path'],
+                'app/Http/Controllers/TemporaryMaintenanceController.php',
+                'app/Http/Controllers/BeneficiaryLookupController.php',
+                'app/Http/Controllers/ReportController.php',
+                'app/Http/Requests/StoreBeneficiaryEntryRequest.php',
+                'app/Http/Requests/StoreReportRequest.php',
+                'app/Http/Requests/UpdateBeneficiaryRequest.php',
+                'app/Http/Requests/UpdateBeneficiaryAttentionRequest.php',
+                'app/Http/Requests/UpdateReportRequest.php',
+                'app/Http/Requests/ContinueReportBeneficiaryRequest.php',
+                'app/Http/Requests/Concerns/CalculatesBeneficiaryAge.php',
+                'app/Http/Requests/Concerns/ValidatesBeneficiaryCaregiver.php',
+                'app/Models/Beneficiary.php',
+                'resources/views/reports/create.blade.php',
+                'resources/views/reports/show.blade.php',
+                'public/js/beneficiary-id-autofill.js',
+                'routes/maintenance.php',
+            ] as $file) {
+                abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
+            }
+        }
+
         $cacheCommands = [
             ['name' => 'optimize:clear', 'parameters' => []],
             ['name' => 'cache:clear', 'parameters' => []],
@@ -744,6 +775,7 @@ class TemporaryMaintenanceController extends Controller
         $includeExcel = $excelOnly || request()->boolean('import_excel');
 
         $selectedMigrations = match (true) {
+            $birthDateOnly => [$birthDateMigration],
             $buzonPublicOnly => $buzonPublicMigrations,
             $buzonListsOnly => [$buzonListsMigration],
             $buzonRecordsOnly => [$buzonPermissionsMigration],
@@ -945,6 +977,16 @@ class TemporaryMaintenanceController extends Controller
                 'Las migraciones ya aplicadas se omiten. Repetir este modo conserva opiniones, logos, listados, permisos y enlaces existentes. No ejecuta todas las migraciones pendientes.',
                 'Este modo presupone el Buzón instalado con sus cuatro permisos y listados. Conserve el directorio privado storage del servidor y no cambie APP_KEY al publicar.',
                 'Al finalizar, recargue SIA con Ctrl + F5, cargue el logo en Donantes, genere un QR y pruebe el enlace en una ventana privada. Revise Usuario, Origen y permisos antes de retirar el mantenimiento manualmente.',
+            ];
+        }
+        if ($birthDateOnly) {
+            $results = [
+                'FECHA DE NACIMIENTO DE BENEFICIARIOS: se agrega birth_date y se reconstruyen las cachés.',
+                'La fecha de nacimiento es obligatoria para registrar o editar personas. La edad se calcula a la fecha de atención, también en el servidor.',
+                'No se rellenan fechas de nacimiento ni se recalculan edades de registros anteriores durante este mantenimiento.',
+                'No se genera ni se instala el código de beneficiario.',
+                'No se ejecutan seeders, importaciones ni otras migraciones. Se conservan permisos, bloqueos y avisos programados.',
+                'Puede repetir este modo: la migración ya aplicada se omite. Al finalizar recargue SIA con Ctrl + F5.',
             ];
         }
         $exitCode = 1;

@@ -198,7 +198,18 @@ class ReportController extends Controller
         DB::transaction(function () use ($request, $report, $data, $serviceIds): void {
             $report = Report::whereKey($report->id)->lockForUpdate()->firstOrFail();
             $this->ensureEditable($request, $report);
+            $dateChanged = $report->report_date->format('Y-m-d') !== \Carbon\CarbonImmutable::parse($data['report_date'])->format('Y-m-d');
             $report->update($data);
+            if ($dateChanged) {
+                foreach ($report->beneficiaries()->whereNotNull('birth_date')->get() as $person) {
+                    $age = (int) $person->birth_date->diffInYears($report->report_date);
+                    $changes = ['age' => $age];
+                    if ($age >= 18) {
+                        $changes += ['caregiver_national_id' => null, 'caregiver_full_name' => null, 'caregiver_relationship' => null];
+                    }
+                    $person->update($changes);
+                }
+            }
             $report->serviciosActividad()->sync($serviceIds);
             $this->storeEvidence($report, $request);
             $this->syncBeneficiarySummary($report);
@@ -518,6 +529,7 @@ class ReportController extends Controller
                 'id' => $beneficiary->id,
                 'has_informed_consent' => $beneficiary->has_informed_consent,
                 'full_name' => $beneficiary->full_name,
+                'birth_date' => $beneficiary->birth_date?->format('Y-m-d'),
                 'age' => $beneficiary->age,
                 'sex' => $beneficiary->sex,
                 'national_id' => $beneficiary->national_id,

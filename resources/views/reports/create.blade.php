@@ -299,8 +299,9 @@
                     </label>
                     <label>Nombre y apellido *<input type="text" id="beneficiary_full_name"
                             required maxlength="150" autocomplete="name" style="text-transform: uppercase"></label>
+                    <label>Fecha de nacimiento *<input type="date" id="beneficiary_birth_date" required max="{{ today()->format('Y-m-d') }}"><small>La edad se calcula a la fecha de atención.</small></label>
                     <label>Edad * <small id="beneficiary-age-range" class="beneficiary-age-range" hidden></small><input type="number" id="beneficiary_age" min="0" max="120"
-                            inputmode="numeric"></label>
+                            inputmode="numeric" readonly aria-readonly="true"></label>
                     <label>Sexo *<select id="beneficiary_sex">
                             <option value="">Seleccione</option>
                             @foreach ($beneficiaryOptions['sexes'] as $option)
@@ -834,12 +835,25 @@
         syncCommunityMode(initialCommunityCoordinates);
         const validateCoordinates = async () => true;
 
-        const beneficiaryFields = ['has_informed_consent', 'full_name', 'age', 'sex', 'national_id', 'nationality', 'phone', 'disability', 'ethnicity',
+        const beneficiaryFields = ['has_informed_consent', 'full_name', 'birth_date', 'age', 'sex', 'national_id', 'nationality', 'phone', 'disability', 'ethnicity',
             'pregnant_lactating', 'is_recurrent', 'caregiver_national_id', 'caregiver_full_name', 'caregiver_relationship'
         ];
         const beneficiaryInputs = Object.fromEntries(beneficiaryFields.map(field => [field, select(
             `beneficiary_${field}`)]));
+        const syncBirthAge = () => {
+            const birth = beneficiaryInputs.birth_date.value;
+            const reference = form.querySelector('[name="report_date"]').value;
+            beneficiaryInputs.birth_date.max = reference;
+            let age = '';
+            if (/^\d{4}-\d{2}-\d{2}$/.test(birth) && reference && birth <= reference) {
+                const [y, m, d] = birth.split('-').map(Number);
+                const [ry, rm, rd] = reference.split('-').map(Number);
+                age = ry - y - (rm < m || (rm === m && rd < d) ? 1 : 0);
+            }
+            beneficiaryInputs.age.value = age;
+        };
         const syncCaregiverFields = () => {
+            syncBirthAge();
             const age = beneficiaryInputs.age.value.trim();
             const minor = age !== '' && Number.isInteger(Number(age)) && Number(age) >= 0 && Number(age) < 18;
             const adult = age !== '' && Number.isInteger(Number(age)) && Number(age) >= 18;
@@ -891,7 +905,7 @@
         const inputValue = field => field === 'has_informed_consent'
             ? (beneficiaryInputs[field].checked ? '1' : '0')
             : beneficiaryInputs[field].value.trim();
-        const beneficiaryRecord = () => Object.fromEntries(beneficiaryFields.map(field => [field, inputValue(field)]));
+        const beneficiaryRecord = () => {syncBirthAge(); return Object.fromEntries(beneficiaryFields.map(field => [field, inputValue(field)]));};
         const headerSignature = () => JSON.stringify(Object.fromEntries(headerFields.map(field => {
             if (field === 'associated_indicator_ids[]') return [field, associatedPicker.selectedIds()];
             if (field === 'servicio_actividad_ids[]') return [field, Array.from(services.selectedOptions).map(option => option.value).sort()];
@@ -922,7 +936,7 @@
         });
         const markVoiceField = (field, recognized) => {
             beneficiaryInputs[field].classList.toggle('voice-recognized', recognized);
-            beneficiaryInputs[field].classList.toggle('voice-review', !beneficiaryInputs[field].value.trim() && ['full_name', 'age', 'sex'].includes(field));
+            beneficiaryInputs[field].classList.toggle('voice-review', !beneficiaryInputs[field].value.trim() && ['full_name', 'birth_date', 'age', 'sex'].includes(field));
         };
         const applyVoiceTranscript = async (text = voiceText.value) => {
             if (!text.trim()) {
@@ -934,7 +948,7 @@
             if (result.cancelled) return result;
             const recognized = new Set(result.recognized || []);
             beneficiaryFields.forEach(field => markVoiceField(field, recognized.has(field)));
-            const missing = ['full_name', 'age', 'sex'].find(field => !beneficiaryInputs[field].value.trim());
+            const missing = ['full_name', 'birth_date', 'age', 'sex'].find(field => !beneficiaryInputs[field].value.trim());
             if (missing) beneficiaryInputs[missing].focus();
             return result;
         };
@@ -1101,6 +1115,7 @@
             }
             const labels = {
                 full_name: 'nombre y apellido',
+                birth_date: 'fecha de nacimiento',
                 age: 'edad',
                 sex: 'sexo',
                 is_recurrent: 'recurrente'
@@ -1353,6 +1368,8 @@
             beneficiaryInputs.full_name.value = beneficiaryInputs.full_name.value.toLocaleUpperCase('es-VE');
             beneficiaryInputs.full_name.setSelectionRange(start, start);
         });
+        beneficiaryInputs.birth_date.addEventListener('input', () => {syncCaregiverFields(); checkPossibleRecurrence();});
+        form.querySelector('[name="report_date"]').addEventListener('change', () => {syncCaregiverFields(); checkPossibleRecurrence();});
         beneficiaryInputs.age.addEventListener('input', syncCaregiverFields);
         beneficiaryInputs.age.addEventListener('change', () => {syncCaregiverFields(); checkPossibleRecurrence();});
         beneficiaryInputs.sex.addEventListener('change', () => {

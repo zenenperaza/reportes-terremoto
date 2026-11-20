@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('report-form');
     const status = document.getElementById('beneficiary-lookup-status');
     if (!input || !form || !status) return;
-    const names = ['full_name', 'age', 'sex', 'nationality', 'phone', 'disability', 'ethnicity', 'pregnant_lactating',
+    const names = ['full_name', 'birth_date', 'age', 'sex', 'nationality', 'phone', 'disability', 'ethnicity', 'pregnant_lactating',
         'caregiver_national_id', 'caregiver_full_name', 'caregiver_relationship'];
     const fields = Object.fromEntries(names.map(name => [name, document.getElementById(`beneficiary_${name}`)]));
     const defaults = {nationality: 'Venezolana', disability: 'Ninguna', ethnicity: 'Ninguna', pregnant_lactating: 'Ninguna'};

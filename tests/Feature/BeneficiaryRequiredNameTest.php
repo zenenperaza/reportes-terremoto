@@ -39,7 +39,7 @@ class BeneficiaryRequiredNameTest extends TestCase
 
     private function person(): array
     {
-        return ['has_informed_consent' => true, 'full_name' => 'María González', 'age' => 34, 'sex' => 'Mujer',
+        return ['has_informed_consent' => true, 'full_name' => 'María González', 'birth_date' => today()->subYears(34)->toDateString(), 'age' => 34, 'sex' => 'Mujer',
             'disability' => 'Ninguna', 'ethnicity' => 'Ninguna', 'pregnant_lactating' => 'Ninguna', 'is_recurrent' => false];
     }
 

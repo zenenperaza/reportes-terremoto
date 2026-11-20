@@ -181,8 +181,8 @@
     @else
         <div class="table-wrap">
             <table class="beneficiary-table">
-                <thead><tr><th>Nombre y apellido</th><th>Edad</th><th>Sexo</th><th>Nacionalidad</th><th>Cédula</th><th>Teléfono</th><th>Discapacidad</th><th>Indígena</th><th>Emb./lact.</th><th>Recurrente</th><th>Reportado</th><th>Fecha de reporte</th>@if($canEditBeneficiaries || $canDeleteBeneficiaries)<th>Acciones</th>@endif</tr></thead>
-                <tbody>@foreach($report->beneficiaries as $beneficiary)<tr><td data-label="Nombre y apellido">{{ $beneficiary->full_name ?: 'Sin nombre registrado' }}</td><td data-label="Edad">{{ $beneficiary->age }}</td><td data-label="Sexo">{{ $beneficiary->sex }}</td><td data-label="Nacionalidad">{{ $beneficiary->nationality ?: '—' }}</td><td data-label="C&eacute;dula">{{ $beneficiary->national_id ?: '—' }}</td><td data-label="Tel&eacute;fono">{{ $beneficiary->phone ?: '—' }}</td><td data-label="Discapacidad">{{ $beneficiary->disability ?: 'Ninguna' }}</td><td data-label="Ind&iacute;gena">{{ $beneficiary->ethnicity ?: 'Ninguna' }}</td><td data-label="Emb./lact.">{{ $beneficiary->pregnant_lactating ?: 'Ninguna' }}</td><td data-label="Recurrente">{{ $beneficiary->is_recurrent ? 'Sí' : 'No' }}</td><td data-label="Reportado">{{ $beneficiary->reported_at ? 'Sí' : 'No' }}</td><td data-label="Fecha de reporte">{{ $beneficiary->reported_at?->format('d/m/Y') ?: '—' }}</td>@if($canEditBeneficiaries || $canDeleteBeneficiaries)<td data-label="Acciones"><div class="beneficiary-row-actions">@if($canEditBeneficiaries)<a class="btn btn-primary btn-icon waves-effect waves-light" title="Editar beneficiario" aria-label="Editar beneficiario" href="{{ route('reports.edit', ['report' => $report, 'beneficiary' => $beneficiary->id]) }}"><i class="ri-pencil-line" aria-hidden="true"></i></a>@endif @if($canDeleteBeneficiaries)<button class="btn btn-danger btn-icon waves-effect waves-light beneficiary-delete-button" title="Eliminar beneficiario" aria-label="Eliminar beneficiario" type="button" data-beneficiary-id="{{ $beneficiary->id }}"><i class="ri-delete-bin-5-line" aria-hidden="true"></i></button>@endif</div></td>@endif</tr>@endforeach</tbody>
+                <thead><tr><th>Nombre y apellido</th><th>Fecha de nacimiento</th><th>Edad</th><th>Sexo</th><th>Nacionalidad</th><th>Cédula</th><th>Teléfono</th><th>Discapacidad</th><th>Indígena</th><th>Emb./lact.</th><th>Recurrente</th><th>Reportado</th><th>Fecha de reporte</th>@if($canEditBeneficiaries || $canDeleteBeneficiaries)<th>Acciones</th>@endif</tr></thead>
+                <tbody>@foreach($report->beneficiaries as $beneficiary)<tr><td data-label="Nombre y apellido">{{ $beneficiary->full_name ?: 'Sin nombre registrado' }}</td><td data-label="Fecha de nacimiento">{{ $beneficiary->birth_date?->format('d/m/Y') ?? 'Sin registrar' }}</td><td data-label="Edad">{{ $beneficiary->age }}</td><td data-label="Sexo">{{ $beneficiary->sex }}</td><td data-label="Nacionalidad">{{ $beneficiary->nationality ?: '—' }}</td><td data-label="C&eacute;dula">{{ $beneficiary->national_id ?: '—' }}</td><td data-label="Tel&eacute;fono">{{ $beneficiary->phone ?: '—' }}</td><td data-label="Discapacidad">{{ $beneficiary->disability ?: 'Ninguna' }}</td><td data-label="Ind&iacute;gena">{{ $beneficiary->ethnicity ?: 'Ninguna' }}</td><td data-label="Emb./lact.">{{ $beneficiary->pregnant_lactating ?: 'Ninguna' }}</td><td data-label="Recurrente">{{ $beneficiary->is_recurrent ? 'Sí' : 'No' }}</td><td data-label="Reportado">{{ $beneficiary->reported_at ? 'Sí' : 'No' }}</td><td data-label="Fecha de reporte">{{ $beneficiary->reported_at?->format('d/m/Y') ?: '—' }}</td>@if($canEditBeneficiaries || $canDeleteBeneficiaries)<td data-label="Acciones"><div class="beneficiary-row-actions">@if($canEditBeneficiaries)<a class="btn btn-primary btn-icon waves-effect waves-light" title="Editar beneficiario" aria-label="Editar beneficiario" href="{{ route('reports.edit', ['report' => $report, 'beneficiary' => $beneficiary->id]) }}"><i class="ri-pencil-line" aria-hidden="true"></i></a>@endif @if($canDeleteBeneficiaries)<button class="btn btn-danger btn-icon waves-effect waves-light beneficiary-delete-button" title="Eliminar beneficiario" aria-label="Eliminar beneficiario" type="button" data-beneficiary-id="{{ $beneficiary->id }}"><i class="ri-delete-bin-5-line" aria-hidden="true"></i></button>@endif</div></td>@endif</tr>@endforeach</tbody>
             </table>
         </div>
         @if($report->beneficiaries->contains(fn ($person) => $person->age < 18 && (filled($person->caregiver_full_name) || filled($person->caregiver_national_id) || filled($person->caregiver_relationship))))
@@ -201,7 +201,8 @@
                 <div class="card-heading"><div><h2>Editar beneficiario</h2><p class="muted">Actualice los datos y guarde los cambios.</p></div><button type="button" class="button button-secondary" id="cancel-beneficiary-edit">Cancelar</button></div>
                 <div class="form-grid beneficiary-form-grid">
                     <label>Nombre y apellido<input name="full_name" maxlength="150"></label>
-                    <label>Edad *<input name="age" type="number" min="0" max="120" required></label>
+                    <label>Fecha de nacimiento *<input name="birth_date" type="date" required max="{{ $report->report_date->format('Y-m-d') }}"></label>
+                    <label>Edad *<input name="age" type="number" min="0" max="120" readonly></label>
                     <label>Sexo *<select name="sex" required>@foreach($beneficiaryOptions['sexes'] as $option)<option value="{{ $option }}">{{ $option }}</option>@endforeach</select></label>
                     <label>Nacionalidad<select name="nationality">
                         <option value="">Sin especificar</option>
@@ -236,6 +237,19 @@
                 const form = document.getElementById('beneficiary-edit-form');
                 const error = document.getElementById('beneficiary-edit-error');
                 let beneficiaryId = null;
+                const syncBirthAge = () => {
+                    if (!form) return;
+                    const birth = form.elements.namedItem('birth_date').value;
+                    const reference = @json($report->report_date->format('Y-m-d'));
+                    let age = '';
+                    if (birth && birth <= reference) {
+                        const [y, m, d] = birth.split('-').map(Number);
+                        const [ry, rm, rd] = reference.split('-').map(Number);
+                        age = ry - y - (rm < m || (rm === m && rd < d) ? 1 : 0);
+                    }
+                    form.elements.namedItem('age').value = age;
+                };
+                form?.elements.namedItem('birth_date')?.addEventListener('input', syncBirthAge);
 
                 document.querySelectorAll('.beneficiary-edit-button').forEach((button) => button.addEventListener('click', () => {
                     beneficiaryId = button.dataset.beneficiaryId;
@@ -244,6 +258,7 @@
                         const field = form.elements.namedItem(name);
                         if (field) field.value = name === 'is_recurrent' ? (value ? '1' : '0') : (value ?? '');
                     });
+                    syncBirthAge();
                     error.hidden = true;
                     form.hidden = false;
                     form.scrollIntoView({behavior: 'smooth', block: 'center'});

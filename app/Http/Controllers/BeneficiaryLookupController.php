@@ -66,7 +66,7 @@ class BeneficiaryLookupController extends Controller
             return response()->json(['matched' => false, 'ambiguous' => true])->header('Cache-Control', 'no-store, private');
         }
         $person = $matches->orderByDesc('created_at')->orderByDesc('id')->first([
-            'full_name', 'age', 'sex', 'nationality', 'phone', 'disability', 'ethnicity', 'pregnant_lactating',
+            'full_name', 'birth_date', 'age', 'sex', 'nationality', 'phone', 'disability', 'ethnicity', 'pregnant_lactating',
             'caregiver_national_id', 'caregiver_full_name', 'caregiver_relationship',
         ]);
 

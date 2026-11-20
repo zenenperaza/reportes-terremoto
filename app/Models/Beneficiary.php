@@ -32,7 +32,7 @@ class Beneficiary extends Model
     }
 
     protected $fillable = [
-        'report_id', 'has_informed_consent', 'full_name', 'age', 'sex', 'national_id', 'phone', 'disability',
+        'report_id', 'has_informed_consent', 'full_name', 'birth_date', 'age', 'sex', 'national_id', 'phone', 'disability',
         'ethnicity', 'pregnant_lactating', 'is_recurrent', 'nationality',
         'caregiver_national_id', 'caregiver_full_name', 'caregiver_relationship',
     ];
@@ -44,6 +44,7 @@ class Beneficiary extends Model
             'is_recurrent' => 'boolean',
             'reported' => 'boolean',
             'reported_at' => 'date',
+            'birth_date' => 'date:Y-m-d',
         ];
     }
 
