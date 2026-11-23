@@ -18,7 +18,7 @@ class TemporaryMaintenanceController extends Controller
 
         abort_if(request()->has('nly'), 422, 'El parámetro correcto es only. Corrija la dirección antes de ejecutar el mantenimiento.');
 
-        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto', 'actualizacion-buzon', 'indicadores-resumen', 'nacionalidad-beneficiarios', 'actualizacion-beneficiarios', 'actualizacion-buzon-registros', 'actualizacion-buzon-listados', 'actualizacion-buzon-publico', 'fecha-nacimiento-beneficiarios'], true),
+        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto', 'actualizacion-buzon', 'indicadores-resumen', 'nacionalidad-beneficiarios', 'actualizacion-beneficiarios', 'actualizacion-buzon-registros', 'actualizacion-buzon-listados', 'actualizacion-buzon-publico', 'fecha-nacimiento-beneficiarios', 'actualizacion-buzon-registros-excel'], true),
             422, 'Modo de mantenimiento no reconocido.');
         $permissionsOnly = request('only') === 'permisos-beneficiarios';
         $groupEditingOnly = request('only') === 'edicion-cruzada-grupos';
@@ -38,6 +38,9 @@ class TemporaryMaintenanceController extends Controller
         $buzonRecordsOnly = request('only') === 'actualizacion-buzon-registros';
         $buzonListsOnly = request('only') === 'actualizacion-buzon-listados';
         $buzonPublicOnly = request('only') === 'actualizacion-buzon-publico';
+        $buzonRecordsExcelOnly = request('only') === 'actualizacion-buzon-registros-excel';
+        abort_if($buzonRecordsExcelOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
+            422, 'El modo actualizacion-buzon-registros-excel no se puede combinar con opciones de caché o importación.');
         abort_if($buzonPublicOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
             422, 'El modo actualizacion-buzon-publico no se puede combinar con opciones de caché o importación.');
         abort_if($buzonListsOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
@@ -618,6 +621,26 @@ class TemporaryMaintenanceController extends Controller
             }
         }
 
+        $buzonExportMigration = ['name' => 'migrate', 'parameters' => [
+            '--path' => 'database/migrations/2026_11_23_120000_add_buzon_export_permission.php',
+            '--force' => true,
+        ]];
+        if ($buzonRecordsExcelOnly) {
+            foreach ($this->buzonRecordsExcelFiles() as $file) {
+                abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
+            }
+            abort_unless($this->buzonRecordsExcelRuntimeAvailable(), 422,
+                'Suba los controladores, servicios y modelos actualizados: faltan métodos del Buzón, listados o auditoría de eliminaciones.');
+            abort_unless($this->buzonRecordsExcelPrerequisitesAvailable(), 422,
+                'Este modo requiere las actualizaciones previas del Buzón y la columna birth_date en beneficiaries. Complete esas actualizaciones antes de continuar.');
+            foreach ($this->buzonRecordsExcelMarkers() as $file => $markers) {
+                foreach ($markers as $marker) {
+                    abort_unless($this->deploymentFileContains($file, $marker), 422,
+                        'El archivo '.$file.' no contiene la actualización esperada. Suba su versión actual antes de continuar.');
+                }
+            }
+        }
+
         $cacheCommands = [
             ['name' => 'optimize:clear', 'parameters' => []],
             ['name' => 'cache:clear', 'parameters' => []],
@@ -781,6 +804,7 @@ class TemporaryMaintenanceController extends Controller
         $includeExcel = $excelOnly || request()->boolean('import_excel');
 
         $selectedMigrations = match (true) {
+            $buzonRecordsExcelOnly => [$buzonExportMigration],
             $birthDateOnly => [$birthDateMigration],
             $buzonPublicOnly => $buzonPublicMigrations,
             $buzonListsOnly => [$buzonListsMigration],
@@ -995,6 +1019,22 @@ class TemporaryMaintenanceController extends Controller
                 'Puede repetir este modo: la migración ya aplicada se omite. Al finalizar recargue SIA con Ctrl + F5.',
             ];
         }
+        if ($buzonRecordsExcelOnly) {
+            $results = [
+                'ACTUALIZACIÓN DE BUZÓN, REGISTROS Y EXCEL: se comprueban los archivos, métodos y estructura previa, se ejecuta únicamente la migración del permiso exportar buzon y se reconstruyen las cachés.',
+                'Incluye Buzón público en su submenú, generación de enlaces y QR con logos, y consulta exclusiva de opiniones externas. El Buzón principal conserva su consulta general y ya no muestra el generador de enlaces.',
+                'La DataTable del Buzón permite buscar y exportar todos los resultados filtrados a PDF y Excel. Se mantienen los proyectos, autores, grupos activos y las reglas de edición cruzada para modificar o eliminar.',
+                'exportar buzon se asigna inicialmente al rol Administrador. Los demás roles deben recibirlo desde Roles. No se concede eliminar buzon ni se cambian los otros permisos existentes.',
+                'Incluye Consultar listados en Registros: una fila por listado original, sin unir cargas. Ver listado requiere el permiso de detalle; continuar agregando sigue dentro del detalle y requiere editar registros.',
+                'Eliminar un registro o beneficiario requiere un motivo. La bitácora conserva las identidades eliminadas y el motivo en la misma transacción; solo administradores pueden consultarlos. No se rellenan motivos ni datos de eliminaciones anteriores.',
+                'El Excel de beneficiarios incluye Nombre y apellido completo y Fecha de nacimiento junto a Cédula, solo para administradores. Respeta los filtros y conserva los códigos geográficos al final. Los datos históricos faltantes permanecen vacíos.',
+                'birth_date ya debe existir: este modo no repite su actualización ni calcula fechas de nacimiento. No instala todas las migraciones pendientes.',
+                'No se ejecutan seeders, importaciones, correcciones de parroquias, respaldos automáticos ni otras migraciones. No se crean, eliminan, unen ni reclasifican registros, beneficiarios, opiniones o listados durante este mantenimiento.',
+                'No se activa ni se cancela el mantenimiento. Se conservan bloqueos y avisos programados, períodos, cierres, proyectos asignados, logos y enlaces firmados existentes. No cambie APP_KEY ni sobrescriba .env o storage al publicar.',
+                'La migración ya aplicada se omite. Repetir este modo conserva los permisos concedidos o retirados posteriormente.',
+                'Suba todos los archivos actualizados, no solo este controlador: el mantenimiento valida el despliegue, pero no instala el código. Al finalizar use Ctrl + F5, revise Roles y pruebe Buzón público, exportaciones, listados y la confirmación con motivo antes de retirar el bloqueo manualmente.',
+            ];
+        }
         $exitCode = 1;
 
         try {
@@ -1009,6 +1049,11 @@ class TemporaryMaintenanceController extends Controller
                 }
             }
 
+            if ($exitCode === 0 && $buzonRecordsExcelOnly
+                && ! \Spatie\Permission\Models\Permission::where('guard_name', 'web')->where('name', 'exportar buzon')->exists()) {
+                $results[] = 'No se encontró el permiso exportar buzon después de la migración. Revise el historial de migraciones; no se recrearon permisos automáticamente.';
+                $exitCode = 1;
+            }
             if ($exitCode === 0 && class_exists(PermissionRegistrar::class)) {
                 app(PermissionRegistrar::class)->forgetCachedPermissions();
                 $results[] = 'PERMISSION CACHE: caché de roles y permisos limpiada correctamente.';
@@ -1021,6 +1066,102 @@ class TemporaryMaintenanceController extends Controller
         } catch (Throwable $exception) {
             return response('<pre>ERROR: '.e($exception->getMessage()).'</pre>', 500)->header('Cache-Control', 'no-store');
         }
+    }
+
+    protected function buzonRecordsExcelFiles(): array
+    {
+        return array_values(array_unique(array_merge([
+            'database/migrations/2026_11_23_120000_add_buzon_export_permission.php',
+            'app/Http/Controllers/TemporaryMaintenanceController.php', 'routes/web.php', 'routes/maintenance.php',
+            'app/Http/Controllers/PermissionController.php', 'app/Http/Controllers/AuditLogController.php',
+            'app/Http/Controllers/ReportController.php', 'app/Http/Controllers/BeneficiaryReportController.php',
+            'app/Http/Controllers/BuzonController.php', 'app/Services/BuzonDataTable.php',
+            'app/Services/ReportDeletionAudit.php', 'app/Services/ReportContinuation.php',
+            'app/Http/Middleware/RecordAuditLog.php', 'app/Http/Middleware/PrivateBuzonResponse.php',
+            'app/Http/Middleware/ReportPeriodTransaction.php', 'app/Models/AuditLog.php', 'app/Models/Beneficiary.php',
+            'app/Models/BuzonEntry.php', 'app/Models/BuzonList.php', 'app/Models/User.php',
+            'resources/views/layouts/app.blade.php', 'resources/views/reports/index.blade.php',
+            'resources/views/reports/lists.blade.php', 'resources/views/reports/create.blade.php',
+            'resources/views/reports/show.blade.php', 'resources/views/audit-logs/index.blade.php',
+            'resources/views/buzon/index.blade.php', 'resources/views/buzon/public/index.blade.php',
+            'resources/views/buzon/partials/public-link.blade.php', 'resources/views/buzon/partials/entries.blade.php',
+            'resources/views/buzon/partials/entry-actions.blade.php', 'resources/views/buzon/partials/delete-button.blade.php',
+            'public/js/report-deletion.js', 'public/js/buzon-table.js', 'public/js/buzon.js',
+            'public/js/buzon-share-project.js', 'public/js/buzon-public-link.js',
+            'public/js/record-project-filter.js', 'public/js/record-state-filter.js',
+            'public/js/navigation-disclosure.js', 'public/js/period-filter.js', 'public/js/summary-indicator-filter.js',
+            'public/css/buzon.css', 'public/css/audit-log.css', 'public/css/report-datatable.css',
+            'public/assets/images/asonacop/logo.png',
+            'public/vendor/qrcodegen/qrcodegen.js', 'app/Support/PublicBuzonLink.php', 'app/Support/DonorLogo.php',
+            'app/Http/Controllers/PublicBuzonController.php', 'app/Http/Controllers/DonorLogoController.php',
+            'resources/views/reports/partials/period-filter.blade.php',
+            'resources/views/reports/partials/summary-indicator-filter.blade.php',
+        ], array_map(fn ($file) => 'public/vendor/datatables/'.$file, [
+            'dataTables.min.js', 'dataTables.dataTables.min.css', 'dataTables.buttons.min.js', 'buttons.html5.min.js',
+            'buttons.dataTables.min.css', 'dataTables.responsive.min.js', 'responsive.dataTables.min.css',
+            'jszip.min.js', 'pdfmake.min.js', 'vfs_fonts.js',
+        ]))));
+    }
+
+    protected function buzonRecordsExcelMarkers(): array
+    {
+        return [
+            'app/Http/Controllers/BuzonController.php' => ['public function publicIndex', "where('submitted_via_public_link', true)"],
+            'app/Services/BuzonDataTable.php' => ['exportar buzon', 'manageableBy', 'export_type'],
+            'app/Http/Controllers/PermissionController.php' => ['exportar buzon'],
+            'app/Http/Controllers/ReportController.php' => ['public function lists', 'ReportDeletionAudit::class'],
+            'app/Services/ReportDeletionAudit.php' => ['deletion_reason', 'national_id', 'transactionLevel'],
+            'app/Http/Middleware/RecordAuditLog.php' => ['ReportDeletionAudit::REQUEST_ATTRIBUTE'],
+            'app/Models/AuditLog.php' => ['public function deletionDetails'],
+            'app/Http/Controllers/AuditLogController.php' => ['deletionDetails', 'deletion_reason'],
+            'app/Http/Controllers/BeneficiaryReportController.php' => ['Nombre y apellido', 'Fecha de nacimiento', 'beneficiaries.birth_date', 'includePersonalData'],
+            'resources/views/reports/index.blade.php' => ['reports.lists'],
+            'resources/views/reports/lists.blade.php' => ['Ver listado', 'reports.show'],
+            'resources/views/reports/create.blade.php' => ['report-deletion.js', 'deletion_reason'],
+            'resources/views/reports/show.blade.php' => ['report-deletion.js', 'deletion_reason'],
+            'resources/views/audit-logs/index.blade.php' => ['detail.eliminacion', 'Motivo de eliminación', 'person.national_id'],
+            'resources/views/layouts/app.blade.php' => ['sidebarBuzon', 'buzon.public.index'],
+            'resources/views/buzon/index.blade.php' => ['buzon.partials.entries'],
+            'resources/views/buzon/public/index.blade.php' => ['buzon.partials.entries', 'buzon.partials.public-link'],
+            'resources/views/buzon/partials/entries.blade.php' => ['buzon-table.js', 'data-url'],
+            'resources/views/buzon/partials/public-link.blade.php' => ['data-asonacop-logo', 'data-project-logo', 'qrcodegen.js'],
+            'public/js/buzon-table.js' => ['serverSide: true', 'excelHtml5', 'pdfHtml5', 'export_type'],
+            'public/js/report-deletion.js' => ['Motivo de eliminación', 'requestReason'],
+            'routes/web.php' => ["name('public.index')", "name('reports.lists')"],
+        ];
+    }
+
+    protected function buzonRecordsExcelRuntimeAvailable(): bool
+    {
+        if (! $this->groupAuthorScopesAvailable() || ! $this->buzonPublicRuntimeAvailable()) return false;
+        foreach ([
+            \App\Http\Controllers\ReportController::class => ['lists', 'destroy', 'destroyBeneficiary'],
+            \App\Services\ReportDeletionAudit::class => ['reason', 'record'],
+            \App\Models\AuditLog::class => ['deletionDetails'],
+            \App\Services\BuzonDataTable::class => ['response'],
+            \App\Services\ReportContinuation::class => ['allows'],
+        ] as $class => $methods) {
+            foreach ($methods as $method) {
+                if (! method_exists($class, $method) || ! (new \ReflectionMethod($class, $method))->isPublic()) return false;
+            }
+        }
+        return true;
+    }
+
+    protected function buzonRecordsExcelPrerequisitesAvailable(): bool
+    {
+        if (! $this->buzonPublicPrerequisitesAvailable()) return false;
+        foreach ([
+            'beneficiaries' => ['report_id', 'full_name', 'national_id', 'birth_date'],
+            'reports' => ['reporting_period', 'proyecto_id', 'indicador_proyecto_id'],
+            'audit_logs' => ['request_payload', 'user_id', 'user_name', 'route_name', 'status_code'],
+            'buzon_entries' => ['submitted_via_public_link', 'public_recipient_id', 'public_submission_key'],
+            'donantes' => ['logo_path'], 'user_groups' => ['is_active', 'allow_member_editing'],
+        ] as $table => $columns) {
+            if (! \Illuminate\Support\Facades\Schema::hasTable($table)
+                || ! \Illuminate\Support\Facades\Schema::hasColumns($table, $columns)) return false;
+        }
+        return true;
     }
 
     protected function buzonPublicRuntimeAvailable(): bool
@@ -1095,7 +1236,9 @@ class TemporaryMaintenanceController extends Controller
 
     protected function deploymentFileContains(string $path, string $marker): bool
     {
-        return is_file(base_path($path)) && str_contains((string) file_get_contents(base_path($path)), $marker);
+        $file = base_path($path);
+        if (! is_file($file) && str_starts_with($path, 'public/')) $file = public_path(substr($path, 7));
+        return is_file($file) && str_contains((string) file_get_contents($file), $marker);
     }
 
     protected function maintenanceToken(): string
