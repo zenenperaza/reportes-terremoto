@@ -17,6 +17,7 @@ class PermissionController extends Controller
         'crear buzon',
         'editar buzon',
         'eliminar buzon',
+        'exportar buzon',
         'administrar sistema',
         'Recibir notificaciones',
         'coordinar registros',

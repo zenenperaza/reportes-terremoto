@@ -43,21 +43,21 @@ class PublicBuzonTest extends TestCase
 
     public function test_index_exposes_only_assigned_active_projects_and_only_with_create_permission(): void
     {
-        $this->actingAs($this->owner)->get(route('buzon.index'))->assertOk()->assertSee('Enlace público del Buzón')
+        $this->actingAs($this->owner)->get(route('buzon.public.index'))->assertOk()->assertSee('Enlace público del Buzón')
             ->assertSee('data-public-url="'.e($this->url()).'"', false)->assertDontSee('OTHER-PRIVATE')
             ->assertSee('Descargar QR (PNG)')->assertSee('data-public-qr-canvas', false)
             ->assertSee('data-asonacop-logo=', false)->assertSee('assets/images/asonacop/logo.png')
             ->assertSee('vendor/qrcodegen/qrcodegen.js')->assertSee('data-project-code="'.e($this->project->codigo).'"', false);
         $this->project->update(['estatus' => false]);
-        $this->get(route('buzon.index'))->assertOk()->assertSee('No tiene proyectos activos')
+        $this->get(route('buzon.public.index'))->assertOk()->assertSee('No tiene proyectos activos')
             ->assertDontSee('data-public-url=', false);
         $this->owner->revokePermissionTo('crear buzon');
-        $this->get(route('buzon.index'))->assertOk()->assertDontSee('data-buzon-public-link', false);
+        $this->get(route('buzon.public.index'))->assertOk()->assertDontSee('data-buzon-public-link', false);
     }
 
     public function test_share_panel_keeps_project_link_and_qr_in_separate_compact_containers(): void
     {
-        $page = $this->actingAs($this->owner)->get(route('buzon.index'))->assertOk();
+        $page = $this->actingAs($this->owner)->get(route('buzon.public.index'))->assertOk();
         $dom = new \DOMDocument;
         @$dom->loadHTML('<?xml encoding="UTF-8">'.$page->getContent());
         $xpath = new \DOMXPath($dom);
@@ -303,7 +303,7 @@ class PublicBuzonTest extends TestCase
         }
         $group = UserGroup::create(['name' => 'Equipo receptor', 'is_active' => true, 'allow_member_editing' => false]);
         $group->users()->attach([$this->owner->id, $peer->id]);
-        $this->actingAs($this->owner)->get(route('buzon.index'))->assertOk()->assertSee('Enlace público');
+        $this->actingAs($this->owner)->get(route('buzon.public.index'))->assertOk()->assertSee('Enlace público');
         $this->get(route('buzon.show', $entry))->assertOk()->assertSee('SUGERENCIA_PUBLICA_PRIVADA')->assertSee('Responsable del enlace');
         $this->actingAs($outsider)->getJson(route('buzon.show', $entry))->assertNotFound();
         $this->actingAs($peer)->get(route('buzon.show', $entry))->assertOk();

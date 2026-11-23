@@ -22,6 +22,7 @@
                     <form method="post" action="{{ route('reports.destroy', $report) }}" class="report-delete-form">
                         @csrf
                         @method('DELETE')
+                        <input type="hidden" name="deletion_reason" value="">
                         <button class="button button-danger" type="submit"><i class="ri-delete-bin-5-line" aria-hidden="true"></i><span>Eliminar registro</span></button>
                     </form>
                 @endif
@@ -120,6 +121,7 @@
 @endpush
 
 @push('scripts')
+    <script src="{{ asset('js/report-deletion.js') }}?v={{ filemtime(public_path('js/report-deletion.js')) }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         (() => {
@@ -142,26 +144,19 @@
 
             authorizationButton?.addEventListener('click', showAuthorizationAlert);
 
-            deleteForm?.addEventListener('submit', (event) => {
+            let deletionPending = false;
+            deleteForm?.addEventListener('submit', async (event) => {
                 event.preventDefault();
-                const options = {
-                    icon: 'warning',
+                if (deletionPending) return;
+                deletionPending = true;
+                const reason = await window.SiaReportDeletion.requestReason({
                     title: 'Eliminar registro',
                     text: 'Esta acci\u00f3n eliminar\u00e1 el registro, sus beneficiarios y evidencias. No se puede deshacer.',
-                    showCancelButton: true,
-                    confirmButtonText: 'S\u00ed, eliminar',
-                    cancelButtonText: 'Cancelar',
-                    confirmButtonColor: '#b42318',
-                };
-
-                if (typeof Swal === 'undefined') {
-                    if (window.confirm('Eliminar este registro? Esta acci\u00f3n no se puede deshacer.')) deleteForm.submit();
-                    return;
-                }
-
-                Swal.fire(options).then((result) => {
-                    if (result.isConfirmed) deleteForm.submit();
                 });
+                if (reason === null) { deletionPending = false; return; }
+                deleteForm.elements.deletion_reason.value = reason;
+                deleteForm.querySelector('button[type="submit"]').disabled = true;
+                deleteForm.submit();
             });
         })();
     </script>
@@ -265,25 +260,17 @@
                 }));
 
                 document.querySelectorAll('.beneficiary-delete-button').forEach((button) => button.addEventListener('click', async () => {
-                    const confirmation = typeof Swal !== 'undefined'
-                        ? await Swal.fire({
-                            icon: 'warning',
-                            title: 'Eliminar beneficiario',
-                            text: 'Esta acci\u00f3n no se puede deshacer.',
-                            showCancelButton: true,
-                            confirmButtonText: 'S\u00ed, eliminar',
-                            cancelButtonText: 'Cancelar',
-                            confirmButtonColor: '#b42318',
-                        })
-                        : {isConfirmed: window.confirm('Eliminar este beneficiario? Esta acci\u00f3n no se puede deshacer.')};
-
-                    if (!confirmation.isConfirmed) return;
-
+                    if (button.disabled) return;
                     button.disabled = true;
+                    const reason = await window.SiaReportDeletion.requestReason({
+                        title: 'Eliminar beneficiario', text: 'Esta acción no se puede deshacer.',
+                    });
+                    if (reason === null) { button.disabled = false; return; }
                     try {
                         const response = await fetch(`{{ url('/beneficiarios') }}/${button.dataset.beneficiaryId}`, {
                             method: 'DELETE',
-                            headers: {'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content},
+                            headers: {'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content},
+                            body: JSON.stringify({deletion_reason: reason}),
                         });
                         const data = await response.json();
 

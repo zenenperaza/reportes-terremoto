@@ -22,10 +22,32 @@ class BuzonController extends Controller
 
     public function index(Request $request)
     {
+        return $this->entriesIndex($request, false);
+    }
+
+    public function publicIndex(Request $request)
+    {
+        if ($request->user()->can('ver buzon')) return $this->entriesIndex($request, true);
+
+        // Creating/sharing does not grant access to existing opinions or exports.
+        abort_unless($request->user()->can('crear buzon'), 403);
+        abort_if($request->has('draw') || $request->filled('export_type'), 403);
         $projects = $this->projects($request)->with('donante')->get();
-        $publicLinkProjects = $request->user()->can('crear buzon') ? $projects->filter(fn ($project) => $project->estatus)
+        $publicLinkProjects = $this->publicLinks($request, $projects);
+
+        return view('buzon.public.index', compact('publicLinkProjects'));
+    }
+
+    private function publicLinks(Request $request, $projects)
+    {
+        return $request->user()->can('crear buzon') ? $projects->filter(fn ($project) => $project->estatus)
             ->map(fn ($project) => ['project' => $project, 'url' => \App\Support\PublicBuzonLink::url($project, $request->user()),
                 'logo_url' => \App\Support\DonorLogo::url($project->donante)]) : collect();
+    }
+
+    private function entriesIndex(Request $request, bool $publicOnly)
+    {
+        $projects = $this->projects($request)->with('donante')->get();
         $filters = $request->validate([
             'project_ids' => ['nullable', 'array'],
             'project_ids.*' => ['required', 'integer', 'distinct', Rule::in($projects->modelKeys())],
@@ -37,17 +59,23 @@ class BuzonController extends Controller
         $filters += ['project_ids' => [], 'from' => '', 'to' => '', 'opinion' => '', 'feedback_type' => ''];
         $filters['project_ids'] = $filters['project_ids'] ?? [];
         $query = BuzonEntry::visibleTo($request->user())
+            ->when($publicOnly, fn ($query) => $query->where('submitted_via_public_link', true))
             ->when(filled($filters['project_ids']), fn ($query) => $query->whereIn('proyecto_id', $filters['project_ids']))
             ->when(filled($filters['from']), fn ($query) => $query->whereDate('opinion_date', '>=', $filters['from']))
             ->when(filled($filters['to']), fn ($query) => $query->whereDate('opinion_date', '<=', $filters['to']))
             ->when(filled($filters['opinion']), fn ($query) => $query->where('opinion', $filters['opinion']))
             ->when(filled($filters['feedback_type']), fn ($query) => $query->where('feedback_type', $filters['feedback_type']));
+        if ($request->has('draw') || $request->filled('export_type')) {
+            return app(\App\Services\BuzonDataTable::class)->response($request, $query);
+        }
+        $publicLinkProjects = $publicOnly ? $this->publicLinks($request, $projects) : collect();
         $counts = (clone $query)->selectRaw('opinion, COUNT(*) as total')->groupBy('opinion')->pluck('total', 'opinion');
         $entries = $query->with(['proyecto', 'creator', 'publicRecipient'])->latest('opinion_date')->latest('id')->paginate(20)->withQueryString();
         $visibleListIds = BuzonList::visibleTo($request->user())->whereIn('id', $entries->pluck('buzon_list_id')->filter())->pluck('id')->all();
         $manageableEntryIds = ($request->user()->can('editar buzon') || $request->user()->can('eliminar buzon'))
             ? BuzonEntry::manageableBy($request->user())->whereKey($entries->modelKeys())->pluck('id')->all() : [];
-        return view('buzon.index', compact('projects', 'publicLinkProjects', 'filters', 'counts', 'entries', 'manageableEntryIds', 'visibleListIds'));
+        $entriesRoute = $publicOnly ? 'buzon.public.index' : 'buzon.index';
+        return view($publicOnly ? 'buzon.public.index' : 'buzon.index', compact('projects', 'publicLinkProjects', 'filters', 'counts', 'entries', 'manageableEntryIds', 'visibleListIds', 'entriesRoute', 'publicOnly'));
     }
 
     public function lists(Request $request)

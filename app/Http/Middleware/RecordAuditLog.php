@@ -33,6 +33,9 @@ class RecordAuditLog
 
     private function store(Request $request, ?User $user, int $statusCode, int $startedAt): void
     {
+        if ($statusCode < 400 && $request->attributes->has(\App\Services\ReportDeletionAudit::REQUEST_ATTRIBUTE)) {
+            return;
+        }
         // Las páginas públicas anónimas no representan acciones de un usuario del sistema.
         if (! $user) {
             return;
@@ -135,6 +138,10 @@ class RecordAuditLog
 
     private function requestPayload(Request $request): ?array
     {
+        // Failed attempts may retain their reason, never a client-supplied identity snapshot.
+        if ($request->routeIs('reports.destroy', 'beneficiaries.destroy')) {
+            return $this->sanitize($request->only('deletion_reason'));
+        }
         // El historial del expediente conserva la acción y los campos modificados.
         // No duplicar datos personales ni búsquedas de casos en la bitácora general.
         if ($request->routeIs('cases.*', 'families.*', 'buzon.*', 'beneficiaries.lookup', 'beneficiaries.project-recurrence', 'reports.continuation-recurrence', 'reports.continuation-lookup')) {

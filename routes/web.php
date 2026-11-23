@@ -82,6 +82,7 @@ Route::middleware('guest')->group(function (): void {
 Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'automatic.backup'])->group(function (): void {
     Route::prefix('buzon')->name('buzon.')->middleware(\App\Http\Middleware\PrivateBuzonResponse::class)->group(function (): void {
         Route::get('/', [BuzonController::class, 'index'])->middleware('permission:ver buzon')->name('index');
+        Route::get('/publico', [BuzonController::class, 'publicIndex'])->middleware('permission:ver buzon|crear buzon')->name('public.index');
         Route::get('/nuevo', [BuzonController::class, 'create'])->middleware('permission:crear buzon')->name('create');
         Route::get('/listados', [BuzonController::class, 'lists'])->middleware('permission:ver buzon')->name('lists');
         Route::get('/listados/{listing}', [BuzonController::class, 'showList'])->middleware('permission:ver buzon')->name('lists.show');
@@ -252,6 +253,7 @@ Route::middleware(['auth', EnsureActiveUser::class, 'system.maintenance', 'autom
 
     Route::get('/reportes/exportar', [ReportController::class, 'export'])->name('reports.export');
     Route::get('/reportes', [ReportController::class, 'index'])->middleware('permission:solo ver registros')->name('reports.index');
+    Route::get('/reportes/listados', [ReportController::class, 'lists'])->middleware('permission:solo ver registros')->name('reports.lists');
     Route::get('/reportes/nuevo', [ReportController::class, 'create'])->middleware('permission:registrar actividad')->name('reports.create');
     Route::post('/reportes', [ReportController::class, 'store'])->middleware(['permission:registrar actividad', ReportPeriodTransaction::class])->name('reports.store');
     Route::get('/reportes/{report}/continuar', [ReportController::class, 'resume'])

@@ -20,6 +20,7 @@ use App\Models\Proyecto;
 use App\Models\User;
 use App\Services\ReportDataTable;
 use App\Services\ReportContinuation;
+use App\Services\ReportDeletionAudit;
 use App\Support\ReportPeriod;
 use App\Support\SummaryIndicatorFilter;
 use Illuminate\Database\Eloquent\Builder;
@@ -100,6 +101,50 @@ class ReportController extends Controller
             'filters' => $request->only(['project_ids', 'state_id', 'reported', 'from', 'to', 'user_id', 'reporting_period', 'servicio_actividad_id', 'summary_indicator_ids']),
             'summaryIndicatorOptions' => SummaryIndicatorFilter::options($request->user()),
             'periodOptions' => ReportPeriod::options($request->user()->constrainVisibleReports(Report::query())),
+        ]);
+    }
+
+    public function lists(Request $request): View
+    {
+        $projectOptions = $this->normalizeProjectFilter($request);
+        $this->normalizeStateFilter($request);
+        $request->merge(['summary_indicator_ids' => SummaryIndicatorFilter::selection($request)]);
+        $request->validate([
+            'user_id' => ['nullable', 'integer', 'min:1'], 'reporting_period' => ReportPeriod::rules(),
+            'servicio_actividad_id' => ['nullable', 'integer', 'exists:servicio_actividad,id'],
+            'reported' => ['nullable', Rule::in(['0', '1'])],
+            'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
+            'q' => ['nullable', 'string', 'max:200'],
+        ], ['to.after_or_equal' => 'La fecha hasta no puede ser anterior a la fecha desde.']);
+        if ($request->filled('servicio_actividad_id')) abort_unless($request->user()->can('ver detalle de registros'), 403);
+
+        $query = $this->filteredReports($request);
+        $search = trim((string) $request->input('q', ''));
+        if ($search !== '') {
+            $query->where(function (Builder $match) use ($search): void {
+                $match->where('place_name', 'like', '%'.$search.'%')
+                    ->orWhereHas('proyecto', fn (Builder $project) => $project->where('codigo', 'like', '%'.$search.'%')
+                        ->orWhere('nombre_alias', 'like', '%'.$search.'%')->orWhere('descripcion', 'like', '%'.$search.'%'))
+                    ->orWhereHas('indicadorProyecto.indicador', fn (Builder $indicator) => $indicator->where('codigo', 'like', '%'.$search.'%')
+                        ->orWhere('descripcion', 'like', '%'.$search.'%'))
+                    ->orWhereHas('activity', fn (Builder $activity) => $activity->where('code', 'like', '%'.$search.'%')->orWhere('title', 'like', '%'.$search.'%'))
+                    ->orWhereHas('user', fn (Builder $user) => $user->where('name', 'like', '%'.$search.'%'));
+                if (preg_match('/^#?\d+$/', $search)) $match->orWhere('reports.id', (int) ltrim($search, '#'));
+            });
+        }
+        // Each saved Report already is a list. Never regroup or merge historical loads.
+        $reports = $query->with(['proyecto', 'indicadorProyecto.indicador', 'activity', 'user'])
+            ->withCount('beneficiaries')->withCount(['beneficiaries as unreported_beneficiaries_count' => fn (Builder $people) => $people->whereNull('reported_at')])
+            ->latest('created_at')->latest('id')->paginate(20)->withQueryString();
+        $visible = $request->user()->constrainVisibleReports(Report::query());
+
+        return view('reports.lists', [
+            'reports' => $reports, 'projectOptions' => $projectOptions,
+            'states' => State::orderBy('name')->get(['id', 'name']),
+            'periodOptions' => ReportPeriod::options($visible),
+            'registeringUsers' => User::withTrashed()->whereIn('id', (clone $visible)->select('reports.user_id'))->orderBy('name')->get(['id', 'name']),
+            'summaryIndicatorOptions' => SummaryIndicatorFilter::options($request->user()),
+            'filters' => $request->only(['project_ids', 'state_id', 'reported', 'from', 'to', 'user_id', 'reporting_period', 'servicio_actividad_id', 'summary_indicator_ids', 'q']),
         ]);
     }
 
@@ -467,38 +512,34 @@ class ReportController extends Controller
 
     public function destroyBeneficiary(Request $request, Beneficiary $beneficiary): JsonResponse
     {
-        $report = $beneficiary->report;
-        $this->ensureEditable($request, $report, 'eliminar beneficiarios');
+        return DB::transaction(function () use ($request, $beneficiary): JsonResponse {
+            $report = Report::whereKey($beneficiary->report_id)->lockForUpdate()->firstOrFail();
+            $this->ensureEditable($request, $report, 'eliminar beneficiarios');
+            $person = Beneficiary::whereKey($beneficiary->id)->where('report_id', $report->id)->lockForUpdate()->firstOrFail();
+            $lastPerson = $report->beneficiaries()->count() === 1;
+            abort_if($lastPerson && ! $request->user()->can('eliminar registros'),
+                403, 'Para eliminar el último beneficiario también necesita el permiso de eliminar registros.');
+            abort_if($lastPerson && ! $request->user()->isAdministrator(),
+                403, 'Solo un administrador puede eliminar el último beneficiario, ya que esta acción elimina el registro completo.');
 
-        abort_if($report->beneficiaries()->count() === 1 && ! $request->user()->can('eliminar registros'),
-            403, 'Para eliminar el último beneficiario también necesita el permiso de eliminar registros.');
+            $audit = app(ReportDeletionAudit::class);
+            $reason = $audit->reason($request);
+            $person->delete();
+            if ($lastPerson) $report->delete();
+            $summary = $lastPerson ? $this->emptyBeneficiarySummary() : $this->syncBeneficiarySummary($report);
+            $audit->record($request, $report, collect([$person]), $reason, $lastPerson);
 
-        if ($report->beneficiaries()->count() === 1 && ! $request->user()->isAdministrator()) {
-            return response()->json([
-                'message' => 'Solo un administrador puede eliminar el último beneficiario, ya que esta acción elimina el registro completo.',
-            ], 403);
-        }
-
-        $beneficiary->delete();
-
-        if (! $report->beneficiaries()->exists()) {
-            Storage::disk('local')->deleteDirectory("reports/{$report->id}");
-            $report->delete();
-
+            if ($lastPerson) Storage::disk('local')->deleteDirectory("reports/{$report->id}");
             \App\Support\SystemNotifications::reportChange($request->user(), $report, 'deleted');
-            return response()->json([
-                'message' => 'Beneficiario eliminado. Como era el único, también se eliminó el registro.',
-                'report_deleted' => true,
-                'summary' => $this->emptyBeneficiarySummary(),
-            ]);
-        }
 
-        \App\Support\SystemNotifications::reportChange($request->user(), $report, 'deleted');
-        return response()->json([
-            'message' => 'Beneficiario eliminado correctamente.',
-            'report_deleted' => false,
-            'summary' => $this->syncBeneficiarySummary($report),
-        ]);
+            return response()->json([
+                'message' => $lastPerson
+                    ? 'Beneficiario eliminado. Como era el único, también se eliminó el registro.'
+                    : 'Beneficiario eliminado correctamente.',
+                'report_deleted' => $lastPerson,
+                'summary' => $summary,
+            ]);
+        });
     }
 
     public function show(Request $request, Report $report): View
@@ -553,8 +594,14 @@ class ReportController extends Controller
 
         $reportId = $report->id;
 
-        DB::transaction(function () use ($report): void {
+        DB::transaction(function () use ($request, $report): void {
+            $report = Report::whereKey($report->id)->lockForUpdate()->firstOrFail();
+            ReportPeriod::assertOpen($report->reporting_period, true);
+            $audit = app(ReportDeletionAudit::class);
+            $reason = $audit->reason($request);
+            $people = $report->beneficiaries()->lockForUpdate()->get(['id', 'full_name', 'national_id']);
             $report->delete();
+            $audit->record($request, $report, $people, $reason, true);
         });
 
         Storage::disk('local')->deleteDirectory("reports/{$reportId}");

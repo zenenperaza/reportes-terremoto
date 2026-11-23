@@ -27,6 +27,7 @@
         </p>
     </div>
     <div class="heading-actions">
+        <a class="button button-secondary" href="{{ route('reports.lists', $filters) }}">Consultar listados</a>
         @if (auth()->user()->isAdministrator())
             <a class="button button-secondary" href="{{ route('reports.export', request()->query()) }}">Exportar CSV</a>
         @endif

@@ -309,6 +309,9 @@ class TemporaryMaintenanceController extends Controller
                 'app/Support/PublicBuzonLink.php', 'app/Support/DonorLogo.php',
                 'app/Providers/AppServiceProvider.php', 'bootstrap/app.php',
                 'resources/views/buzon/index.blade.php', 'resources/views/buzon/form.blade.php',
+                'resources/views/buzon/public/index.blade.php', 'resources/views/buzon/partials/public-link.blade.php',
+                'resources/views/buzon/partials/entries.blade.php', 'resources/views/buzon/partials/entry-actions.blade.php',
+                'app/Services/BuzonDataTable.php', 'public/js/buzon-table.js',
                 'resources/views/buzon/partials/feedback-type.blade.php',
                 'resources/views/buzon/partials/demographic-radios.blade.php',
                 'resources/views/buzon/public/form.blade.php', 'resources/views/buzon/public/unavailable.blade.php',
@@ -349,7 +352,10 @@ class TemporaryMaintenanceController extends Controller
                 'app/Http/Middleware/PublicBuzonAccess.php' => ['hasValidSignature', 'maintenanceEnabled'],
                 'app/Providers/AppServiceProvider.php' => ["RateLimiter::for('public-buzon-submit'"],
                 'bootstrap/app.php' => ["routeIs('public-buzon.*')", 'buzon.public.unavailable', 'public_buzon_error'],
-                'resources/views/buzon/index.blade.php' => ['data-asonacop-logo', 'data-project-logo', 'data-donor-name', 'data-public-donor-preview', 'buzon-share-project.js', 'buzon-public-link.js', 'qrcodegen.js', 'Enlace externo'],
+                'resources/views/buzon/index.blade.php' => ['buzon.partials.entries'],
+                'resources/views/buzon/public/index.blade.php' => ['buzon.partials.public-link', 'buzon.partials.entries'],
+                'resources/views/buzon/partials/public-link.blade.php' => ['data-asonacop-logo', 'data-project-logo', 'data-donor-name', 'data-public-donor-preview', 'buzon-share-project.js', 'buzon-public-link.js', 'qrcodegen.js'],
+                'resources/views/buzon/partials/entries.blade.php' => ['Enlace externo', 'buzon-table.js', 'data-url'],
                 'resources/views/donantes/create.blade.php' => ['multipart/form-data'],
                 'resources/views/donantes/edit.blade.php' => ['multipart/form-data'],
                 'resources/views/donantes/form.blade.php' => ['Logo del donante', 'remove_logo'],
@@ -1020,6 +1026,7 @@ class TemporaryMaintenanceController extends Controller
     protected function buzonPublicRuntimeAvailable(): bool
     {
         foreach ([
+            \App\Http\Controllers\BuzonController::class => ['publicIndex'],
             \App\Http\Controllers\PublicBuzonController::class => ['show', 'store'],
             \App\Http\Controllers\DonorLogoController::class => ['show'],
             \App\Http\Requests\SavePublicBuzonEntryRequest::class => ['authorize', 'rules'],

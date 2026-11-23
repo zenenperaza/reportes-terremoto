@@ -109,8 +109,20 @@
         <div id="scrollbar"><div class="container-fluid"><ul class="navbar-nav" id="navbar-nav">
             <li class="menu-title"><span>Principal</span></li>
             <li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}"><i class="ri-dashboard-2-line"></i><span>Panel</span></a></li>
-            @can('solo ver registros')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('reports.index', 'reports.show', 'reports.edit', 'reports.create') ? 'active' : '' }}" href="{{ route('reports.index') }}"><i class="ri-file-list-3-line"></i><span>Registros</span></a></li>@endcan
-            @canany(['ver buzon', 'crear buzon'])<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('buzon.*') ? 'active' : '' }}" href="{{ route(auth()->user()->can('ver buzon') ? 'buzon.index' : 'buzon.create') }}"><i class="ri-inbox-line" aria-hidden="true"></i><span>Buzón</span></a></li>@endcanany
+            @can('solo ver registros')<li class="nav-item"><a class="nav-link menu-link {{ request()->routeIs('reports.index', 'reports.lists', 'reports.show', 'reports.edit', 'reports.create') ? 'active' : '' }}" href="{{ route('reports.index') }}"><i class="ri-file-list-3-line"></i><span>Registros</span></a></li>@endcan
+            @canany(['ver buzon', 'crear buzon'])
+                <li class="nav-item">
+                    <a class="nav-link menu-link collapsed {{ request()->routeIs('buzon.*') ? 'active' : '' }}" href="#sidebarBuzon" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarBuzon"><i class="ri-inbox-line" aria-hidden="true"></i><span>Buzón</span></a>
+                    <div class="collapse menu-dropdown" id="sidebarBuzon" data-bs-parent="#navbar-nav"><ul class="nav nav-sm flex-column">
+                        @can('ver buzon')
+                            <li class="nav-item"><a class="nav-link {{ request()->routeIs('buzon.index', 'buzon.show', 'buzon.edit') ? 'active' : '' }}" href="{{ route('buzon.index') }}">Opiniones registradas</a></li>
+                            <li class="nav-item"><a class="nav-link {{ request()->routeIs('buzon.lists', 'buzon.lists.*') ? 'active' : '' }}" href="{{ route('buzon.lists') }}">Consultar listados</a></li>
+                        @endcan
+                        @can('crear buzon')<li class="nav-item"><a class="nav-link {{ request()->routeIs('buzon.create') ? 'active' : '' }}" href="{{ route('buzon.create') }}">Registrar opinión</a></li>@endcan
+                        <li class="nav-item"><a class="nav-link {{ request()->routeIs('buzon.public.*') ? 'active' : '' }}" href="{{ route('buzon.public.index') }}">Buzón público</a></li>
+                    </ul></div>
+                </li>
+            @endcanany
             @php($reportsMenuOpen = request()->routeIs('beneficiaries.summary', 'general-reports.*', 'indicator-reports.*', 'servicios-programados.*'))
             @if(Route::has('cases.index') && auth()->user()->isAdministrator())
                 @can('ver casos')

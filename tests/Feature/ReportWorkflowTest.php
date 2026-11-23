@@ -356,7 +356,7 @@ class ReportWorkflowTest extends TestCase
         $this->actingAs($reporter)->delete(route('reports.destroy', $report))->assertForbidden();
         $this->assertDatabaseHas('reports', ['id' => $report->id]);
 
-        $this->actingAs($reporter)->deleteJson(route('beneficiaries.destroy', $secondBeneficiary))
+        $this->actingAs($reporter)->deleteJson(route('beneficiaries.destroy', $secondBeneficiary), ['deletion_reason' => 'Carga de prueba'])
             ->assertOk()
             ->assertJsonPath('report_deleted', false);
         $this->assertDatabaseMissing('beneficiaries', ['id' => $secondBeneficiary->id]);
@@ -370,7 +370,7 @@ class ReportWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee(route('reports.destroy', $report), false);
 
-        $this->actingAs($administrator)->delete(route('reports.destroy', $report))
+        $this->actingAs($administrator)->delete(route('reports.destroy', $report), ['deletion_reason' => 'Listado de prueba'])
             ->assertRedirect(route('reports.index'))
             ->assertSessionHas('success', 'El registro y sus beneficiarios fueron eliminados correctamente.');
 

@@ -50,6 +50,7 @@ class AuditLogController extends Controller
                 'status_code' => $log->status_code,
                 'ip_address' => $log->ip_address,
                 'duration_ms' => $log->duration_ms,
+                'deletion_reason' => $log->deletionDetails()['reason'] ?? null,
             ]);
 
         return response()->json([
@@ -57,7 +58,7 @@ class AuditLogController extends Controller
             'recordsTotal' => $total,
             'recordsFiltered' => $filtered,
             'data' => $records,
-        ]);
+        ])->header('Cache-Control', 'private, no-store');
     }
 
     public function show(AuditLog $auditLog): JsonResponse
@@ -76,7 +77,8 @@ class AuditLogController extends Controller
             'ip' => $auditLog->ip_address,
             'navegador' => $auditLog->user_agent,
             'datos' => $auditLog->request_payload,
-        ]);
+            'eliminacion' => $auditLog->deletionDetails(),
+        ])->header('Cache-Control', 'private, no-store');
     }
 
     private function applyFilters(Builder $query, Request $request): void
@@ -90,6 +92,11 @@ class AuditLogController extends Controller
                     ->orWhere('route_name', 'like', "%{$search}%")
                     ->orWhere('path', 'like', "%{$search}%")
                     ->orWhere('ip_address', 'like', "%{$search}%");
+                // JSON may encode accents as Unicode escapes. Search both representations.
+                foreach (array_unique([$search, substr(json_encode($search, JSON_THROW_ON_ERROR), 1, -1)]) as $text) {
+                    $pattern = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $text).'%';
+                    $searchQuery->orWhereRaw("request_payload LIKE ? ESCAPE '!'", [$pattern]);
+                }
             });
         }
 

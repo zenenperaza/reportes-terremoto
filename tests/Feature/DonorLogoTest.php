@@ -111,7 +111,7 @@ class DonorLogoTest extends TestCase
         $this->actingAs($reporter)->getJson($url)->assertNotFound();
         $reporter->givePermissionTo(['ver buzon', 'crear buzon']);
         $this->get($url)->assertOk()->assertHeader('Content-Type', 'image/png');
-        $this->get(route('buzon.index'))->assertOk()->assertSee('data-project-logo="'.e($url).'"', false);
+        $this->get(route('buzon.public.index'))->assertOk()->assertSee('data-project-logo="'.e($url).'"', false);
         $reporter->projects()->detach($project);
         $otherDonor = Donante::create(['nombre' => 'Otro donante', 'estatus' => true]);
         $reporter->projects()->attach($this->project($otherDonor, 'OTHER'));
@@ -130,7 +130,7 @@ class DonorLogoTest extends TestCase
         $third = $this->project($other, 'THIRD');
         $url = DonorLogo::url($donor);
         $firstLink = \App\Support\PublicBuzonLink::url($first, $this->admin);
-        $this->get(route('buzon.index'))->assertOk()->assertSee('data-project-logo="'.e($url).'"', false);
+        $this->get(route('buzon.public.index'))->assertOk()->assertSee('data-project-logo="'.e($url).'"', false);
         $this->assertSame($url, DonorLogo::url($first->donante));
         $this->assertSame($url, DonorLogo::url($second->donante));
         $this->assertNull(DonorLogo::url($third->donante));
@@ -138,7 +138,7 @@ class DonorLogoTest extends TestCase
             ->assertSessionHasNoErrors()->assertRedirect();
         $newUrl = DonorLogo::url($donor->fresh());
         $this->assertNotSame($url, $newUrl);
-        $html = $this->get(route('buzon.index'))->assertOk()->getContent();
+        $html = $this->get(route('buzon.public.index'))->assertOk()->getContent();
         $this->assertSame(2, substr_count($html, 'data-project-logo="'.e($newUrl).'"'));
         $this->assertSame(2, substr_count($html, 'data-donor-name="'.e($donor->nombre).'"'));
         $this->assertStringContainsString('data-public-donor-preview', $html);

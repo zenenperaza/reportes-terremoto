@@ -141,7 +141,7 @@ class BeneficiaryReportController extends Controller
 
         $filters = $this->validatedFilters($request);
         $spreadsheet = new Spreadsheet;
-        $includeNationalId = $request->user()->isAdministrator();
+        $includePersonalData = $request->user()->isAdministrator();
         $worksheet = $spreadsheet->getActiveSheet();
         $worksheet->setTitle('Beneficiarios');
 
@@ -151,9 +151,11 @@ class BeneficiaryReportController extends Controller
             'Detalles adicionales de la actividad', 'Fecha de atención', 'Edad', 'Sexo', 'Discapacidad', 'Indígena',
             'Embarazada o lactante', 'Recurrente', 'Fecha de reporte', 'Fecha de inclusión', 'Usuario', 'Período',
         ];
-        if ($includeNationalId) {
-            $headers[] = 'Cédula';
+        if ($includePersonalData) {
+            array_push($headers, 'Cédula', 'Nombre y apellido', 'Fecha de nacimiento');
         }
+        $dateColumns = [14 => 'dd/mm/yyyy', 21 => 'dd/mm/yyyy', 22 => 'dd/mm/yyyy hh:mm'];
+        if ($includePersonalData) $dateColumns[array_search('Fecha de nacimiento', $headers, true)] = 'dd/mm/yyyy';
         $summaryCodeColumn = Coordinate::stringFromColumnIndex(array_search('Código del Indicador Resumen', $headers, true) + 1);
         $locationCodeFirstColumn = Coordinate::stringFromColumnIndex(count($headers) + 1);
         array_push($headers, 'Código de estado', 'Código de municipio', 'Código de parroquia');
@@ -178,8 +180,8 @@ class BeneficiaryReportController extends Controller
         ]);
 
         $widths = [8, 18, 20, 18, 26, 30, 13, 13, 22, 24, 24, 30, 48, 48, 16, 10, 16, 18, 18, 22, 14, 18, 20, 28, 24];
-        if ($includeNationalId) {
-            $widths[] = 20;
+        if ($includePersonalData) {
+            array_push($widths, 20, 35, 18);
         }
         array_push($widths, 18, 22, 22);
         foreach ($widths as $index => $width) {
@@ -216,8 +218,8 @@ class BeneficiaryReportController extends Controller
                 $beneficiary->user_name ?: trim("{$beneficiary->reporter_first_name} {$beneficiary->reporter_last_name}"),
                 ReportPeriod::label($beneficiary->reporting_period),
             ];
-            if ($includeNationalId) {
-                $values[] = $beneficiary->national_id;
+            if ($includePersonalData) {
+                array_push($values, $beneficiary->national_id, $beneficiary->full_name, $this->excelDate($beneficiary->birth_date));
             }
             array_push($values, $beneficiary->state_code, $beneficiary->municipality_code, $beneficiary->parish_code);
 
@@ -228,7 +230,7 @@ class BeneficiaryReportController extends Controller
                     $worksheet->setCellValue($cell, (int) $value);
                 } elseif (in_array($index, [6, 7], true) && $value !== null && $value !== '') {
                     $worksheet->setCellValue($cell, (float) $value);
-                } elseif (in_array($index, [14, 21, 22], true) && $value !== null) {
+                } elseif (array_key_exists($index, $dateColumns) && $value !== null) {
                     $worksheet->setCellValue($cell, $value);
                 } else {
                     $worksheet->setCellValueExplicit($cell, $this->spreadsheetText($value), DataType::TYPE_STRING);
@@ -240,10 +242,11 @@ class BeneficiaryReportController extends Controller
 
         $lastDataRow = max(2, $rowNumber - 1);
         $worksheet->getStyle("A2:{$lastColumn}{$lastDataRow}")->getAlignment()->setVertical(Alignment::VERTICAL_TOP)->setWrapText(true);
-        $worksheet->getStyle("O2:O{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
-        $worksheet->getStyle("V2:V{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
-        $worksheet->getStyle("W2:W{$lastDataRow}")->getNumberFormat()->setFormatCode('dd/mm/yyyy hh:mm');
-        if ($includeNationalId) {
+        foreach ($dateColumns as $index => $format) {
+            $column = Coordinate::stringFromColumnIndex($index + 1);
+            $worksheet->getStyle("{$column}2:{$column}{$lastDataRow}")->getNumberFormat()->setFormatCode($format);
+        }
+        if ($includePersonalData) {
             $worksheet->getStyle("Z2:Z{$lastDataRow}")->getNumberFormat()->setFormatCode('@');
         }
         $worksheet->getStyle("{$summaryCodeColumn}2:{$summaryCodeColumn}{$lastDataRow}")->getNumberFormat()->setFormatCode('@');
@@ -562,7 +565,7 @@ class BeneficiaryReportController extends Controller
             ->leftJoin('indicadores as export_indicators', 'export_indicator_projects.indicador_id', '=', 'export_indicators.id')
             ->leftJoin('users as export_users', 'export_reports.user_id', '=', 'export_users.id')
             ->select([
-                'beneficiaries.id as beneficiary_id', 'beneficiaries.full_name', 'beneficiaries.age', 'beneficiaries.sex',
+                'beneficiaries.id as beneficiary_id', 'beneficiaries.age', 'beneficiaries.sex',
                 'beneficiaries.phone', 'beneficiaries.disability', 'beneficiaries.ethnicity',
                 'beneficiaries.pregnant_lactating', 'beneficiaries.is_recurrent', 'beneficiaries.reported_at',
                 'beneficiaries.created_at as beneficiary_created_at', 'export_states.name as state_name',
@@ -578,7 +581,7 @@ class BeneficiaryReportController extends Controller
                 'export_reports.activity_details', 'export_reports.report_date', 'export_users.name as user_name',
                 'export_reports.reporter_first_name', 'export_reports.reporter_last_name', 'export_reports.reporting_period',
             ])
-            ->when($request->user()->isAdministrator(), fn (Builder $query) => $query->addSelect('beneficiaries.national_id'))
+            ->when($request->user()->isAdministrator(), fn (Builder $query) => $query->addSelect('beneficiaries.national_id', 'beneficiaries.full_name', 'beneficiaries.birth_date'))
             ->orderByDesc('export_reports.report_date')
             ->orderBy('export_states.name')
             ->orderBy('export_municipalities.name')

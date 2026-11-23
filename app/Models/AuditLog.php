@@ -36,4 +36,15 @@ class AuditLog extends Model
     {
         return $this->belongsTo(User::class)->withTrashed();
     }
+
+    public function deletionDetails(): ?array
+    {
+        if ($this->method !== 'DELETE' || $this->status_code < 200 || $this->status_code >= 400
+            || ! in_array($this->route_name, ['reports.destroy', 'beneficiaries.destroy'], true)) {
+            return null;
+        }
+
+        $details = $this->request_payload['deletion'] ?? null;
+        return is_array($details) ? $details : null;
+    }
 }

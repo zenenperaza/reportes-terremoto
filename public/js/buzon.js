@@ -1,5 +1,7 @@
 document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('form[data-buzon-delete]').forEach(form => {
+        // The DataTable delegates confirmation for dynamically rendered rows.
+        if (form.closest?.('#buzon-table') && typeof window.DataTable !== 'undefined') return;
         form.addEventListener('submit', event => {
             if (!window.confirm('¿Eliminar este formulario del Buzón? Esta acción es permanente y no se puede deshacer.')) {
                 event.preventDefault();

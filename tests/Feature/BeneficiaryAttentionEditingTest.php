@@ -126,13 +126,13 @@ class BeneficiaryAttentionEditingTest extends TestCase
         PlaceName::where('name', 'Lugar 1')->delete();
         $this->putJson(route('beneficiaries.update-attention', $first), $original + ['beneficiary' => $this->person($first)])
             ->assertStatus($editPerson ? 200 : 403);
-        $this->deleteJson(route('beneficiaries.destroy', $first))->assertStatus($deletePerson ? 200 : 403);
+        $this->deleteJson(route('beneficiaries.destroy', $first), ['deletion_reason' => 'Prueba de permisos'])->assertStatus($deletePerson ? 200 : 403);
         if ($deletePerson) {
             $this->assertDatabaseHas('beneficiaries', ['id' => $second->id]);
             $this->deleteJson(route('beneficiaries.destroy', $second))->assertForbidden();
             $this->assertDatabaseHas('reports', ['id' => $report->id]);
         }
-        $this->delete(route('reports.destroy', $report))->assertStatus($deleteReport ? 302 : 403);
+        $this->delete(route('reports.destroy', $report), ['deletion_reason' => 'Prueba de permisos'])->assertStatus($deleteReport ? 302 : 403);
     }
 
     public function test_group_and_individual_forms_have_distinct_scopes_and_keep_saved_location(): void

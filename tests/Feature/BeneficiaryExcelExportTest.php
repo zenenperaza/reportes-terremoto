@@ -110,7 +110,7 @@ class BeneficiaryExcelExportTest extends TestCase
             $this->assertSame('Período', $worksheet->getCell('Y1')->getValue());
             $this->assertSame('Octubre 2026', $worksheet->getCell('Y2')->getValue());
             $this->assertSame(DataType::TYPE_STRING, $worksheet->getCell('Y2')->getDataType());
-            $this->assertSame('A1:AC1', $worksheet->getAutoFilter()->getRange());
+            $this->assertSame('A1:AE1', $worksheet->getAutoFilter()->getRange());
             $this->assertSame('Código del Indicador Resumen', $worksheet->getCell('L1')->getValue());
             $this->assertSame('00015', $worksheet->getCell('L2')->getValue());
             $this->assertSame(DataType::TYPE_STRING, $worksheet->getCell('L2')->getDataType());
@@ -119,7 +119,7 @@ class BeneficiaryExcelExportTest extends TestCase
             $this->assertSame(12, $worksheet->getCell('P2')->getValue());
             $this->assertSame(DataType::TYPE_NUMERIC, $worksheet->getCell('P2')->getDataType());
             $this->assertSame('Mujer', $worksheet->getCell('Q2')->getValue());
-            foreach (['AA' => ['Código de estado', 'VE24'], 'AB' => ['Código de municipio', 'VE2401'], 'AC' => ['Código de parroquia', 'VE240101']] as $column => [$header, $value]) {
+            foreach (['AC' => ['Código de estado', 'VE24'], 'AD' => ['Código de municipio', 'VE2401'], 'AE' => ['Código de parroquia', 'VE240101']] as $column => [$header, $value]) {
                 $this->assertSame($header, $worksheet->getCell($column.'1')->getValue());
                 $this->assertSame($value, $worksheet->getCell($column.'2')->getValue());
                 $this->assertSame(DataType::TYPE_STRING, $worksheet->getCell($column.'2')->getDataType());
@@ -228,7 +228,7 @@ class BeneficiaryExcelExportTest extends TestCase
         $report = $this->reportWithNationalIds($admin);
         $this->actingAs($admin);
         $sheet = $this->exportWorksheet(['reported' => '']);
-        $this->assertSame('AC', $sheet->getHighestDataColumn());
+        $this->assertSame('AE', $sheet->getHighestDataColumn());
         $this->assertSame('', (string) $sheet->getCell('L2')->getValue());
         $this->assertSame('000987654', $sheet->getCell('Z2')->getValue());
         $this->assertSame('', (string) $sheet->getCell('Z3')->getValue());
@@ -245,7 +245,8 @@ class BeneficiaryExcelExportTest extends TestCase
             Role::findOrCreate($role, 'web');
             $user = User::factory()->create(['role' => $role, 'countrywide_access' => true]);
             $user->givePermissionTo(['exportar registros excel', 'ver detalle de registros']);
-            $this->reportWithNationalIds($user);
+            $report = $this->reportWithNationalIds($user);
+            $report->beneficiaries()->first()->update(['full_name' => 'PERSONA NO AUTORIZADA', 'birth_date' => '2013-04-05']);
             $this->actingAs($user);
             $sheet = $this->exportWorksheet(['reported' => '', 'include_national_id' => '1', 'is_admin' => '1']);
             $this->assertSame('AB', $sheet->getHighestDataColumn());
@@ -258,6 +259,9 @@ class BeneficiaryExcelExportTest extends TestCase
             }
             $contents = json_encode($sheet->toArray(), JSON_UNESCAPED_UNICODE);
             $this->assertStringNotContainsString('Cédula', $contents);
+            $this->assertStringNotContainsString('Nombre y apellido', $contents);
+            $this->assertStringNotContainsString('Fecha de nacimiento', $contents);
+            $this->assertStringNotContainsString('PERSONA NO AUTORIZADA', $contents);
             $this->assertStringNotContainsString('000987654', $contents);
             $this->assertStringNotContainsString('=1+1', $contents);
             $this->assertGreaterThan(1, $sheet->getHighestDataRow());
@@ -283,7 +287,7 @@ class BeneficiaryExcelExportTest extends TestCase
             $this->assertSame($stateFilter === null ? 5 : ($stateFilter === $state->id ? 2 : 4), $sheet->getHighestDataRow());
             for ($row = 2; $row <= $sheet->getHighestDataRow(); $row++) {
                 $other = (int) $sheet->getCell('A'.$row)->getValue() === $otherPerson->id;
-                foreach (['AA' => $other ? '02' : '01', 'AB' => $other ? '0201' : '0101', 'AC' => $other ? '020101' : '010101'] as $column => $code) {
+                foreach (['AC' => $other ? '02' : '01', 'AD' => $other ? '0201' : '0101', 'AE' => $other ? '020101' : '010101'] as $column => $code) {
                     $this->assertSame($code, $sheet->getCell($column.$row)->getValue());
                     $this->assertSame(DataType::TYPE_STRING, $sheet->getCell($column.$row)->getDataType());
                     $this->assertSame('@', $sheet->getStyle($column.$row)->getNumberFormat()->getFormatCode());
@@ -298,10 +302,45 @@ class BeneficiaryExcelExportTest extends TestCase
         $this->actingAs($admin);
         $sheet = $this->exportWorksheet(['reported' => '']);
         $this->assertSame('Código del Indicador Resumen', $sheet->getCell('L1')->getValue());
-        $this->assertSame('Código de estado', $sheet->getCell('AA1')->getValue());
-        $this->assertSame('Código de municipio', $sheet->getCell('AB1')->getValue());
-        $this->assertSame('Código de parroquia', $sheet->getCell('AC1')->getValue());
-        $this->assertSame('A1:AC1', $sheet->getAutoFilter()->getRange());
+        $this->assertSame('Nombre y apellido', $sheet->getCell('AA1')->getValue());
+        $this->assertSame('Fecha de nacimiento', $sheet->getCell('AB1')->getValue());
+        $this->assertSame('Código de estado', $sheet->getCell('AC1')->getValue());
+        $this->assertSame('Código de municipio', $sheet->getCell('AD1')->getValue());
+        $this->assertSame('Código de parroquia', $sheet->getCell('AE1')->getValue());
+        $this->assertSame('A1:AE1', $sheet->getAutoFilter()->getRange());
+    }
+
+    public function test_admin_export_includes_complete_name_and_real_birth_date_without_guessing_missing_values(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $report = $this->reportWithNationalIds($admin);
+        $people = $report->beneficiaries()->get();
+        $people[0]->update(['full_name' => 'María José Pérez de González', 'birth_date' => '2014-02-03']);
+        $people[1]->update(['full_name' => '=1+1', 'birth_date' => '2000-02-29']);
+        $this->actingAs($admin);
+        $sheet = $this->exportWorksheet(['reported' => '', 'reporting_period' => ['2026-10']]);
+        $this->assertSame('Nombre y apellido', $sheet->getCell('AA1')->getValue());
+        $this->assertSame('Fecha de nacimiento', $sheet->getCell('AB1')->getValue());
+        $this->assertSame('MARÍA JOSÉ PÉREZ DE GONZÁLEZ', $sheet->getCell('AA2')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $sheet->getCell('AA2')->getDataType());
+        $this->assertSame('03/02/2014', $sheet->getCell('AB2')->getFormattedValue());
+        $this->assertSame(DataType::TYPE_NUMERIC, $sheet->getCell('AB2')->getDataType());
+        $this->assertSame('dd/mm/yyyy', $sheet->getStyle('AB2')->getNumberFormat()->getFormatCode());
+        $this->assertSame("'=1+1", $sheet->getCell('AA3')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $sheet->getCell('AA3')->getDataType());
+        $this->assertSame('29/02/2000', $sheet->getCell('AB3')->getFormattedValue());
+        $this->assertSame('', (string) $sheet->getCell('AA4')->getValue());
+        $this->assertSame('', (string) $sheet->getCell('AB4')->getValue());
+        $this->assertEquals(35, $sheet->getColumnDimension('AA')->getWidth());
+        $this->assertEquals(18, $sheet->getColumnDimension('AB')->getWidth());
+        $this->assertSame('A1:AE1', $sheet->getAutoFilter()->getRange());
+        $this->assertSame('Código de parroquia', $sheet->getCell('AE1')->getValue());
+        $this->assertSame(3, $report->beneficiaries()->count());
+
+        $empty = $this->exportWorksheet(['reported' => '', 'reporting_period' => ['2026-09']]);
+        $this->assertSame('', (string) $empty->getCell('A2')->getValue());
+        $this->assertSame('', (string) $empty->getCell('AB2')->getValue());
+        $this->assertSame('Fecha de nacimiento', $empty->getCell('AB1')->getValue());
     }
 
     private function exportWorksheet(array $filters): Worksheet

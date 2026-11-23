@@ -425,6 +425,7 @@
 @endsection
 
 @push('scripts')
+    <script src="{{ asset('js/report-deletion.js') }}?v={{ filemtime(public_path('js/report-deletion.js')) }}"></script>
     <script src="{{ asset('js/beneficiary-recurrence.js') }}?v={{ filemtime(public_path('js/beneficiary-recurrence.js')) }}"></script>
     <script src="{{ asset('js/beneficiary-voice.js') }}?v={{ filemtime(public_path('js/beneficiary-voice.js')) }}"></script>
     <script src="{{ asset('js/associated-indicators.js') }}?v={{ filemtime(public_path('js/associated-indicators.js')) }}"></script>
@@ -1190,7 +1191,7 @@
                 remove.title = 'Eliminar beneficiario';
                 remove.setAttribute('aria-label', 'Eliminar beneficiario');
                 remove.innerHTML = '<i class="ri-delete-bin-5-line" aria-hidden="true"></i>';
-                remove.addEventListener('click', () => removeBeneficiary(beneficiary));
+                remove.addEventListener('click', () => removeBeneficiary(beneficiary, remove));
                 @can('editar beneficiarios')
                 @if(!$continuing)
                 actionGroup.append(edit);
@@ -1331,14 +1332,23 @@
                 saveButton.disabled = false;
             }
         }
-        async function removeBeneficiary(beneficiary) {
-            if (!confirm(`¿Eliminar a ${beneficiary.full_name || 'este beneficiario'}?`)) return;
+        async function removeBeneficiary(beneficiary, button) {
+            if (isSaving || button.disabled) return;
+            isSaving = true;
+            button.disabled = true;
+            saveButton.disabled = true;
+            const reason = await window.SiaReportDeletion.requestReason({
+                title: 'Eliminar beneficiario',
+                text: `¿Eliminar a ${beneficiary.full_name || 'este beneficiario'}? Esta acción no se puede deshacer.`,
+            });
+            if (reason === null) { isSaving = false; button.disabled = false; saveButton.disabled = false; return; }
             setMessage(entryError);
             setMessage(entrySuccess);
             try {
                 const result = await responseMessage(await fetch(`{{ url('/beneficiarios') }}/${beneficiary.id}`, {
                     method: 'DELETE',
-                    headers: requestHeaders
+                    headers: {...requestHeaders, 'Content-Type': 'application/json'},
+                    body: JSON.stringify({deletion_reason: reason})
                 }));
                 beneficiaries = beneficiaries.filter(item => item.id !== beneficiary.id);
                 window.SiaDesktopNotifications?.notify('deleted');
@@ -1353,6 +1363,10 @@
             } catch (error) {
                 setMessage(entryError, error.message);
                 window.SiaDesktopNotifications?.notify('error');
+            } finally {
+                isSaving = false;
+                button.disabled = false;
+                saveButton.disabled = false;
             }
         }
         saveButton.addEventListener('click', saveBeneficiary);

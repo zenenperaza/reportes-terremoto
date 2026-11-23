@@ -56,6 +56,7 @@ html[data-layout-mode="dark"] .buzon-share-icon{background:#163747;color:#81d0ef
 .buzon-list-context{padding:.75rem 1rem;border:1px solid var(--border-color,#d2deeb);border-radius:.5rem;background:rgba(18,174,223,.04)}
 #buzon-list-entries{margin-top:1.5rem;scroll-margin-top:6rem}
 .buzon-delete-form{margin:0}.buzon-delete-button{color:#b42318;border-color:#b42318}
+#buzon-table{min-width:0}#buzon-table td{white-space:normal;overflow-wrap:anywhere}#buzon-table .buzon-entry-actions{min-width:130px;gap:8px}#buzon-table .buzon-delete-button{padding:5px 10px;font-size:12px}.dt-button.buzon-export-excel{background:#217346!important;border-color:#217346!important;color:#fff!important}.dt-button.buzon-export-pdf{background:#b42318!important;border-color:#b42318!important;color:#fff!important}#buzon-export-status{margin:10px 0;overflow-wrap:anywhere}#buzon-export-status[hidden],[data-buzon-fallback-pagination][hidden]{display:none!important}
 .buzon-voice-filled{outline:2px solid #23815a;outline-offset:1px}
 @media(max-width:760px){.buzon-voice-heading{align-items:stretch;flex-direction:column}.buzon-voice-heading .button{width:100%;justify-content:center}}
 @media(max-width:560px){.buzon-voice-toolbar{align-items:stretch;flex-direction:column}.buzon-voice-toolbar .button{justify-content:center;width:100%}}

@@ -120,7 +120,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (type !== 'display') return data;
                 return '<strong>' + escapeHtml(data) + '</strong><small>' + escapeHtml(row.user_email) + '</small>';
             }},
-            {data: 'action', name: 'action'},
+            {data: 'action', name: 'action', render: function (data, type, row) {
+                if (type !== 'display') return data;
+                return escapeHtml(data) + (row.deletion_reason
+                    ? '<small class="audit-deletion-reason"><strong>Motivo:</strong> ' + escapeHtml(row.deletion_reason) + '</small>' : '');
+            }},
             {data: 'method', name: 'method', render: function (data, type) {
                 return type === 'display' ? '<span class="audit-method audit-method-' + escapeHtml(data.toLowerCase()) + '">' + escapeHtml(data) + '</span>' : data;
             }},
@@ -184,6 +188,18 @@ document.addEventListener('DOMContentLoaded', function () {
             ];
             content.innerHTML = '<dl>' + fields.map(field => '<div><dt>' + escapeHtml(field[0]) + '</dt><dd>' + escapeHtml(field[1] || 'Sin información') + '</dd></div>').join('') + '</dl>' +
                 '<h3>Datos enviados</h3><pre>' + escapeHtml(detail.datos ? JSON.stringify(detail.datos, null, 2) : 'No se enviaron datos.') + '</pre>';
+            const deletion = detail.eliminacion;
+            if (deletion) {
+                const people = Array.isArray(deletion.beneficiaries) ? deletion.beneficiaries : [];
+                content.innerHTML = '<dl>' + fields.map(field => '<div><dt>' + escapeHtml(field[0]) + '</dt><dd>' + escapeHtml(field[1] ?? 'Sin información') + '</dd></div>').join('') + '</dl>' +
+                    '<h3>Motivo de eliminación</h3><p class="audit-deletion-text">' + escapeHtml(deletion.reason) + '</p>' +
+                    '<p>Registro: <strong>#' + escapeHtml(deletion.report_id) + '</strong> · Proyecto: ' + escapeHtml(deletion.project_code || 'Sin proyecto') +
+                    ' · Período: ' + escapeHtml(deletion.reporting_period || 'Sin asignar') + '</p>' +
+                    '<h3>Beneficiarios eliminados (' + people.length + ')</h3>' +
+                    '<div class="table-wrap"><table class="table"><thead><tr><th>ID</th><th>Nombre y apellido</th><th>Cédula</th></tr></thead><tbody>' +
+                    people.map(person => '<tr><td>' + escapeHtml(person.id) + '</td><td>' + escapeHtml(person.full_name || 'Sin nombre registrado') +
+                        '</td><td>' + escapeHtml(person.national_id || 'Sin cédula registrada') + '</td></tr>').join('') + '</tbody></table></div>';
+            }
         } catch (error) {
             content.innerHTML = '<div class="alert alert-danger">' + escapeHtml(error.message) + '</div>';
         }
