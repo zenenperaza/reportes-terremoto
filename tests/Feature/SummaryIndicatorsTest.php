@@ -361,6 +361,22 @@ class SummaryIndicatorsTest extends TestCase
         }
     }
 
+    public function test_reused_summary_codes_in_other_projects_keep_filters_and_assignments_independent(): void
+    {
+        $this->other->update(['code' => $this->one->code]);
+        foreach ([[$this->one, 'A'], [$this->other, 'B']] as [$summary, $key]) {
+            $this->get(route('summary-indicators.assignments', ['summary_indicator_id' => $summary->id]))->assertOk()
+                ->assertViewHas('project', fn ($project) => $project->id === $this->items[$key]['project']->id)
+                ->assertViewHas('assignments', fn ($rows) => $rows->pluck('proyecto_id')->unique()->all() === [$this->items[$key]['project']->id]);
+            $rows = $this->beneficiarySummaryCodes($this->filters([$summary->id]));
+            $this->assertNotEmpty($rows);
+            foreach ($rows as [$project, $codes]) {
+                $this->assertSame('PROY-'.$key, $project);
+                $this->assertSame($this->one->code, $codes);
+            }
+        }
+    }
+
     private function beneficiarySummaryCodes(array $filters): array
     {
         $book = $this->workbook($this->get(route('beneficiaries.export', $filters))->assertOk());

@@ -18,7 +18,7 @@ class TemporaryMaintenanceController extends Controller
 
         abort_if(request()->has('nly'), 422, 'El parámetro correcto es only. Corrija la dirección antes de ejecutar el mantenimiento.');
 
-        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto', 'actualizacion-buzon', 'indicadores-resumen', 'nacionalidad-beneficiarios', 'actualizacion-beneficiarios', 'actualizacion-buzon-registros', 'actualizacion-buzon-listados', 'actualizacion-buzon-publico', 'fecha-nacimiento-beneficiarios', 'actualizacion-buzon-registros-excel'], true),
+        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto', 'actualizacion-buzon', 'indicadores-resumen', 'nacionalidad-beneficiarios', 'actualizacion-beneficiarios', 'actualizacion-buzon-registros', 'actualizacion-buzon-listados', 'actualizacion-buzon-publico', 'fecha-nacimiento-beneficiarios', 'actualizacion-buzon-registros-excel', 'codigos-resumen-por-proyecto'], true),
             422, 'Modo de mantenimiento no reconocido.');
         $permissionsOnly = request('only') === 'permisos-beneficiarios';
         $groupEditingOnly = request('only') === 'edicion-cruzada-grupos';
@@ -39,6 +39,9 @@ class TemporaryMaintenanceController extends Controller
         $buzonListsOnly = request('only') === 'actualizacion-buzon-listados';
         $buzonPublicOnly = request('only') === 'actualizacion-buzon-publico';
         $buzonRecordsExcelOnly = request('only') === 'actualizacion-buzon-registros-excel';
+        $summaryProjectCodesOnly = request('only') === 'codigos-resumen-por-proyecto';
+        abort_if($summaryProjectCodesOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
+            422, 'El modo codigos-resumen-por-proyecto no se puede combinar con opciones de caché o importación.');
         abort_if($buzonRecordsExcelOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
             422, 'El modo actualizacion-buzon-registros-excel no se puede combinar con opciones de caché o importación.');
         abort_if($buzonPublicOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
@@ -641,6 +644,31 @@ class TemporaryMaintenanceController extends Controller
             }
         }
 
+        $summaryProjectCodesMigration = ['name' => 'migrate', 'parameters' => [
+            '--path' => 'database/migrations/2026_11_24_120000_scope_summary_indicator_codes_to_projects.php',
+            '--force' => true,
+        ]];
+        if ($summaryProjectCodesOnly) {
+            foreach ([$summaryProjectCodesMigration['parameters']['--path'],
+                'app/Http/Controllers/TemporaryMaintenanceController.php',
+                'app/Http/Controllers/SummaryIndicatorController.php', 'app/Models/SummaryIndicator.php',
+                'resources/views/summary-indicators/form.blade.php', 'routes/maintenance.php',
+            ] as $file) {
+                abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
+            }
+            abort_unless(\Illuminate\Support\Facades\Schema::hasTable('summary_indicators')
+                && \Illuminate\Support\Facades\Schema::hasColumns('summary_indicators', ['id', 'proyecto_id', 'code'])
+                && \Illuminate\Support\Facades\Schema::hasTable('summary_indicator_assignments'), 422,
+                'Este modo requiere Indicadores Resumen ya instalados con proyecto y asignaciones. No se ejecutaron comandos.');
+            foreach ([
+                'app/Http/Controllers/SummaryIndicatorController.php' => ["unique('summary_indicators', 'code')", 'en el proyecto seleccionado.'],
+                'resources/views/summary-indicators/form.blade.php' => ['Puede utilizar el mismo código en otros proyectos.'],
+            ] as $file => $markers) foreach ($markers as $marker) {
+                abort_unless($this->deploymentFileContains($file, $marker), 422,
+                    'El archivo '.$file.' no contiene la actualización esperada. Suba su versión actual antes de continuar.');
+            }
+        }
+
         $cacheCommands = [
             ['name' => 'optimize:clear', 'parameters' => []],
             ['name' => 'cache:clear', 'parameters' => []],
@@ -804,6 +832,7 @@ class TemporaryMaintenanceController extends Controller
         $includeExcel = $excelOnly || request()->boolean('import_excel');
 
         $selectedMigrations = match (true) {
+            $summaryProjectCodesOnly => [$summaryProjectCodesMigration],
             $buzonRecordsExcelOnly => [$buzonExportMigration],
             $birthDateOnly => [$birthDateMigration],
             $buzonPublicOnly => $buzonPublicMigrations,
@@ -1035,6 +1064,17 @@ class TemporaryMaintenanceController extends Controller
                 'Suba todos los archivos actualizados, no solo este controlador: el mantenimiento valida el despliegue, pero no instala el código. Al finalizar use Ctrl + F5, revise Roles y pruebe Buzón público, exportaciones, listados y la confirmación con motivo antes de retirar el bloqueo manualmente.',
             ];
         }
+        if ($summaryProjectCodesOnly) {
+            $results = [
+                'CÓDIGOS DE INDICADORES RESUMEN POR PROYECTO: se comprueban los archivos y la estructura previa, se ejecuta únicamente la nueva migración de índices y se reconstruyen las cachés.',
+                'El mismo código puede utilizarse en proyectos diferentes. Dentro de un proyecto sigue siendo único, tanto al crear como al editar. Los duplicados del mismo proyecto muestran un mensaje en español.',
+                'La restricción global de code se sustituye por una restricción única de proyecto + código. No se borran, renombran ni reasignan resúmenes; se conservan sus IDs y asignaciones.',
+                'No se modifican indicadores originales, registros, beneficiarios, filtros, permisos, proyectos, períodos ni cierres. Cada resumen continúa agrupando únicamente indicadores de su propio proyecto.',
+                'No se ejecutan seeders, importaciones ni otras migraciones. No se activa ni se cancela el mantenimiento; se conservan bloqueos y avisos programados.',
+                'La migración ya aplicada se omite. No instala todas las migraciones pendientes. Suba también SummaryIndicatorController y el formulario actualizado: limpiar caché no sustituye los archivos.',
+                'Al finalizar recargue SIA con Ctrl + F5 y pruebe crear el mismo código en otro proyecto. Repetirlo dentro del mismo proyecto debe seguir rechazándose.',
+            ];
+        }
         $exitCode = 1;
 
         try {
@@ -1052,6 +1092,12 @@ class TemporaryMaintenanceController extends Controller
             if ($exitCode === 0 && $buzonRecordsExcelOnly
                 && ! \Spatie\Permission\Models\Permission::where('guard_name', 'web')->where('name', 'exportar buzon')->exists()) {
                 $results[] = 'No se encontró el permiso exportar buzon después de la migración. Revise el historial de migraciones; no se recrearon permisos automáticamente.';
+                $exitCode = 1;
+            }
+            if ($exitCode === 0 && $summaryProjectCodesOnly
+                && (! \Illuminate\Support\Facades\Schema::hasIndex('summary_indicators', 'summary_indicators_project_code_unique', 'unique')
+                    || \Illuminate\Support\Facades\Schema::hasIndex('summary_indicators', 'summary_indicators_code_unique'))) {
+                $results[] = 'No se confirmó el índice único por proyecto. Revise el historial de migraciones antes de crear nuevos resúmenes; no se modificaron sus datos automáticamente.';
                 $exitCode = 1;
             }
             if ($exitCode === 0 && class_exists(PermissionRegistrar::class)) {

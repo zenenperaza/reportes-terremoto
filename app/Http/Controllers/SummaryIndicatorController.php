@@ -65,12 +65,13 @@ class SummaryIndicatorController extends Controller
             ->map(fn ($value) => is_string($value) ? trim($value) : $value)->all());
         return $request->validate([
             'proyecto_id' => ['required', 'integer', 'exists:proyectos,id'],
-            'code' => ['required', 'string', 'max:50', Rule::unique('summary_indicators')->ignore($summaryIndicator)],
+            'code' => ['required', 'string', 'max:50', Rule::unique('summary_indicators', 'code')
+                ->where('proyecto_id', $request->integer('proyecto_id'))->ignore($summaryIndicator)],
             'name' => ['required', 'string', 'max:120'],
             'description' => ['nullable', 'string', 'max:255'],
             'is_active' => ['required', 'boolean'],
             'reset_assignments_on_project_change' => [$summaryIndicator ? 'nullable' : 'prohibited', 'boolean'],
-        ]);
+        ], ['code.unique' => 'Ya existe un Indicador Resumen con este código en el proyecto seleccionado.']);
     }
 
     public function assignments(Request $request)
