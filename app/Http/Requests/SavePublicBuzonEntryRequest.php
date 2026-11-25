@@ -29,6 +29,7 @@ class SavePublicBuzonEntryRequest extends SaveBuzonEntryRequest
             'full_name' => ['required_if:feedback_type,request', 'nullable', 'string', 'max:150'],
             'phone' => ['required_if:feedback_type,request', 'nullable', 'string', 'max:40'],
             'age' => ['nullable', 'integer', 'between:0,120'],
+            'age_group' => ['nullable', Rule::in(array_keys(BuzonEntry::AGE_GROUPS))],
             'gender' => ['nullable', Rule::in(array_keys(BuzonEntry::GENDERS))],
             'disabilities' => ['nullable', 'array', 'max:4'],
             'disabilities.*' => ['required', 'distinct', Rule::in(array_keys(BuzonEntry::DISABILITIES))],

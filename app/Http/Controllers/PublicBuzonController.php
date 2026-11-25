@@ -33,7 +33,7 @@ class PublicBuzonController extends Controller
             $submissionKey = hash('sha256', $project->id.'|'.$owner->id.'|'.$request->validated('submission_token'));
             if (BuzonEntry::where('public_submission_key', $submissionKey)->exists()) return;
             $entry = new BuzonEntry(Arr::only($request->validated(), [
-                'opinion_date', 'place_name', 'full_name', 'phone', 'age', 'gender', 'disabilities',
+                'opinion_date', 'place_name', 'full_name', 'phone', 'age', 'age_group', 'gender', 'disabilities',
                 'afro_descendant', 'opinion', 'feedback_type', 'comment', 'improvement',
             ]));
             $entry->proyecto_id = $project->id;

@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const element = document.getElementById('buzon-table');
     if (!element || typeof DataTable === 'undefined') return;
     const filters = JSON.parse(element.dataset.filters || '{}');
-    const fields = ['opinion_date', 'project', 'place_name', 'opinion', 'feedback_type', 'full_name', 'user_name', 'origin'];
+    const fields = ['opinion_date', 'project', 'place_name', 'opinion', 'feedback_type', 'full_name', 'user_name', 'origin', 'age_group'];
     const status = document.getElementById('buzon-export-status');
     const safeCell = value => {
         const text = String(value ?? '');
@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', function () {
         ajax: {url: element.dataset.url, data(data) {Object.assign(data, filters);}},
         columns: [...fields.map(field => ({data: field, render: DataTable.render.text()})), {data: 'actions', orderable: false, searchable: false}],
         columnDefs: [{targets: 0, className: 'all', responsivePriority: 1}, {targets: 1, responsivePriority: 2},
-            {targets: 8, responsivePriority: 3}, {targets: 6, orderable: false}],
+            {targets: 9, responsivePriority: 3}, {targets: 6, orderable: false}],
         layout: {topStart: buttons.length ? ['pageLength', {buttons}] : 'pageLength', topEnd: 'search', bottomStart: 'info', bottomEnd: 'paging'},
         language: {processing: 'Consultando opiniones…', search: 'Buscar:', lengthMenu: 'Mostrar _MENU_ opiniones',
             info: 'Mostrando _START_ a _END_ de _TOTAL_ opiniones', infoEmpty: 'No hay opiniones registradas',

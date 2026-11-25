@@ -283,4 +283,94 @@ class BuzonListsTest extends TestCase
         $this->assertDatabaseHas('proyectos', ['id' => $this->project->id]);
         $this->assertDatabaseHas('buzon_lists', ['id' => $list->id]);
     }
+
+    private function table(array $changes = [])
+    {
+        return $this->getJson(route('buzon.lists', array_replace(['draw' => 3, 'start' => 0, 'length' => 20], $changes)));
+    }
+
+    public function test_list_datatable_searches_beyond_the_first_page_and_returns_full_totals(): void
+    {
+        $first = $this->listing();
+        for ($i = 0; $i < 24; $i++) $this->listing();
+        $this->table()->assertOk()->assertHeader('Cache-Control', 'no-store, private')
+            ->assertJsonPath('draw', 3)->assertJsonPath('recordsTotal', 25)->assertJsonPath('recordsFiltered', 25)
+            ->assertJsonCount(20, 'data');
+        $this->table(['start' => 20])->assertOk()->assertJsonCount(5, 'data')->assertJsonPath('data.4.id', $first->id);
+        $this->table(['search' => ['value' => '#'.$first->id]])->assertOk()
+            ->assertJsonPath('recordsTotal', 25)->assertJsonPath('recordsFiltered', 1)->assertJsonPath('data.0.id', $first->id);
+        $this->get(route('buzon.lists'))->assertOk()->assertSee('id="buzon-lists-table"', false)
+            ->assertSee('js/buzon-lists-table.js')->assertSee('Total de listados: <strong>25</strong>', false)
+            ->assertSee('data-buzon-lists-fallback', false);
+    }
+
+    public function test_list_datatable_preserves_project_author_and_active_group_scopes_in_search_and_totals(): void
+    {
+        $own = $this->listing();
+        $shared = $this->listing($this->peer);
+        $foreign = $this->listing($this->outsider);
+        $other = $this->listing($this->owner, $this->other);
+        $this->entry($shared, $this->peer);
+        $this->entry($shared, $this->outsider, ['full_name' => 'PRIVATE_PERSON', 'comment' => 'PRIVATE_COMMENT']);
+        $this->table()->assertOk()->assertJsonPath('recordsTotal', 3)->assertJsonCount(3, 'data')
+            ->assertDontSee('PRIVATE_PERSON')->assertDontSee('PRIVATE_COMMENT');
+        $this->table(['project_ids' => [$this->project->id]])->assertOk()->assertJsonPath('recordsTotal', 2);
+        $this->table(['project_ids' => [$this->other->id]])->assertOk()->assertJsonPath('recordsTotal', 1)->assertJsonPath('data.0.id', $other->id);
+        $this->table(['search' => ['value' => '#'.$foreign->id]])->assertOk()->assertJsonPath('recordsFiltered', 0);
+        $response = $this->table(['search' => ['value' => '#'.$shared->id]])->assertOk()
+            ->assertJsonPath('data.0.entries_count', 1);
+        $this->assertStringContainsString('Ver listado', $response->json('data.0.actions'));
+        $this->assertStringNotContainsString('Agregar opiniones', $response->json('data.0.actions'));
+        $this->group->update(['allow_member_editing' => true]);
+        $this->assertStringContainsString('Agregar opiniones', $this->table(['search' => ['value' => '#'.$shared->id]])->json('data.0.actions'));
+        $this->group->update(['is_active' => false]);
+        $this->table()->assertOk()->assertJsonPath('recordsTotal', 2);
+        $this->owner->projects()->detach($this->other);
+        $this->table()->assertOk()->assertJsonPath('recordsTotal', 1)->assertJsonPath('data.0.id', $own->id);
+        $this->table(['project_ids' => [$this->other->id]])->assertUnprocessable();
+    }
+
+    public function test_list_datatable_orders_every_data_column_and_searches_project_author_and_date(): void
+    {
+        $this->owner->update(['name' => 'Z_AUTOR_PRUEBA']);
+        $this->peer->update(['name' => 'A_AUTOR_PRUEBA']);
+        $first = $this->listing(); $first->forceFill(['created_at' => '2026-10-12 09:00:00'])->save();
+        $second = $this->listing($this->peer, $this->other); $second->forceFill(['created_at' => '2026-11-13 10:00:00'])->save();
+        $this->entry($first); $this->entry($first, $this->outsider);
+        $this->entry($second, $this->peer); $this->entry($second, $this->peer);
+        foreach ([0 => $first->id, 1 => $first->id, 2 => $first->id, 3 => $second->id, 4 => $first->id] as $column => $ascending) {
+            foreach (['asc', 'desc'] as $direction) {
+                $this->table(['order' => [['column' => $column, 'dir' => $direction]]])->assertOk()
+                    ->assertJsonPath('data.0.id', $direction === 'asc' ? $ascending : ($ascending === $first->id ? $second->id : $first->id));
+            }
+        }
+        foreach (['LIST-B', 'Proyecto B', 'A_AUTOR_PRUEBA', '13/11/2026', '13/11/2026 10:00'] as $search) {
+            $this->table(['search' => ['value' => $search]])->assertOk()
+                ->assertJsonPath('recordsFiltered', 1)->assertJsonPath('data.0.id', $second->id);
+        }
+    }
+
+    public function test_list_datatable_returns_zero_totals_and_respects_permission_revocation_and_global_admin_scope(): void
+    {
+        $this->table()->assertOk()->assertJsonPath('recordsTotal', 0)->assertJsonPath('recordsFiltered', 0)->assertJsonCount(0, 'data');
+        $foreign = $this->listing($this->outsider);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $this->actingAs($admin)->table()->assertOk()->assertJsonPath('recordsTotal', 1)->assertJsonPath('data.0.id', $foreign->id);
+        $this->owner->syncRoles([]);
+        $this->owner->syncPermissions(['crear buzon']);
+        $this->actingAs($this->owner->fresh())->table()->assertForbidden();
+        $this->owner->syncPermissions(['ver buzon']);
+        $this->actingAs($this->owner->fresh())->table()->assertOk()->assertJsonPath('recordsTotal', 0);
+    }
+
+    public function test_list_datatable_validates_pagination_search_order_and_project_inputs(): void
+    {
+        foreach ([['draw' => -1], ['length' => -1], ['length' => 101], ['start' => -1],
+            ['search' => ['value' => str_repeat('x', 201)]], ['search' => ['value' => ['invalid']]],
+            ['order' => [['column' => 5, 'dir' => 'asc']]], ['order' => [['column' => 0, 'dir' => 'invalid']]],
+            ['order' => [['column' => 0, 'dir' => 'asc'], ['column' => 1, 'dir' => 'desc']]],
+            ['project_ids' => [999999]], ['project_ids' => 'invalid']] as $input) {
+            $this->table($input)->assertUnprocessable();
+        }
+    }
 }

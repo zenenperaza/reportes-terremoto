@@ -12,7 +12,7 @@ function element(extra = {}) {
 function harness({enabled = true} = {}) {
     const input = element({dataset: {beneficiaryLookup: '/beneficiarios/buscar-cedula', lookupEnabled: enabled ? '1' : '0'}});
     const form = element(), status = element();
-    const fields = Object.fromEntries(['full_name', 'age', 'sex', 'nationality', 'phone', 'disability', 'ethnicity', 'pregnant_lactating',
+    const fields = Object.fromEntries(['full_name', 'birth_date', 'age', 'sex', 'nationality', 'phone', 'disability', 'ethnicity', 'pregnant_lactating',
         'caregiver_national_id', 'caregiver_full_name', 'caregiver_relationship', 'is_recurrent', 'has_informed_consent'].map(name => [name, element()]));
     for (const [name, values] of Object.entries({sex: ['', 'Mujer', 'Hombre'], nationality: ['', 'Venezolana', 'Colombiana'],
         disability: ['', 'Ninguna', 'Auditiva'], ethnicity: ['', 'Ninguna'], pregnant_lactating: ['', 'Ninguna', 'Sí'],
@@ -61,6 +61,20 @@ test('blur runs immediately and manual corrections made while loading are preser
     h.fields.phone.value = 'CORRECCIÓN MANUAL';
     await h.respond(match(person)); await pending;
     assert.equal(h.fields.phone.value, 'CORRECCIÓN MANUAL'); assert.equal(h.fields.full_name.value, 'MARÍA PÉREZ');
+});
+
+test('lookup preserves an incomplete manual birth date typed while the request is pending', async () => {
+    const h = harness(); h.type('12345678'); h.flush();
+    h.fields.birth_date.dataset.manualRevision = '1';
+    await h.respond(match({...person, birth_date: '1992-02-03'}));
+    assert.equal(h.fields.birth_date.value, '');
+    assert.equal(h.fields.full_name.value, person.full_name);
+});
+
+test('lookup supplies the canonical ISO birth date when it has not been changed manually', async () => {
+    const h = harness(); h.type('12345678'); h.flush();
+    await h.respond(match({...person, birth_date: '1992-02-03'}));
+    assert.equal(h.fields.birth_date.value, '1992-02-03');
 });
 
 test('changing IDs clears only unchanged autofilled values and ignores old asynchronous responses', async () => {

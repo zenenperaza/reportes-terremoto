@@ -29,6 +29,7 @@ class TemporaryMaintenanceBirthDateTest extends TestCase
         'resources/views/reports/create.blade.php',
         'resources/views/reports/show.blade.php',
         'public/js/beneficiary-id-autofill.js',
+        'public/js/beneficiary-birth-date-input.js',
         'routes/maintenance.php',
     ];
 

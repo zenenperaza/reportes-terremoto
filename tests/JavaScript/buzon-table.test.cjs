@@ -3,14 +3,14 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-const fields = ['opinion_date', 'project', 'place_name', 'opinion', 'feedback_type', 'full_name', 'user_name', 'origin'];
+const fields = ['opinion_date', 'project', 'place_name', 'opinion', 'feedback_type', 'full_name', 'user_name', 'origin', 'age_group'];
 function harness({canExport = true, rows = [], ok = true} = {}) {
     let config, delegated, savedBody, done = 0, disabled = 0, enabled = 0, accepted = false;
     const requests = [];
     const status = {hidden: true, textContent: ''};
     const fallback = {setAttribute(name) {this[name] = true;}};
     const card = {addEventListener(name, handler) {if (name === 'submit') delegated = handler;}};
-    const element = {dataset: {url: 'https://example.test/buzon', filters: JSON.stringify({project_ids: [2, 3], from: '2026-11-01', to: '2026-11-30', opinion: 'bad'}), canExport: canExport ? '1' : '0'}, closest: () => card};
+    const element = {dataset: {url: 'https://example.test/buzon', filters: JSON.stringify({project_ids: [2, 3], from: '2026-11-01', to: '2026-11-30', opinion: 'bad', age_group: 'nna'}), canExport: canExport ? '1' : '0'}, closest: () => card};
     const table = {buttons: () => ({disable() {disabled++;}, enable() {enabled++;}}),
         table: () => ({container: () => ({querySelector: () => ({value: 'Carga'})})}),
         search: () => 'older search', order: () => [[0, 'desc']]};
@@ -45,7 +45,8 @@ test('server pagination, responsive layout, search and local fallback are config
     h.config.ajax.data(request);
     assert.deepEqual(JSON.parse(JSON.stringify(request.project_ids)), [2, 3]);
     assert.equal(request.opinion, 'bad');
-    assert.equal(h.config.columns[8].searchable, false);
+    assert.equal(request.age_group, 'nna');
+    assert.equal(h.config.columns[9].searchable, false);
     assert.equal(h.config.columns[5].render('<img>'), '&lt;img>');
     assert.equal(h.fallback.hidden, true);
     assert.equal(harness({canExport: false}).config.layout.topStart, 'pageLength');
@@ -63,6 +64,7 @@ test('Excel fetches ALL matches, carries filters and latest search, and protects
     assert.equal(url.searchParams.get('search[value]'), 'Carga');
     assert.equal(url.searchParams.get('export_type'), 'excel');
     assert.equal(url.searchParams.get('opinion'), 'bad');
+    assert.equal(url.searchParams.get('age_group'), 'nna');
     assert.equal(url.searchParams.get('from'), '2026-11-01');
     assert.equal(url.searchParams.get('order[0][dir]'), 'desc');
     assert.equal(url.searchParams.has('length'), false);

@@ -58,6 +58,11 @@ html[data-layout-mode="dark"] .buzon-share-icon{background:#163747;color:#81d0ef
 .buzon-delete-form{margin:0}.buzon-delete-button{color:#b42318;border-color:#b42318}
 #buzon-table{min-width:0}#buzon-table td{white-space:normal;overflow-wrap:anywhere}#buzon-table .buzon-entry-actions{min-width:130px;gap:8px}#buzon-table .buzon-delete-button{padding:5px 10px;font-size:12px}.dt-button.buzon-export-excel{background:#217346!important;border-color:#217346!important;color:#fff!important}.dt-button.buzon-export-pdf{background:#b42318!important;border-color:#b42318!important;color:#fff!important}#buzon-export-status{margin:10px 0;overflow-wrap:anywhere}#buzon-export-status[hidden],[data-buzon-fallback-pagination][hidden]{display:none!important}
 .buzon-voice-filled{outline:2px solid #23815a;outline-offset:1px}
+#buzon-lists-table{min-width:0}#buzon-lists-table td{white-space:normal;overflow-wrap:anywhere}#buzon-lists-table .buzon-entry-actions{min-width:120px}
+.buzon-lists-total{margin:18px 0 0;padding-top:14px;border-top:1px solid var(--border-color,#d2deeb);font-weight:600}
+.buzon-lists-table-wrap .dt-layout-row:not(.dt-layout-table){flex-wrap:wrap;gap:12px}.buzon-lists-table-wrap .dt-search input{max-width:100%;width:18rem}.buzon-lists-table-wrap .dt-length select{width:auto}
+[data-buzon-lists-fallback][hidden]{display:none!important}
+@media(max-width:760px){.buzon-lists-table-wrap .dt-layout-row:not(.dt-layout-table){display:flex;flex-direction:column;align-items:stretch}.buzon-lists-table-wrap .dt-layout-cell{width:100%}.buzon-lists-table-wrap .dt-search input{width:100%;margin:6px 0 0}.buzon-lists-table-wrap .dt-paging nav{display:flex;flex-wrap:wrap;gap:4px}}
 @media(max-width:760px){.buzon-voice-heading{align-items:stretch;flex-direction:column}.buzon-voice-heading .button{width:100%;justify-content:center}}
 @media(max-width:560px){.buzon-voice-toolbar{align-items:stretch;flex-direction:column}.buzon-voice-toolbar .button{justify-content:center;width:100%}}
 @media(max-width:800px){.buzon-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:480px){.buzon-summary{grid-template-columns:1fr}}

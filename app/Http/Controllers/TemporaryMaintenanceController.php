@@ -18,7 +18,7 @@ class TemporaryMaintenanceController extends Controller
 
         abort_if(request()->has('nly'), 422, 'El parámetro correcto es only. Corrija la dirección antes de ejecutar el mantenimiento.');
 
-        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto', 'actualizacion-buzon', 'indicadores-resumen', 'nacionalidad-beneficiarios', 'actualizacion-beneficiarios', 'actualizacion-buzon-registros', 'actualizacion-buzon-listados', 'actualizacion-buzon-publico', 'fecha-nacimiento-beneficiarios', 'actualizacion-buzon-registros-excel', 'codigos-resumen-por-proyecto'], true),
+        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto', 'actualizacion-buzon', 'indicadores-resumen', 'nacionalidad-beneficiarios', 'actualizacion-beneficiarios', 'actualizacion-buzon-registros', 'actualizacion-buzon-listados', 'actualizacion-buzon-publico', 'fecha-nacimiento-beneficiarios', 'actualizacion-buzon-registros-excel', 'codigos-resumen-por-proyecto', 'buzon-grupo-edad'], true),
             422, 'Modo de mantenimiento no reconocido.');
         $permissionsOnly = request('only') === 'permisos-beneficiarios';
         $groupEditingOnly = request('only') === 'edicion-cruzada-grupos';
@@ -40,6 +40,9 @@ class TemporaryMaintenanceController extends Controller
         $buzonPublicOnly = request('only') === 'actualizacion-buzon-publico';
         $buzonRecordsExcelOnly = request('only') === 'actualizacion-buzon-registros-excel';
         $summaryProjectCodesOnly = request('only') === 'codigos-resumen-por-proyecto';
+        $buzonAgeGroupOnly = request('only') === 'buzon-grupo-edad';
+        abort_if($buzonAgeGroupOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
+            422, 'El modo buzon-grupo-edad no se puede combinar con otras opciones.');
         abort_if($summaryProjectCodesOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
             422, 'El modo codigos-resumen-por-proyecto no se puede combinar con opciones de caché o importación.');
         abort_if($buzonRecordsExcelOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
@@ -392,6 +395,10 @@ class TemporaryMaintenanceController extends Controller
                 'resources/views/buzon/form.blade.php', 'resources/views/buzon/index.blade.php',
                 'resources/views/buzon/lists/index.blade.php', 'resources/views/buzon/lists/show.blade.php',
                 'resources/views/buzon/lists/partials/entries.blade.php', 'resources/views/buzon/partials/delete-button.blade.php',
+                'app/Services/BuzonListsDataTable.php', 'resources/views/buzon/lists/partials/actions.blade.php',
+                'public/js/buzon-lists-table.js', 'public/vendor/datatables/dataTables.min.js',
+                'public/vendor/datatables/dataTables.responsive.min.js', 'public/vendor/datatables/dataTables.dataTables.min.css',
+                'public/vendor/datatables/responsive.dataTables.min.css',
                 'resources/views/layouts/app.blade.php', 'resources/views/layouts/partials/period-closing-notice.blade.php',
                 'public/css/buzon.css', 'public/css/period-closing-notice.css',
                 'public/js/buzon.js', 'public/js/buzon-dictation.js', 'public/js/buzon-voice-data.js',
@@ -618,6 +625,7 @@ class TemporaryMaintenanceController extends Controller
                 'resources/views/reports/create.blade.php',
                 'resources/views/reports/show.blade.php',
                 'public/js/beneficiary-id-autofill.js',
+                'public/js/beneficiary-birth-date-input.js',
                 'routes/maintenance.php',
             ] as $file) {
                 abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
@@ -664,6 +672,40 @@ class TemporaryMaintenanceController extends Controller
                 'app/Http/Controllers/SummaryIndicatorController.php' => ["unique('summary_indicators', 'code')", 'en el proyecto seleccionado.'],
                 'resources/views/summary-indicators/form.blade.php' => ['Puede utilizar el mismo código en otros proyectos.'],
             ] as $file => $markers) foreach ($markers as $marker) {
+                abort_unless($this->deploymentFileContains($file, $marker), 422,
+                    'El archivo '.$file.' no contiene la actualización esperada. Suba su versión actual antes de continuar.');
+            }
+        }
+
+        $buzonAgeGroupMigration = ['name' => 'migrate', 'parameters' => [
+            '--path' => 'database/migrations/2026_11_25_120000_add_age_group_to_buzon_entries.php', '--force' => true,
+        ]];
+        if ($buzonAgeGroupOnly) {
+            foreach ($this->buzonAgeGroupFiles() as $file) {
+                abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
+            }
+            abort_unless(\Illuminate\Support\Facades\Schema::hasTable('buzon_lists')
+                && \Illuminate\Support\Facades\Schema::hasColumns('buzon_entries',
+                    ['proyecto_id', 'created_by', 'age', 'buzon_list_id', 'submitted_via_public_link', 'public_recipient_id', 'version']),
+                422, 'Este modo requiere el Buzón y sus listados ya instalados. No se ejecutaron comandos.');
+            abort_unless(\Illuminate\Support\Facades\Schema::hasColumn('beneficiaries', 'birth_date'),
+                422, 'Este modo requiere la fecha de nacimiento de beneficiarios ya instalada. No se ejecutaron comandos.');
+            foreach (['app/Models/BuzonEntry.php', 'app/Http/Requests/SaveBuzonEntryRequest.php',
+                'app/Http/Requests/SavePublicBuzonEntryRequest.php', 'app/Http/Controllers/BuzonController.php',
+                'app/Http/Controllers/PublicBuzonController.php', 'app/Services/BuzonDataTable.php',
+                'resources/views/buzon/form.blade.php', 'resources/views/buzon/public/form.blade.php',
+                'resources/views/buzon/partials/entries.blade.php', 'public/js/buzon-table.js'] as $file) {
+                abort_unless($this->deploymentFileContains($file, 'age_group'), 422,
+                    'El archivo '.$file.' no contiene la actualización esperada. Suba su versión actual antes de continuar.');
+            }
+            foreach ([
+                'resources/views/reports/create.blade.php' => 'beneficiary_birth_date_manual',
+                'public/js/beneficiary-birth-date-input.js' => 'SiaBirthDateInput',
+                'public/js/beneficiary-id-autofill.js' => 'manualRevision',
+                'resources/views/buzon/lists/index.blade.php' => 'buzon-lists-table.js',
+                'public/js/buzon-lists-table.js' => 'serverSide: true',
+                'app/Services/BuzonListsDataTable.php' => 'recordsFiltered',
+            ] as $file => $marker) {
                 abort_unless($this->deploymentFileContains($file, $marker), 422,
                     'El archivo '.$file.' no contiene la actualización esperada. Suba su versión actual antes de continuar.');
             }
@@ -832,6 +874,7 @@ class TemporaryMaintenanceController extends Controller
         $includeExcel = $excelOnly || request()->boolean('import_excel');
 
         $selectedMigrations = match (true) {
+            $buzonAgeGroupOnly => [$buzonAgeGroupMigration],
             $summaryProjectCodesOnly => [$summaryProjectCodesMigration],
             $buzonRecordsExcelOnly => [$buzonExportMigration],
             $birthDateOnly => [$birthDateMigration],
@@ -1075,6 +1118,18 @@ class TemporaryMaintenanceController extends Controller
                 'Al finalizar recargue SIA con Ctrl + F5 y pruebe crear el mismo código en otro proyecto. Repetirlo dentro del mismo proyecto debe seguir rechazándose.',
             ];
         }
+        if ($buzonAgeGroupOnly) {
+            $results = [
+                'GRUPO DE EDAD DEL BUZÓN: se comprueban los archivos y la estructura previa, se ejecuta únicamente la migración de age_group y se reconstruyen las cachés.',
+                'Los formularios internos y públicos permiten seleccionar NNA (menores de 18 años), Adultos (18 años o más) o No indicado. La edad exacta sigue siendo opcional; si se proporciona, debe coincidir con el grupo elegido.',
+                'Consultar opiniones permite filtrar por grupo de edad. La consulta, los totales, la búsqueda y las exportaciones PDF/Excel respetan ese filtro, los proyectos y la visibilidad por usuario o grupo activo.',
+                'Los registros históricos conservan sus datos y quedan con el nuevo campo sin indicar. No se asignan grupos automáticamente ni se crean, eliminan o reclasifican opiniones.',
+                'Incluye la DataTable de Consultar listados y su total inferior; esta parte no requiere otra migración.',
+                'Incluye fecha de nacimiento manual de beneficiarios: escriba DD/MM/AAAA; las barras se agregan automáticamente, se valida la fecha y se conserva el cálculo de edad a la fecha de atención. birth_date ya debe existir: este modo no repite su migración ni rellena fechas históricas.',
+                'No se ejecutan seeders, importaciones ni otras migraciones. No se modifican permisos, proyectos asignados, beneficiarios, períodos ni cierres. No se activa ni se cancela el mantenimiento; se conservan bloqueos y avisos programados.',
+                'La migración ya aplicada se omite. No se ejecutan todas las migraciones pendientes. Suba todos los archivos actualizados, no solo este controlador; no sobrescriba .env ni storage ni cambie APP_KEY. Al finalizar recargue con Ctrl + F5 y pruebe la fecha manual, los listados y guardar, editar, filtrar y exportar opiniones NNA y Adultos antes de retirar el mantenimiento manualmente.',
+            ];
+        }
         $exitCode = 1;
 
         try {
@@ -1100,6 +1155,10 @@ class TemporaryMaintenanceController extends Controller
                 $results[] = 'No se confirmó el índice único por proyecto. Revise el historial de migraciones antes de crear nuevos resúmenes; no se modificaron sus datos automáticamente.';
                 $exitCode = 1;
             }
+            if ($exitCode === 0 && $buzonAgeGroupOnly && ! \Illuminate\Support\Facades\Schema::hasColumn('buzon_entries', 'age_group')) {
+                $results[] = 'No se confirmó la columna age_group. Revise la migración antes de registrar nuevas opiniones.';
+                $exitCode = 1;
+            }
             if ($exitCode === 0 && class_exists(PermissionRegistrar::class)) {
                 app(PermissionRegistrar::class)->forgetCachedPermissions();
                 $results[] = 'PERMISSION CACHE: caché de roles y permisos limpiada correctamente.';
@@ -1114,6 +1173,27 @@ class TemporaryMaintenanceController extends Controller
         }
     }
 
+    protected function buzonAgeGroupFiles(): array
+    {
+        return [
+            'database/migrations/2026_11_25_120000_add_age_group_to_buzon_entries.php',
+            'app/Http/Controllers/TemporaryMaintenanceController.php', 'routes/maintenance.php',
+            'app/Models/BuzonEntry.php', 'app/Http/Requests/SaveBuzonEntryRequest.php',
+            'app/Http/Requests/SavePublicBuzonEntryRequest.php', 'app/Http/Controllers/BuzonController.php',
+            'app/Http/Controllers/PublicBuzonController.php', 'app/Services/BuzonDataTable.php',
+            'resources/views/buzon/form.blade.php', 'resources/views/buzon/public/form.blade.php',
+            'resources/views/buzon/partials/entries.blade.php', 'resources/views/buzon/partials/demographic-radios.blade.php',
+            'resources/views/buzon/lists/partials/entries.blade.php', 'public/js/buzon-table.js',
+            'app/Services/BuzonListsDataTable.php', 'resources/views/buzon/lists/index.blade.php',
+            'resources/views/buzon/lists/partials/actions.blade.php', 'public/js/buzon-lists-table.js',
+            'public/css/buzon.css', 'public/vendor/datatables/dataTables.min.js',
+            'public/vendor/datatables/dataTables.dataTables.min.css', 'public/vendor/datatables/dataTables.responsive.min.js',
+            'public/vendor/datatables/responsive.dataTables.min.css',
+            'resources/views/reports/create.blade.php', 'public/js/beneficiary-birth-date-input.js',
+            'public/js/beneficiary-id-autofill.js',
+        ];
+    }
+
     protected function buzonRecordsExcelFiles(): array
     {
         return array_values(array_unique(array_merge([
@@ -1122,6 +1202,8 @@ class TemporaryMaintenanceController extends Controller
             'app/Http/Controllers/PermissionController.php', 'app/Http/Controllers/AuditLogController.php',
             'app/Http/Controllers/ReportController.php', 'app/Http/Controllers/BeneficiaryReportController.php',
             'app/Http/Controllers/BuzonController.php', 'app/Services/BuzonDataTable.php',
+            'app/Services/BuzonListsDataTable.php', 'resources/views/buzon/lists/index.blade.php',
+            'resources/views/buzon/lists/partials/actions.blade.php', 'public/js/buzon-lists-table.js',
             'app/Services/ReportDeletionAudit.php', 'app/Services/ReportContinuation.php',
             'app/Http/Middleware/RecordAuditLog.php', 'app/Http/Middleware/PrivateBuzonResponse.php',
             'app/Http/Middleware/ReportPeriodTransaction.php', 'app/Models/AuditLog.php', 'app/Models/Beneficiary.php',
@@ -1133,6 +1215,7 @@ class TemporaryMaintenanceController extends Controller
             'resources/views/buzon/partials/public-link.blade.php', 'resources/views/buzon/partials/entries.blade.php',
             'resources/views/buzon/partials/entry-actions.blade.php', 'resources/views/buzon/partials/delete-button.blade.php',
             'public/js/report-deletion.js', 'public/js/buzon-table.js', 'public/js/buzon.js',
+            'public/js/beneficiary-birth-date-input.js',
             'public/js/buzon-share-project.js', 'public/js/buzon-public-link.js',
             'public/js/record-project-filter.js', 'public/js/record-state-filter.js',
             'public/js/navigation-disclosure.js', 'public/js/period-filter.js', 'public/js/summary-indicator-filter.js',

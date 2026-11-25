@@ -299,7 +299,7 @@
                     </label>
                     <label>Nombre y apellido *<input type="text" id="beneficiary_full_name"
                             required maxlength="150" autocomplete="name" style="text-transform: uppercase"></label>
-                    <label>Fecha de nacimiento *<input type="date" id="beneficiary_birth_date" required max="{{ today()->format('Y-m-d') }}"><small>La edad se calcula a la fecha de atención.</small></label>
+                    <label>Fecha de nacimiento *<input type="text" id="beneficiary_birth_date_manual" required inputmode="numeric" autocomplete="bday" maxlength="10" placeholder="DD/MM/AAAA" aria-describedby="beneficiary-birth-date-help"><input type="hidden" id="beneficiary_birth_date"><small id="beneficiary-birth-date-help">Escriba día, mes y año. Las barras se agregan automáticamente y la edad se calcula a la fecha de atención.</small></label>
                     <label>Edad * <small id="beneficiary-age-range" class="beneficiary-age-range" hidden></small><input type="number" id="beneficiary_age" min="0" max="120"
                             inputmode="numeric" readonly aria-readonly="true"></label>
                     <label>Sexo *<select id="beneficiary_sex">
@@ -425,6 +425,7 @@
 @endsection
 
 @push('scripts')
+    <script src="{{ asset('js/beneficiary-birth-date-input.js') }}?v={{ filemtime(public_path('js/beneficiary-birth-date-input.js')) }}"></script>
     <script src="{{ asset('js/report-deletion.js') }}?v={{ filemtime(public_path('js/report-deletion.js')) }}"></script>
     <script src="{{ asset('js/beneficiary-recurrence.js') }}?v={{ filemtime(public_path('js/beneficiary-recurrence.js')) }}"></script>
     <script src="{{ asset('js/beneficiary-voice.js') }}?v={{ filemtime(public_path('js/beneficiary-voice.js')) }}"></script>
@@ -841,10 +842,12 @@
         ];
         const beneficiaryInputs = Object.fromEntries(beneficiaryFields.map(field => [field, select(
             `beneficiary_${field}`)]));
+        const birthDateInput = window.SiaBirthDateInput.mount(select('beneficiary_birth_date_manual'), beneficiaryInputs.birth_date,
+            () => form.querySelector('[name="report_date"]').value);
         const syncBirthAge = () => {
+            birthDateInput.sync();
             const birth = beneficiaryInputs.birth_date.value;
             const reference = form.querySelector('[name="report_date"]').value;
-            beneficiaryInputs.birth_date.max = reference;
             let age = '';
             if (/^\d{4}-\d{2}-\d{2}$/.test(birth) && reference && birth <= reference) {
                 const [y, m, d] = birth.split('-').map(Number);
@@ -936,8 +939,9 @@
             pending: value => {form.dataset.beneficiaryVoicePending = value ? '1' : '0';},
         });
         const markVoiceField = (field, recognized) => {
-            beneficiaryInputs[field].classList.toggle('voice-recognized', recognized);
-            beneficiaryInputs[field].classList.toggle('voice-review', !beneficiaryInputs[field].value.trim() && ['full_name', 'birth_date', 'age', 'sex'].includes(field));
+            const input = field === 'birth_date' ? select('beneficiary_birth_date_manual') : beneficiaryInputs[field];
+            input.classList.toggle('voice-recognized', recognized);
+            input.classList.toggle('voice-review', !beneficiaryInputs[field].value.trim() && ['full_name', 'birth_date', 'age', 'sex'].includes(field));
         };
         const applyVoiceTranscript = async (text = voiceText.value) => {
             if (!text.trim()) {
@@ -950,7 +954,7 @@
             const recognized = new Set(result.recognized || []);
             beneficiaryFields.forEach(field => markVoiceField(field, recognized.has(field)));
             const missing = ['full_name', 'birth_date', 'age', 'sex'].find(field => !beneficiaryInputs[field].value.trim());
-            if (missing) beneficiaryInputs[missing].focus();
+            if (missing) (missing === 'birth_date' ? select('beneficiary_birth_date_manual') : beneficiaryInputs[missing]).focus();
             return result;
         };
         const resetVoiceButton = () => {
@@ -1053,6 +1057,7 @@
                 if (field === 'has_informed_consent') beneficiaryInputs[field].checked = true;
                 else beneficiaryInputs[field].value = '';
             });
+            birthDateInput.clear();
             beneficiaryInputs.disability.value = 'Ninguna';
             beneficiaryInputs.ethnicity.value = 'Ninguna';
             beneficiaryInputs.nationality.value = @json(\App\Models\Beneficiary::DEFAULT_NATIONALITY);
@@ -1169,6 +1174,7 @@
                 edit.addEventListener('click', () => {
                     form.dataset.beneficiaryEditing = '1';
                     form.dispatchEvent(new Event('beneficiary-entry-reset'));
+                    birthDateInput.clear();
                     syncNationalityOptions(beneficiary.nationality);
                     syncCaregiverRelationshipOptions(beneficiary.caregiver_relationship);
                     beneficiaryFields.forEach(field => {
@@ -1243,6 +1249,12 @@
                 return;
             }
             const beneficiary = beneficiaryRecord();
+            const manualBirthDate = select('beneficiary_birth_date_manual');
+            if (!manualBirthDate.checkValidity()) {
+                setMessage(entryError, manualBirthDate.validationMessage);
+                manualBirthDate.reportValidity();
+                return;
+            }
             if (!await checkPossibleRecurrence()) {
                 setMessage(entryError, 'No se pudo verificar la recurrencia. Revise los datos y vuelva a guardar.');
                 return;

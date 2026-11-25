@@ -13,10 +13,11 @@ class BuzonEntry extends Model
     public const OPINIONS = ['very_good' => 'Muy buena', 'neutral' => 'Ni buena ni mala', 'bad' => 'Mala'];
     public const FEEDBACK_TYPES = ['suggestion' => 'Sugerencia', 'comment' => 'Comentario', 'complaint' => 'Queja', 'request' => 'Solicitud'];
     public const GENDERS = ['female' => 'Femenino', 'male' => 'Masculino', 'non_binary_other' => 'No binario / Otro'];
+    public const AGE_GROUPS = ['nna' => 'NNA (menores de 18 años)', 'adult' => 'Adultos (18 años o más)'];
     public const DISABILITIES = ['visual' => 'Visual', 'hearing' => 'Auditiva', 'motor' => 'Motriz', 'none' => 'Ninguna'];
 
     protected $fillable = ['proyecto_id', 'created_by', 'opinion_date', 'place_name', 'full_name', 'phone', 'age',
-        'gender', 'disabilities', 'afro_descendant', 'opinion', 'feedback_type', 'comment', 'improvement', 'version'];
+        'age_group', 'gender', 'disabilities', 'afro_descendant', 'opinion', 'feedback_type', 'comment', 'improvement', 'version'];
     protected $hidden = ['public_submission_key'];
 
     protected function casts(): array

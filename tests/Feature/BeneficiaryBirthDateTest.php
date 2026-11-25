@@ -98,7 +98,9 @@ class BeneficiaryBirthDateTest extends TestCase
         unset($person['birth_date']);
         $this->putJson(route('beneficiaries.update', $beneficiary), $person)
             ->assertUnprocessable()->assertJsonValidationErrors('birth_date');
-        $this->get(route('reports.create'))->assertOk()->assertSee('id="beneficiary_birth_date" required', false)
+        $this->get(route('reports.create'))->assertOk()->assertSee('type="text" id="beneficiary_birth_date_manual" required', false)
+            ->assertSee('type="hidden" id="beneficiary_birth_date"', false)
+            ->assertSee('placeholder="DD/MM/AAAA"', false)->assertSee('js/beneficiary-birth-date-input.js', false)
             ->assertSee('readonly aria-readonly="true"', false);
     }
 }

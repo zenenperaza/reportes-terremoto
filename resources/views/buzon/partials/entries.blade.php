@@ -10,6 +10,7 @@
         <label>Fecha de la opinión hasta<input type="date" name="to" id="buzon-to" value="{{ $filters['to'] }}"></label>
         <label>Tipo de opinión<select name="opinion"><option value="">Todas</option>@foreach($schema::OPINIONS as $value => $label)<option value="{{ $value }}" @selected($filters['opinion'] === $value)>{{ $label }}</option>@endforeach</select></label>
         <label>Tipo de retroalimentación<select name="feedback_type"><option value="">Todos</option>@foreach($schema::FEEDBACK_TYPES as $value => $label)<option value="{{ $value }}" @selected($filters['feedback_type'] === $value)>{{ $label }}</option>@endforeach</select></label>
+        <label>Grupo de edad<select name="age_group"><option value="">Todos</option>@foreach($schema::AGE_GROUPS as $value => $label)<option value="{{ $value }}" @selected($filters['age_group'] === $value)>{{ $label }}</option>@endforeach<option value="unspecified" @selected($filters['age_group'] === 'unspecified')>No indicado</option></select></label>
         <div class="form-actions span-two"><a class="button button-secondary" href="{{ route($entriesRoute) }}">Limpiar filtros</a><button class="button button-primary" type="submit">Consultar Buzón</button></div>
     </form>
 </section>
@@ -20,7 +21,7 @@
 <section class="content-card">
     <h2>{{ $publicOnly ? 'Opiniones recibidas por enlace externo' : 'Opiniones registradas' }}</h2><p class="muted">Cada fila es un formulario del Buzón. No representa personas únicas y no se suma al informe de beneficiarios. Los totales corresponden a los filtros aplicados.</p>
     <p id="buzon-export-status" class="muted" role="status" hidden></p>
-    <div class="table-wrap"><table id="buzon-table" class="buzon-table display" style="width:100%" data-url="{{ route($entriesRoute) }}" data-filters="{{ json_encode($filters) }}" data-can-export="{{ auth()->user()->can('exportar buzon') ? '1' : '0' }}"><thead><tr><th>Fecha de opinión</th><th>Proyecto</th><th>Lugar</th><th>Opinión</th><th>Retroalimentación</th><th>Nombre</th><th>Usuario</th><th>Origen</th><th>Acciones</th></tr></thead><tbody>
+    <div class="table-wrap"><table id="buzon-table" class="buzon-table display" style="width:100%" data-url="{{ route($entriesRoute) }}" data-filters="{{ json_encode($filters) }}" data-can-export="{{ auth()->user()->can('exportar buzon') ? '1' : '0' }}"><thead><tr><th>Fecha de opinión</th><th>Proyecto</th><th>Lugar</th><th>Opinión</th><th>Retroalimentación</th><th>Nombre</th><th>Usuario</th><th>Origen</th><th>Grupo de edad</th><th>Acciones</th></tr></thead><tbody>
         @forelse($entries as $entry)<tr>
             <td>{{ $entry->opinion_date->format('d/m/Y') }}</td><td><strong>{{ $entry->proyecto->codigo }}</strong><br>{{ $entry->proyecto->nombre_alias ?: $entry->proyecto->descripcion }}</td>
             <td>{{ $entry->place_name }}</td><td>{{ $schema::OPINIONS[$entry->opinion] }}</td><td>{{ $schema::FEEDBACK_TYPES[$entry->feedback_type] }}</td>
@@ -29,7 +30,7 @@
                 Externo (sin usuario)<small class="d-block muted">Responsable del enlace: {{ $entry->publicRecipient?->name ?: 'Usuario no disponible' }}</small>
                 @else{{ $entry->creator?->name ?: 'Usuario no disponible' }}@endif
             </td>
-            <td>{{ $entry->submitted_via_public_link ? 'Enlace externo' : 'Interno' }}</td><td>
+            <td>{{ $entry->submitted_via_public_link ? 'Enlace externo' : 'Interno' }}</td><td>{{ $schema::AGE_GROUPS[$entry->age_group] ?? 'No indicado' }}</td><td>
                 @include('buzon.partials.entry-actions', ['manageableIds' => $manageableEntryIds])
             </td>
         </tr>@empty @endforelse

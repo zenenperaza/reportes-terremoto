@@ -53,6 +53,7 @@
                 </label>
                 <label>Fecha de la opinión *<input type="date" name="opinion_date" value="{{ $formValue('opinion_date', $entry->opinion_date?->format('Y-m-d')) }}" max="{{ today()->toDateString() }}" required></label>
                 <label class="span-two">Lugar de la queja o sugerencia *<input type="text" name="place_name" value="{{ $formValue('place_name', $entry->place_name) }}" maxlength="200" required><small>Indique el centro, comunidad o lugar al que se refiere esta opinión.</small></label>
+                @include('buzon.partials.demographic-radios', ['fieldName' => 'age_group', 'fieldLabel' => 'Grupo de edad', 'fieldOptions' => ['' => 'No indicado'] + $schema::AGE_GROUPS, 'fieldValue' => $formValue('age_group', $entry->age_group)])
                 <label>Edad (opcional)<input type="number" name="age" value="{{ $formValue('age', $entry->age) }}" min="0" max="120" step="1"></label>
                 @include('buzon.partials.demographic-radios', ['fieldName' => 'gender', 'fieldLabel' => 'Género', 'fieldOptions' => ['' => 'No indicado'] + $schema::GENDERS, 'fieldValue' => $formValue('gender', $entry->gender)])
                 <fieldset class="buzon-options"><legend>Discapacidad (opcional)</legend>@foreach($schema::DISABILITIES as $value => $label)<label><input type="checkbox" name="disabilities[]" value="{{ $value }}" @checked(in_array($value, $selectedDisabilities, true))> {{ $label }}</label>@endforeach<small>No combine «Ninguna» con otra discapacidad.</small></fieldset>

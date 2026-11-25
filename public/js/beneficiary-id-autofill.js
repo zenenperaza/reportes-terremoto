@@ -50,6 +50,7 @@ document.addEventListener('DOMContentLoaded', function () {
         input.setAttribute('aria-busy', 'true');
         status.textContent = 'Consultando cédula…';
         const snapshot = Object.fromEntries(names.map(name => [name, fields[name]?.value]));
+        const birthRevision = fields.birth_date?.dataset?.manualRevision;
         inFlight = (async () => {
         try {
             const response = await fetch(input.dataset.beneficiaryLookup, {
@@ -72,6 +73,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const person = result.beneficiary;
             const updated = [];
             names.forEach(name => {
+                if (name === 'birth_date' && fields.birth_date?.dataset?.manualRevision !== birthRevision) return;
                 const field = fields[name];
                 if (!field || field.readOnly || field.value !== snapshot[name]) return;
                 let value = person[name] == null ? '' : String(person[name]);

@@ -41,6 +41,7 @@ class SaveBuzonEntryRequest extends FormRequest
             'full_name' => ['required_if:feedback_type,request', 'nullable', 'string', 'max:150'],
             'phone' => ['required_if:feedback_type,request', 'nullable', 'string', 'max:40'],
             'age' => ['nullable', 'integer', 'between:0,120'],
+            'age_group' => ['nullable', Rule::in(array_keys(BuzonEntry::AGE_GROUPS))],
             'gender' => ['nullable', Rule::in(array_keys(BuzonEntry::GENDERS))],
             'disabilities' => ['nullable', 'array', 'max:4'],
             'disabilities.*' => ['required', 'distinct', Rule::in(array_keys(BuzonEntry::DISABILITIES))],
@@ -66,6 +67,15 @@ class SaveBuzonEntryRequest extends FormRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator): void {
+            $age = $this->input('age', $this->route('entry')?->age);
+            $group = $this->input('age_group', $this->route('entry')?->age_group);
+            if (! $validator->errors()->has('age') && ! $validator->errors()->has('age_group')
+                && $age !== null && $age !== '' && $group !== null && $group !== '') {
+                $expected = (int) $age < 18 ? 'nna' : 'adult';
+                if ($group !== $expected) {
+                    $validator->errors()->add('age_group', 'El grupo de edad no coincide con la edad indicada: NNA para menores de 18 años y Adultos desde los 18 años.');
+                }
+            }
             $selected = $this->input('disabilities', []) ?? [];
             if (is_array($selected) && in_array('none', $selected, true) && count($selected) > 1) {
                 $validator->errors()->add('disabilities', 'No combine Ninguna con otro tipo de discapacidad.');
@@ -93,6 +103,6 @@ class SaveBuzonEntryRequest extends FormRequest
     public function attributes(): array
     {
         return ['proyecto_id' => 'proyecto', 'place_name' => 'lugar', 'opinion_date' => 'fecha de la opinión',
-            'opinion' => 'opinión', 'feedback_type' => 'tipo de retroalimentación', 'version' => 'versión'];
+            'opinion' => 'opinión', 'feedback_type' => 'tipo de retroalimentación', 'version' => 'versión', 'age_group' => 'grupo de edad'];
     }
 }

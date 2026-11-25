@@ -55,8 +55,9 @@ class BuzonController extends Controller
             'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
             'opinion' => ['nullable', Rule::in(array_keys(BuzonEntry::OPINIONS))],
             'feedback_type' => ['nullable', Rule::in(array_keys(BuzonEntry::FEEDBACK_TYPES))],
+            'age_group' => ['nullable', Rule::in([...array_keys(BuzonEntry::AGE_GROUPS), 'unspecified'])],
         ], ['to.after_or_equal' => 'La fecha hasta no puede ser anterior a la fecha desde.']);
-        $filters += ['project_ids' => [], 'from' => '', 'to' => '', 'opinion' => '', 'feedback_type' => ''];
+        $filters += ['project_ids' => [], 'from' => '', 'to' => '', 'opinion' => '', 'feedback_type' => '', 'age_group' => ''];
         $filters['project_ids'] = $filters['project_ids'] ?? [];
         $query = BuzonEntry::visibleTo($request->user())
             ->when($publicOnly, fn ($query) => $query->where('submitted_via_public_link', true))
@@ -64,7 +65,9 @@ class BuzonController extends Controller
             ->when(filled($filters['from']), fn ($query) => $query->whereDate('opinion_date', '>=', $filters['from']))
             ->when(filled($filters['to']), fn ($query) => $query->whereDate('opinion_date', '<=', $filters['to']))
             ->when(filled($filters['opinion']), fn ($query) => $query->where('opinion', $filters['opinion']))
-            ->when(filled($filters['feedback_type']), fn ($query) => $query->where('feedback_type', $filters['feedback_type']));
+            ->when(filled($filters['feedback_type']), fn ($query) => $query->where('feedback_type', $filters['feedback_type']))
+            ->when(filled($filters['age_group']), fn ($query) => $filters['age_group'] === 'unspecified'
+                ? $query->whereNull('age_group') : $query->where('age_group', $filters['age_group']));
         if ($request->has('draw') || $request->filled('export_type')) {
             return app(\App\Services\BuzonDataTable::class)->response($request, $query);
         }
@@ -86,8 +89,12 @@ class BuzonController extends Controller
             'project_ids.*' => ['required', 'integer', 'distinct', Rule::in($projects->modelKeys())],
         ]) + ['project_ids' => []];
         $filters['project_ids'] ??= [];
-        $lists = BuzonList::visibleTo($request->user())
-            ->when($filters['project_ids'], fn ($query, $ids) => $query->whereIn('proyecto_id', $ids))
+        $query = BuzonList::visibleTo($request->user())
+            ->when($filters['project_ids'], fn ($query, $ids) => $query->whereIn('proyecto_id', $ids));
+        if ($request->has('draw')) {
+            return app(\App\Services\BuzonListsDataTable::class)->response($request, $query);
+        }
+        $lists = $query
             ->with(['proyecto', 'creator'])
             ->withCount(['entries' => fn ($query) => $query->visibleTo($request->user())])
             ->latest('id')->paginate(20)->withQueryString();
