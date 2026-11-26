@@ -32,11 +32,11 @@
             @csrf
             <input type="hidden" name="submission_token" value="{{ $submissionToken }}">
             <div class="honeypot" aria-hidden="true"><label>Deje este campo vacío<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+            @include('buzon.partials.demographic-radios', ['fieldName' => 'age_group', 'fieldLabel' => 'Grupo de edad', 'fieldOptions' => ['' => 'No indicado'] + $schema::AGE_GROUPS, 'fieldValue' => $value('age_group')])
             @include('buzon.partials.feedback-type', ['feedbackValue' => $value('feedback_type'), 'contactName' => $value('full_name'), 'contactPhone' => $value('phone'), 'contactReadOnly' => false])
             <div class="grid">
                 <label>Fecha de la opinión *<input type="date" name="opinion_date" value="{{ $value('opinion_date', today()->toDateString()) }}" max="{{ today()->toDateString() }}" required></label>
                 <label>Lugar de la queja o sugerencia *<input name="place_name" maxlength="200" value="{{ $value('place_name') }}" required></label>
-                @include('buzon.partials.demographic-radios', ['fieldName' => 'age_group', 'fieldLabel' => 'Grupo de edad', 'fieldOptions' => ['' => 'No indicado'] + $schema::AGE_GROUPS, 'fieldValue' => $value('age_group')])
                 <label>Edad (opcional)<input type="number" name="age" min="0" max="120" step="1" value="{{ $value('age') }}"></label>
                 @include('buzon.partials.demographic-radios', ['fieldName' => 'gender', 'fieldLabel' => 'Género', 'fieldOptions' => ['' => 'No indicado'] + $schema::GENDERS, 'fieldValue' => $value('gender')])
                 <fieldset><legend>Discapacidad (opcional)</legend>@foreach($schema::DISABILITIES as $key => $label)<label class="choice"><input type="checkbox" name="disabilities[]" value="{{ $key }}" @checked(in_array($key, $disabilities, true))> {{ $label }}</label>@endforeach<small>No combine Ninguna con otra discapacidad.</small></fieldset>

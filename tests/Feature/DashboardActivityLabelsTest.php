@@ -53,9 +53,9 @@ class DashboardActivityLabelsTest extends TestCase
         $sector = SectorProyecto::create(['proyecto_id' => $project->id, 'sector_id' => $this->sector->id]);
         $indicator = Indicador::create(['codigo' => 'IND-'.$number, 'nombre_corto' => $indicatorName,
             'descripcion' => 'Descripción completa del indicador '.$number, 'unidad_conteo' => 'Personas',
-            'espacio_coordinacion' => 'NNA', 'edad_desde' => 0, 'edad_hasta' => 120, 'excluir_reporte_beneficiarios' => $excluded]);
+            'espacio_coordinacion' => 'NNA', 'edad_desde' => 0, 'edad_hasta' => 120]);
         $assignment = IndicadorProyecto::create(['proyecto_id' => $project->id, 'sector_proyecto_id' => $sector->id,
-            'indicador_id' => $indicator->id, 'estatus' => true]);
+            'indicador_id' => $indicator->id, 'estatus' => true, 'excluir_reporte_beneficiarios' => $excluded]);
         $report = Report::create($this->geography + [
             'user_id' => $owner->id, 'proyecto_id' => $project->id, 'indicador_proyecto_id' => $assignment->id,
             'sector_id' => $this->sector->id, 'reporting_period' => '2026-10', 'report_date' => '2026-10-01',

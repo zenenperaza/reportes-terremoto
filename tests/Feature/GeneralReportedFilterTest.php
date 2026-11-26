@@ -43,10 +43,9 @@ class GeneralReportedFilterTest extends TestCase
             $sector = Sector::create(['name' => 'Sector '.$code, 'slug' => 'sector-'.strtolower($code), 'estatus' => $code !== 'C']);
             $assignedSector = SectorProyecto::create(['sector_id' => $sector->id, 'proyecto_id' => $project->id]);
             $indicator = Indicador::create(['codigo' => 'IND-'.$code, 'descripcion' => 'Indicador '.$code, 'indicator_group_id' => $code === 'B' ? $excludedGroup->id : $group->id,
-                'unidad_conteo' => 'Personas', 'espacio_coordinacion' => 'NNA', 'edad_desde' => 0, 'edad_hasta' => 120,
-                'excluir_reporte_beneficiarios' => $code === 'B']);
+                'unidad_conteo' => 'Personas', 'espacio_coordinacion' => 'NNA', 'edad_desde' => 0, 'edad_hasta' => 120]);
             $assignment = IndicadorProyecto::create(['indicador_id' => $indicator->id, 'proyecto_id' => $project->id,
-                'sector_proyecto_id' => $assignedSector->id, 'estatus' => $code !== 'C']);
+                'sector_proyecto_id' => $assignedSector->id, 'estatus' => $code !== 'C', 'excluir_reporte_beneficiarios' => $code === 'B']);
             $type = config('reports.installation_types')[$code === 'A' ? 0 : 1];
             $report = Report::create(['user_id' => $admin->id, 'proyecto_id' => $project->id, 'indicador_proyecto_id' => $assignment->id,
                 'reporting_period' => $code === 'A' ? '2026-08' : '2026-09', 'report_date' => $code === 'A' ? '2026-08-05' : ($code === 'B' ? '2026-09-15' : '2026-09-20'),

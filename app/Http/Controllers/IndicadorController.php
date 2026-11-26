@@ -72,10 +72,7 @@ class IndicadorController extends Controller
             'espacio_coordinacion' => ['required', Rule::in(Indicador::ESPACIOS_COORDINACION)],
             'edad_desde' => ['required', 'integer', 'min:0', 'max:120'],
             'edad_hasta' => ['required', 'integer', 'min:0', 'max:120', 'gte:edad_desde'],
-            'excluir_reporte_beneficiarios' => ['sometimes', 'boolean'],
         ]);
-
-        $validated['excluir_reporte_beneficiarios'] = $request->boolean('excluir_reporte_beneficiarios');
 
         return $validated;
     }

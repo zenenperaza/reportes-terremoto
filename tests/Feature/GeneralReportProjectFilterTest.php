@@ -36,10 +36,9 @@ class GeneralReportProjectFilterTest extends TestCase
                     'nombre_alias' => 'Proyecto '.$n, 'descripcion' => 'Descripción', 'estatus' => $n !== 2]);
                 $sectorAssignment = SectorProyecto::create(['proyecto_id' => $project->id, 'sector_id' => $sector->id]);
                 $indicator = $this->indicators[$n] = Indicador::create(['codigo' => 'IND-'.$n, 'descripcion' => 'Indicador '.$n,
-                    'unidad_conteo' => 'Personas', 'espacio_coordinacion' => 'NNA', 'edad_desde' => 0, 'edad_hasta' => 120,
-                    'excluir_reporte_beneficiarios' => $n === 2]);
+                    'unidad_conteo' => 'Personas', 'espacio_coordinacion' => 'NNA', 'edad_desde' => 0, 'edad_hasta' => 120]);
                 $assignment = IndicadorProyecto::create(['proyecto_id' => $project->id, 'sector_proyecto_id' => $sectorAssignment->id,
-                    'indicador_id' => $indicator->id, 'estatus' => true]);
+                    'indicador_id' => $indicator->id, 'estatus' => true, 'excluir_reporte_beneficiarios' => $n === 2]);
                 $summary = $this->summaries[$n] = SummaryIndicator::create(['proyecto_id' => $project->id,
                     'code' => 'RES-'.$n, 'name' => 'Resumen '.$n, 'is_active' => true]);
                 $summary->assignments()->attach($assignment);

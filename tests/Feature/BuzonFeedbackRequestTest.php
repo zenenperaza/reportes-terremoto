@@ -42,7 +42,7 @@ class BuzonFeedbackRequestTest extends TestCase
         return new \DOMXPath($dom);
     }
 
-    public function test_both_forms_start_with_four_feedback_radios_and_one_conditional_contact_group(): void
+    public function test_both_forms_offer_four_feedback_radios_and_one_conditional_contact_group(): void
     {
         $internal = $this->actingAs($this->admin)->get(route('buzon.create'))->assertOk();
         auth()->logout();
@@ -53,7 +53,7 @@ class BuzonFeedbackRequestTest extends TestCase
             $form = '//form[@data-buzon-entry or @data-public-buzon-form]';
             $this->assertSame(4, $xpath->query($form.'//input[@type="radio" and @name="feedback_type" and @required]')->length);
             $this->assertSame(0, $xpath->query($form.'//select[@name="feedback_type"]')->length);
-            $this->assertSame('feedback_type', $xpath->query($form.'//input[not(@type="hidden") and not(@name="website")]')->item(0)->getAttribute('name'));
+            $this->assertSame('age_group', $xpath->query($form.'//input[not(@type="hidden") and not(@name="website")]')->item(0)->getAttribute('name'));
             $this->assertSame(0, $xpath->query($form.'//*[@data-buzon-contact and @hidden]')->length);
             foreach (['full_name', 'phone'] as $field) {
                 $this->assertSame(1, $xpath->query($form.'//input[@name="'.$field.'"]')->length);

@@ -52,8 +52,8 @@ class SummaryIndicatorsTest extends TestCase
             $project = $key === 'EX' ? $this->items['A']['project'] : Proyecto::create(['donante_id' => $donor->id, 'codigo' => 'PROY-'.$key, 'descripcion' => 'Proyecto '.$key, 'estatus' => true]);
             $projectSector = SectorProyecto::firstOrCreate(['proyecto_id' => $project->id, 'sector_id' => $sector->id]);
             $indicator = in_array($key, ['A', 'C']) ? $shared : Indicador::create(['codigo' => 'IND-'.$key, 'descripcion' => 'Indicador '.$key,
-                'unidad_conteo' => 'Personas', 'espacio_coordinacion' => 'NNA', 'edad_desde' => 0, 'edad_hasta' => 120, 'excluir_reporte_beneficiarios' => $key === 'EX']);
-            $assignment = IndicadorProyecto::create(['proyecto_id' => $project->id, 'sector_proyecto_id' => $projectSector->id, 'indicador_id' => $indicator->id, 'estatus' => true]);
+                'unidad_conteo' => 'Personas', 'espacio_coordinacion' => 'NNA', 'edad_desde' => 0, 'edad_hasta' => 120]);
+            $assignment = IndicadorProyecto::create(['proyecto_id' => $project->id, 'sector_proyecto_id' => $projectSector->id, 'indicador_id' => $indicator->id, 'estatus' => true, 'excluir_reporte_beneficiarios' => $key === 'EX']);
             $activity = Actividad::create(['codigo' => 'ACT-'.$key, 'descripcion' => 'Actividad '.$key]);
             $assignedActivity = ActividadIndicador::create(['indicador_proyecto_id' => $assignment->id, 'actividad_id' => $activity->id, 'estatus' => true]);
             $assignedService = ServicioActividad::create(['actividad_indicador_id' => $assignedActivity->id, 'servicio_id' => $service->id, 'estatus' => true]);
@@ -185,8 +185,8 @@ class SummaryIndicatorsTest extends TestCase
         foreach (['general-reports.export', 'indicator-reports.export'] as $route) {
             $book = $this->workbook($this->get(route($route, $filters))->assertOk());
             try {
-                $this->assertSame(6, $book->getActiveSheet()->getCell('B3')->getValue());
-                $this->assertStringContainsString('SUM-ONE', json_encode($book->getActiveSheet()->toArray()));
+                $this->assertSame(6, $book->getSheetByName('Resumen')->getCell('B3')->getValue());
+                $this->assertStringContainsString('SUM-ONE', json_encode($book->getSheetByName('Resumen')->toArray()));
             } finally { $book->disconnectWorksheets(); }
         }
         foreach (['beneficiario' => 6, 'servicio' => 6, 'resumen' => 3, 'agrupado' => 1] as $mode => $count) {
@@ -410,7 +410,7 @@ class SummaryIndicatorsTest extends TestCase
                 $this->assertStringNotContainsString('PRIVADO B', $content);
                 $this->assertStringNotContainsString('PRIVADO C', $content);
                 if (in_array($route, ['general-reports.export', 'indicator-reports.export'])) {
-                    $this->assertSame(2, $book->getActiveSheet()->getCell('B3')->getValue());
+                    $this->assertSame(2, $book->getSheetByName('Resumen')->getCell('B3')->getValue());
                 }
             } finally { $book->disconnectWorksheets(); }
         }
@@ -425,6 +425,9 @@ class SummaryIndicatorsTest extends TestCase
         $migration = require database_path('migrations/2026_10_26_150000_scope_summary_indicators_to_projects.php');
         $members = DB::table('summary_indicator_assignments')->orderBy('summary_indicator_id')->orderBy('indicador_proyecto_id')->get()->toArray();
         $count = SummaryIndicator::count();
+        // Roll back the newer project/code index before removing its project column.
+        $codeMigration = require database_path('migrations/2026_11_24_120000_scope_summary_indicator_codes_to_projects.php');
+        $codeMigration->down();
         $migration->down();
         $this->assertEquals($members, DB::table('summary_indicator_assignments')->orderBy('summary_indicator_id')->orderBy('indicador_proyecto_id')->get()->toArray());
         $migration->up();

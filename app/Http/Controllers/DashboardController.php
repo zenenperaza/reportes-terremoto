@@ -113,9 +113,10 @@ class DashboardController extends Controller
 
     private function excludeFlaggedIndicators(Builder $query): Builder
     {
-        // Keep legacy reports without a project indicator; exclude only explicitly flagged indicators.
-        return $query->whereDoesntHave('indicadorProyecto.indicador',
-            fn (Builder $indicator) => $indicator->where('excluir_reporte_beneficiarios', true)
+        // Exclusion belongs to this project assignment, never to the shared catalog.
+        // Keep legacy reports without a project indicator.
+        return $query->whereDoesntHave('indicadorProyecto',
+            fn (Builder $assignment) => $assignment->where('excluir_reporte_beneficiarios', true)
         );
     }
 }

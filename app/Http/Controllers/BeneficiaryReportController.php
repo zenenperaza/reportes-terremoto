@@ -393,9 +393,10 @@ class BeneficiaryReportController extends Controller
 
     private function excludeFlaggedIndicators(Builder $query): Builder
     {
-        // Keep legacy reports without a project indicator; exclude only explicitly flagged indicators.
-        return $query->whereDoesntHave('indicadorProyecto.indicador',
-            fn (Builder $indicator) => $indicator->where('excluir_reporte_beneficiarios', true)
+        // Exclusion belongs to this project assignment, never to the shared catalog.
+        // Keep legacy reports without a project indicator.
+        return $query->whereDoesntHave('indicadorProyecto',
+            fn (Builder $assignment) => $assignment->where('excluir_reporte_beneficiarios', true)
         );
     }
 
@@ -441,9 +442,9 @@ class BeneficiaryReportController extends Controller
             ],
             'reporting_period' => ReportPeriod::rules(),
             'from' => ['nullable', 'date_format:Y-m-d'],
-            'to' => ['nullable', 'date_format:Y-m-d', 'after:from'],
+            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
             'included_from' => ['nullable', 'date_format:Y-m-d'],
-            'included_to' => ['nullable', 'date_format:Y-m-d', 'after:included_from'],
+            'included_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:included_from'],
             'state_id' => ['nullable', 'integer', 'exists:states,id'],
             'municipality_id' => ['nullable', 'integer', 'exists:municipalities,id'],
             'parish_id' => ['nullable', 'integer', 'exists:parishes,id'],
@@ -456,8 +457,8 @@ class BeneficiaryReportController extends Controller
             'reported' => ['nullable', Rule::in(['0', '1', 0, 1])],
         ], [
             'project_ids.*.in' => 'Seleccione un proyecto disponible para su usuario.',
-            'to.after' => 'La fecha de atención «Desde» debe ser anterior a «Hasta».',
-            'included_to.after' => 'La fecha de registro «Desde» debe ser anterior a «Hasta».',
+            'to.after_or_equal' => 'La fecha de atención «Hasta» no puede ser anterior a «Desde».',
+            'included_to.after_or_equal' => 'La fecha de registro «Hasta» no puede ser anterior a «Desde».',
         ])->validate();
 
         $filters['project_ids'] = array_map('intval', $filters['project_ids']);

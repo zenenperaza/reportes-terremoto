@@ -29,7 +29,7 @@ class GeneralReportConditionCardsTest extends TestCase
             $sector = Sector::create(['name' => 'Sector '.$code, 'slug' => 'condition-'.strtolower($code)]);
             $context = $this->reportProjectContext($owner, $state, $sector);
             $this->assignments[$code] = IndicadorProyecto::findOrFail($context['indicador_proyecto_id']);
-            if ($code === 'B') $this->assignments[$code]->indicador->update(['excluir_reporte_beneficiarios' => true]);
+            if ($code === 'B') $this->assignments[$code]->update(['excluir_reporte_beneficiarios' => true]);
             $this->reports[$code] = Report::create($context + ['user_id' => $owner->id, 'report_date' => $code === 'A' ? '2026-10-10' : '2026-10-20',
                 'reporting_period' => $code === 'A' ? '2026-10' : '2026-09',
                 'reporter_first_name' => 'Prueba', 'reporter_last_name' => '', 'reporter_email' => $owner->email,

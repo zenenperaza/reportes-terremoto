@@ -60,7 +60,7 @@
 </section>
 
 <section class="content-card filter-card">
-    <form method="get" class="beneficiary-report-filters" id="beneficiary-report-filters" data-period-dates data-date-bounds-url="{{ route('beneficiaries.dates') }}" data-locations-url="{{ route('beneficiaries.locations') }}">
+    <form method="get" class="beneficiary-report-filters" id="beneficiary-report-filters" data-period-dates data-date-allow-equal="1" data-date-bounds-url="{{ route('beneficiaries.dates') }}" data-locations-url="{{ route('beneficiaries.locations') }}">
         <input type="hidden" name="reported" value="{{ $filters['reported'] ?? '' }}">
         <span data-project-scope-inputs hidden>@foreach($filters['project_ids'] as $projectId)<input type="hidden" name="project_ids[]" value="{{ $projectId }}">@endforeach</span>
         @foreach(['attention' => ['from' => 'Fecha de atención desde', 'to' => 'Fecha de atención hasta'], 'registered' => ['included_from' => 'Fecha de registro (inclusión) desde', 'included_to' => 'Fecha de registro (inclusión) hasta']] as $dateGroup => $dateFields)

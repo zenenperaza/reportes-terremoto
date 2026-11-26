@@ -22,18 +22,18 @@ class Indicador extends Model
 
     protected $fillable = [
         'indicator_group_id', 'codigo', 'nombre_corto', 'descripcion', 'unidad_conteo', 'espacio_coordinacion', 'edad_desde', 'edad_hasta',
-        'excluir_reporte_beneficiarios',
     ];
 
     protected function casts(): array
     {
+        // Legacy catalog flag is read-only. Reporting now uses IndicadorProyecto's flag.
         return ['edad_desde' => 'integer', 'edad_hasta' => 'integer', 'excluir_reporte_beneficiarios' => 'boolean'];
     }
 
     public function proyectos(): BelongsToMany
     {
         return $this->belongsToMany(Proyecto::class, 'indicador_proyecto')
-            ->withPivot(['id', 'estatus', 'meta_cuantitativa', 'meta_cualitativa'])
+            ->withPivot(['id', 'estatus', 'meta_cuantitativa', 'meta_cualitativa', 'excluir_reporte_beneficiarios'])
             ->withTimestamps();
     }
 

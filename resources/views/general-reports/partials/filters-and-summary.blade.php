@@ -2,7 +2,7 @@
 <section class="card general-filter-card">
     <div class="card-header"><div><h2 class="card-title mb-1">Filtros del informe</h2><p class="text-muted mb-0">Combine uno o varios criterios para actualizar todos los resultados.</p></div></div>
     <div class="card-body">
-        <form method="get" id="general-report-filters" class="row g-3" data-period-dates data-date-bounds-url="{{ $dateBoundsRoute }}" data-locations-url="{{ $locationsRoute }}">
+        <form method="get" id="general-report-filters" class="row g-3" data-period-dates data-date-allow-equal="1" data-date-bounds-url="{{ $dateBoundsRoute }}" data-locations-url="{{ $locationsRoute }}">
             <input type="hidden" name="reported" value="{{ $filters['reported'] ?? '' }}">
             @if($projectFilterEnabled)
                 <span data-general-project-inputs hidden>@foreach($filters['project_ids'] as $id)<input type="hidden" name="project_ids[]" value="{{ $id }}">@endforeach</span>

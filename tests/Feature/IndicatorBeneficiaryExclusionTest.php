@@ -15,6 +15,7 @@ use App\Models\SectorProyecto;
 use App\Models\State;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\{DB, Schema};
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Tests\TestCase;
 
@@ -22,31 +23,29 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_indicator_checkbox_is_saved_validated_and_can_be_unchecked(): void
+    public function test_project_indicator_checkbox_is_saved_validated_and_can_be_unchecked(): void
     {
-        $this->actingAs(User::factory()->create(['role' => 'admin']));
-        $this->get(route('indicadores.create'))->assertOk()->assertSee('Excluir para reportes de beneficiarios');
-        $data = $this->indicatorData('CHECK');
-        $this->post(route('indicadores.store'), $data)->assertRedirect(route('indicadores.index'));
-        $indicator = Indicador::where('codigo', 'CHECK')->firstOrFail();
-        $this->assertFalse($indicator->excluir_reporte_beneficiarios);
-
-        $this->put(route('indicadores.update', $indicator), $data + ['excluir_reporte_beneficiarios' => '1'])
-            ->assertRedirect(route('indicadores.index'));
-        $this->assertTrue($indicator->refresh()->excluir_reporte_beneficiarios);
-        $this->get(route('indicadores.edit', $indicator))->assertOk()
+        [$admin, $report] = $this->reports();
+        $this->actingAs($admin);
+        $assignment = $report->indicadorProyecto;
+        $this->get(route('indicadores.create'))->assertOk()->assertDontSee('name="excluir_reporte_beneficiarios"', false);
+        $this->get(route('indicadores.edit', $assignment->indicador))->assertOk()->assertDontSee('name="excluir_reporte_beneficiarios"', false);
+        $this->get(route('indicador-proyecto.edit', $assignment))->assertOk()->assertSee('Excluir para reportes de beneficiarios');
+        $this->assertFalse($assignment->excluir_reporte_beneficiarios);
+        $this->put(route('indicador-proyecto.update', $assignment), ['estatus' => '1', 'excluir_reporte_beneficiarios' => '1'])->assertRedirect();
+        $this->assertTrue($assignment->refresh()->excluir_reporte_beneficiarios);
+        $this->get(route('indicador-proyecto.edit', $assignment))->assertOk()
             ->assertSee('name="excluir_reporte_beneficiarios" value="1" checked', false);
-
-        $this->put(route('indicadores.update', $indicator), $data + ['excluir_reporte_beneficiarios' => 'invalid'])
+        $this->put(route('indicador-proyecto.update', $assignment), ['estatus' => '1', 'excluir_reporte_beneficiarios' => 'invalid'])
             ->assertSessionHasErrors('excluir_reporte_beneficiarios');
-        $this->assertTrue($indicator->refresh()->excluir_reporte_beneficiarios);
-        $this->put(route('indicadores.update', $indicator), $data + ['excluir_reporte_beneficiarios' => '0'])
-            ->assertRedirect(route('indicadores.index'));
-        $this->assertFalse($indicator->refresh()->excluir_reporte_beneficiarios);
-
+        $this->assertTrue($assignment->refresh()->excluir_reporte_beneficiarios);
+        $this->put(route('indicador-proyecto.update', $assignment), ['estatus' => '1', 'meta_cuantitativa' => 99])->assertRedirect();
+        $this->assertTrue($assignment->refresh()->excluir_reporte_beneficiarios, 'Omitting the flag must not erase it while editing targets.');
+        $this->put(route('indicador-proyecto.update', $assignment), ['estatus' => '1', 'excluir_reporte_beneficiarios' => '0'])->assertRedirect();
+        $this->assertFalse($assignment->refresh()->excluir_reporte_beneficiarios);
         $this->post(route('indicadores.store'), $this->indicatorData('CHECK-NEW') + ['excluir_reporte_beneficiarios' => '1'])
             ->assertRedirect(route('indicadores.index'));
-        $this->assertTrue(Indicador::where('codigo', 'CHECK-NEW')->firstOrFail()->excluir_reporte_beneficiarios);
+        $this->assertFalse(Indicador::where('codigo', 'CHECK-NEW')->firstOrFail()->excluir_reporte_beneficiarios);
     }
 
     public function test_summary_totals_groups_and_places_exclude_flagged_indicators_but_keep_legacy_reports(): void
@@ -66,7 +65,7 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
         $this->get(route('beneficiaries.summary', ['indicador_proyecto_id' => $included->indicador_proyecto_id]))
             ->assertOk()->assertViewHas('summary', fn ($summary) => $summary['total'] === 1);
 
-        $excluded->indicadorProyecto->indicador->update(['excluir_reporte_beneficiarios' => false]);
+        $excluded->indicadorProyecto->update(['excluir_reporte_beneficiarios' => false]);
         $this->get(route('beneficiaries.summary'))->assertOk()
             ->assertViewHas('summary', fn ($summary) => $summary['total'] === 3);
     }
@@ -206,7 +205,7 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
     public function test_selector_filters_by_project_assignment_not_shared_legacy_activity_and_accepts_legacy_urls(): void
     {
         [$admin, $included, $excluded, $legacy] = $this->reports();
-        $excluded->indicadorProyecto->indicador->update(['excluir_reporte_beneficiarios' => false]);
+        $excluded->indicadorProyecto->update(['excluir_reporte_beneficiarios' => false]);
         $this->actingAs($admin);
 
         foreach ([$included, $excluded] as $report) {
@@ -257,10 +256,13 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
         try {
             file_put_contents($path, $response->streamedContent());
             $workbook = IOFactory::load($path);
-            $rows = array_values(array_filter(array_slice($workbook->getActiveSheet()->toArray(), 1), fn ($row) => $row[0] !== null));
+            $sheetRows = $workbook->getActiveSheet()->toArray();
+            $indicatorColumn = array_search('Indicador a reportar', $sheetRows[0], true);
+            $this->assertNotFalse($indicatorColumn);
+            $rows = array_values(array_filter(array_slice($sheetRows, 1), fn ($row) => $row[0] !== null));
             $this->assertCount(1, $rows);
             $this->assertSame($included->beneficiaries()->first()->id, (int) $rows[0][0]);
-            $this->assertSame('Indicador INCLUIDO', $rows[0][11]);
+            $this->assertSame('Indicador INCLUIDO', $rows[0][$indicatorColumn]);
             $workbook->disconnectWorksheets();
         } finally {
             unlink($path);
@@ -274,7 +276,7 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
     public function test_multiple_project_indicators_are_combined_and_preserved_in_the_form(): void
     {
         [$admin, $included, $excluded, $legacy] = $this->reports();
-        $excluded->indicadorProyecto->indicador->update(['excluir_reporte_beneficiarios' => false]);
+        $excluded->indicadorProyecto->update(['excluir_reporte_beneficiarios' => false]);
         $selected = ['project:'.$included->indicador_proyecto_id, 'project:'.$excluded->indicador_proyecto_id];
         $response = $this->actingAs($admin)->get(route('beneficiaries.summary', ['indicator_filter' => $selected]))->assertOk()
             ->assertViewHas('reportCount', 2)
@@ -459,6 +461,109 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
             ->assertViewHas('sectors', fn ($sectors) => $sectors->isEmpty());
     }
 
+    public function test_the_same_catalog_indicator_can_be_excluded_in_one_project_and_included_in_another(): void
+    {
+        [$admin, $excluded, $second] = $this->sharedIndicatorReports();
+        $this->actingAs($admin);
+        $master = $excluded->indicadorProyecto->indicador;
+        // A historical catalog value must never override a project's explicit setting.
+        DB::table('indicadores')->where('id', $master->id)->update(['excluir_reporte_beneficiarios' => true]);
+        $this->get(route('beneficiaries.summary', ['project_ids' => [$second->proyecto_id]]))->assertOk()
+            ->assertViewHas('summary', fn ($summary) => $summary['total'] === 1)
+            ->assertViewHas('indicatorOptions', fn ($options) => $options->contains('value', 'project:'.$second->indicador_proyecto_id));
+        $this->get(route('dashboard'))->assertOk()->assertViewHas('beneficiaryTotal', 3);
+        $this->get(route('reports.show', $excluded))->assertOk();
+        foreach (['general-reports.index', 'indicator-reports.index'] as $route) {
+            $this->get(route($route))->assertOk()->assertViewHas('summary', fn ($summary) => $summary['beneficiaries'] === 4);
+        }
+        $this->put(route('indicador-proyecto.update', $second->indicadorProyecto), ['estatus' => 1, 'excluir_reporte_beneficiarios' => 1])->assertRedirect();
+        $this->get(route('beneficiaries.summary', ['project_ids' => [$second->proyecto_id]]))->assertOk()
+            ->assertViewHas('summary', fn ($summary) => $summary['total'] === 0);
+        $this->put(route('indicador-proyecto.update', $excluded->indicadorProyecto), ['estatus' => 1, 'excluir_reporte_beneficiarios' => 0])->assertRedirect();
+        $this->assertTrue($second->indicadorProyecto->fresh()->excluir_reporte_beneficiarios);
+        $this->get(route('beneficiaries.summary', ['project_ids' => [$excluded->proyecto_id]]))->assertOk()
+            ->assertViewHas('summary', fn ($summary) => $summary['total'] === 2);
+        $this->get(route('beneficiaries.summary', ['project_ids' => [$second->proyecto_id]]))->assertOk()
+            ->assertViewHas('summary', fn ($summary) => $summary['total'] === 0);
+        $this->assertDatabaseCount('reports', 4);
+        $this->assertDatabaseCount('beneficiaries', 4);
+    }
+
+    public function test_project_exclusion_controls_excel_and_mark_reported_without_touching_other_projects(): void
+    {
+        [$admin, $excluded, $second] = $this->sharedIndicatorReports();
+        $this->actingAs($admin);
+        foreach ([[$second, 1], [$excluded, 0]] as [$report, $count]) {
+            $response = $this->get(route('beneficiaries.export', ['indicador_proyecto_id' => $report->indicador_proyecto_id]))->assertOk();
+            $path = tempnam(sys_get_temp_dir(), 'project-exclusion-');
+            try {
+                file_put_contents($path, $response->streamedContent());
+                $workbook = IOFactory::load($path);
+                $rows = array_filter(array_slice($workbook->getActiveSheet()->toArray(), 1), fn (array $row) => $row[0] !== null);
+                $this->assertCount($count, $rows);
+                $workbook->disconnectWorksheets();
+            } finally {
+                unlink($path);
+            }
+        }
+        $this->post(route('beneficiaries.mark-reported'), ['project_ids' => [$second->proyecto_id], 'reported_at' => today()->toDateString()])->assertRedirect();
+        $this->assertNotNull($second->beneficiaries()->firstOrFail()->reported_at);
+        $this->assertNull($excluded->beneficiaries()->firstOrFail()->reported_at);
+    }
+
+    public function test_catalog_edits_do_not_change_project_flags_and_non_admin_cannot_change_assignments(): void
+    {
+        [$admin, $excluded, $second] = $this->sharedIndicatorReports();
+        $master = $excluded->indicadorProyecto->indicador;
+        $this->actingAs($admin)->put(route('indicadores.update', $master), $this->indicatorData($master->codigo) + ['excluir_reporte_beneficiarios' => '1'])->assertRedirect();
+        $this->assertTrue($excluded->indicadorProyecto->fresh()->excluir_reporte_beneficiarios);
+        $this->assertFalse($second->indicadorProyecto->fresh()->excluir_reporte_beneficiarios);
+        $this->assertFalse($master->fresh()->excluir_reporte_beneficiarios);
+        $reporter = User::factory()->create(['role' => 'reporter']);
+        $this->actingAs($reporter)->get(route('indicador-proyecto.edit', $second->indicadorProyecto))->assertForbidden();
+        $this->put(route('indicador-proyecto.update', $second->indicadorProyecto), ['estatus' => 1, 'excluir_reporte_beneficiarios' => 1])->assertForbidden();
+        $this->assertFalse($second->indicadorProyecto->fresh()->excluir_reporte_beneficiarios);
+    }
+
+    public function test_migration_preserves_existing_exclusions_ids_and_timestamps_then_allows_independent_changes(): void
+    {
+        [$admin, $excluded, $second] = $this->sharedIndicatorReports();
+        $master = $excluded->indicadorProyecto->indicador;
+        DB::table('indicadores')->where('id', $master->id)->update(['excluir_reporte_beneficiarios' => true]);
+        $before = DB::table('indicador_proyecto')->orderBy('id')->get(['id', 'proyecto_id', 'indicador_id', 'updated_at'])->toJson();
+        $reports = DB::table('reports')->orderBy('id')->get()->toJson();
+        $people = DB::table('beneficiaries')->orderBy('id')->get()->toJson();
+        Schema::table('indicador_proyecto', fn ($table) => $table->dropColumn('excluir_reporte_beneficiarios'));
+        $migration = require database_path('migrations/2026_11_26_120000_scope_beneficiary_exclusion_to_project_indicators.php');
+        $migration->up();
+        $this->assertTrue($excluded->indicadorProyecto->fresh()->excluir_reporte_beneficiarios);
+        $this->assertTrue($second->indicadorProyecto->fresh()->excluir_reporte_beneficiarios);
+        $this->assertSame($before, DB::table('indicador_proyecto')->orderBy('id')->get(['id', 'proyecto_id', 'indicador_id', 'updated_at'])->toJson());
+        $this->assertSame($reports, DB::table('reports')->orderBy('id')->get()->toJson());
+        $this->assertSame($people, DB::table('beneficiaries')->orderBy('id')->get()->toJson());
+        $this->assertTrue($master->fresh()->excluir_reporte_beneficiarios);
+        $second->indicadorProyecto->update(['excluir_reporte_beneficiarios' => false]);
+        $this->artisan('migrate', ['--path' => 'database/migrations/2026_11_26_120000_scope_beneficiary_exclusion_to_project_indicators.php', '--force' => true])->assertExitCode(0);
+        $this->assertFalse($second->indicadorProyecto->fresh()->excluir_reporte_beneficiarios);
+        $newProject = Proyecto::create(['donante_id' => $excluded->proyecto->donante_id, 'codigo' => 'FUTURE', 'descripcion' => 'Nuevo proyecto', 'estatus' => true]);
+        $newAssignment = IndicadorProyecto::create(['proyecto_id' => $newProject->id, 'indicador_id' => $master->id, 'estatus' => true]);
+        $this->assertFalse($newAssignment->fresh()->excluir_reporte_beneficiarios, 'New assignments do not inherit a catalog-wide exclusion.');
+    }
+
+    private function sharedIndicatorReports(): array
+    {
+        [$admin, $included, $excluded] = $this->reports();
+        $project = Proyecto::create(['donante_id' => $excluded->proyecto->donante_id, 'codigo' => 'SECOND-PROJECT', 'descripcion' => 'Segundo proyecto', 'estatus' => true]);
+        $assignment = IndicadorProyecto::create(['proyecto_id' => $project->id, 'indicador_id' => $excluded->indicadorProyecto->indicador_id, 'estatus' => true]);
+        $second = $excluded->replicate()->unsetRelations();
+        $second->proyecto_id = $project->id;
+        $second->indicador_proyecto_id = $assignment->id;
+        $second->place_name = 'Lugar segundo proyecto';
+        $second->save();
+        $second->beneficiaries()->create(['full_name' => 'Persona de segundo proyecto', 'age' => 10, 'sex' => 'Mujer', 'is_recurrent' => false]);
+        return [$admin, $excluded, $second];
+    }
+
     private function reports(): array
     {
         $admin = User::factory()->create(['role' => 'admin', 'can_mark_reported' => true]);
@@ -470,11 +575,12 @@ class IndicatorBeneficiaryExclusionTest extends TestCase
         $donor = Donante::create(['nombre' => 'UNICEF', 'estatus' => true]);
         $project = Proyecto::create(['donante_id' => $donor->id, 'estatus' => true, 'codigo' => 'P-TEST', 'descripcion' => 'Proyecto']);
         $includedIndicator = Indicador::create($this->indicatorData('INCLUIDO'));
-        $excludedIndicator = Indicador::create($this->indicatorData('EXCLUIDO') + ['excluir_reporte_beneficiarios' => true]);
+        $excludedIndicator = Indicador::create($this->indicatorData('EXCLUIDO'));
         $reports = [];
         foreach ([$includedIndicator, $excludedIndicator, null] as $indicator) {
             $assignment = $indicator ? IndicadorProyecto::create([
                 'proyecto_id' => $project->id, 'indicador_id' => $indicator->id, 'estatus' => true,
+                'excluir_reporte_beneficiarios' => $indicator === $excludedIndicator,
             ]) : null;
             $report = Report::create([
                 'reporting_period' => \App\Support\ReportPeriod::current(),

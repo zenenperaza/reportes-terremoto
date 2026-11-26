@@ -24,7 +24,7 @@ class Proyecto extends Model
     public function indicadores(): BelongsToMany
     {
         return $this->belongsToMany(Indicador::class, 'indicador_proyecto')
-            ->withPivot(['id', 'estatus', 'meta_cuantitativa', 'meta_cualitativa'])
+            ->withPivot(['id', 'estatus', 'meta_cuantitativa', 'meta_cualitativa', 'excluir_reporte_beneficiarios'])
             ->withTimestamps();
     }
 

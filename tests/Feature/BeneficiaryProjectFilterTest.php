@@ -248,7 +248,7 @@ class BeneficiaryProjectFilterTest extends TestCase
         $this->get(route('beneficiaries.summary', ['project_ids' => $ids, 'reported' => '1']))->assertOk()
             ->assertViewHas('indicatorOptions', fn ($items) => $items->pluck('code')->all() === ['IND-2'])
             ->assertViewHas('periodOptions', fn ($items) => $items->keys()->all() === ['2026-10']);
-        $options[1]['indicator']->update(['excluir_reporte_beneficiarios' => true]);
+        $options[1]['assignment']->update(['excluir_reporte_beneficiarios' => true]);
         $this->get(route('beneficiaries.summary', ['project_ids' => [$this->projects[1]->id]]))->assertOk()
             ->assertViewHas('indicatorOptions', fn ($items) => $items->isEmpty())
             ->assertViewHas('periodOptions', fn ($items) => $items->isEmpty())

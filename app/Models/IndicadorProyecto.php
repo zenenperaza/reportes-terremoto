@@ -12,11 +12,12 @@ class IndicadorProyecto extends Model
 
     protected $fillable = [
         'proyecto_id', 'sector_proyecto_id', 'indicador_id', 'estatus', 'meta_cuantitativa', 'meta_cualitativa',
+        'excluir_reporte_beneficiarios',
     ];
 
     protected function casts(): array
     {
-        return ['estatus' => 'boolean', 'meta_cuantitativa' => 'integer'];
+        return ['estatus' => 'boolean', 'meta_cuantitativa' => 'integer', 'excluir_reporte_beneficiarios' => 'boolean'];
     }
 
     public function proyecto(): BelongsTo

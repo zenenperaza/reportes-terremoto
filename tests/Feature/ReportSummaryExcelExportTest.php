@@ -56,9 +56,8 @@ class ReportSummaryExcelExportTest extends TestCase
         $group = IndicatorGroup::create(['name' => 'Apoyo psicosocial', 'description' => 'Grupo de prueba', 'sort_order' => 1]);
         foreach ([1, 2] as $number) {
             $indicator = Indicador::create(['codigo' => 'IND-'.$number, 'nombre_corto' => 'Indicador '.$number, 'descripcion' => 'Descripción '.$number,
-                'indicator_group_id' => $group->id, 'unidad_conteo' => 'Personas', 'espacio_coordinacion' => 'NNA', 'edad_desde' => 0, 'edad_hasta' => 120,
-                'excluir_reporte_beneficiarios' => $number === 2]);
-            $assignment = IndicadorProyecto::create(['proyecto_id' => $project->id, 'sector_proyecto_id' => $projectSector->id, 'indicador_id' => $indicator->id, 'estatus' => true]);
+                'indicator_group_id' => $group->id, 'unidad_conteo' => 'Personas', 'espacio_coordinacion' => 'NNA', 'edad_desde' => 0, 'edad_hasta' => 120]);
+            $assignment = IndicadorProyecto::create(['proyecto_id' => $project->id, 'sector_proyecto_id' => $projectSector->id, 'indicador_id' => $indicator->id, 'estatus' => true, 'excluir_reporte_beneficiarios' => $number === 2]);
             if ($number === 1) {
                 $this->assignment = $assignment;
             } else {

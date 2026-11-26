@@ -285,9 +285,9 @@ class GeneralReportController extends Controller
             'project_ids.*' => ['bail', 'required', 'integer', 'distinct', Rule::in($this->projectFilterEnabled() ? $this->projectOptions($request)->pluck('id')->all() : [])],
             'reporting_period' => ReportPeriod::rules(),
             'attention_from' => ['nullable', 'date_format:Y-m-d'],
-            'attention_to' => ['nullable', 'date_format:Y-m-d', 'after:attention_from'],
+            'attention_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:attention_from'],
             'registered_from' => ['nullable', 'date_format:Y-m-d'],
-            'registered_to' => ['nullable', 'date_format:Y-m-d', 'after:registered_from'],
+            'registered_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:registered_from'],
             'age_from' => ['nullable', 'integer', 'min:0', 'max:120'],
             'age_to' => ['nullable', 'integer', 'min:0', 'max:120', 'gte:age_from'],
             'age_group' => ['nullable', Rule::in(array_keys(self::AGE_GROUPS))],
@@ -304,8 +304,8 @@ class GeneralReportController extends Controller
             'is_recurrent' => ['nullable', Rule::in(['0', '1', 0, 1])],
             'reported' => ['nullable', Rule::in(['0', '1', 0, 1])],
         ], [
-            'attention_to.after' => 'La fecha de atención «Desde» debe ser anterior a «Hasta».',
-            'registered_to.after' => 'La fecha de registro «Desde» debe ser anterior a «Hasta».',
+            'attention_to.after_or_equal' => 'La fecha de atención «Hasta» no puede ser anterior a «Desde».',
+            'registered_to.after_or_equal' => 'La fecha de registro «Hasta» no puede ser anterior a «Desde».',
             'project_ids.*.in' => 'Seleccione un proyecto disponible para su usuario.',
         ])->validate();
 

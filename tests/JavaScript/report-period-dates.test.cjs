@@ -36,7 +36,10 @@ function harness({periods = [], value = '', values = [], bounds = all, calendar 
             parentElement: {querySelector: () => help}, help, labels: [{textContent: 'Fecha'}],
         };
     });
-    const form = {...element(), dataset: {dateBoundsUrl: '/fechas', dateAllowEqual: services ? '1' : '0'},
+    const template = services ? 'resources/views/servicios/programados.blade.php'
+        : beneficiary ? 'resources/views/beneficiaries/summary.blade.php' : 'resources/views/general-reports/partials/filters-and-summary.blade.php';
+    const allowEqual = fs.readFileSync(template, 'utf8').includes('data-date-allow-equal="1"');
+    const form = {...element(), dataset: {dateBoundsUrl: '/fechas', dateAllowEqual: allowEqual ? '1' : '0'},
         querySelectorAll: selector => selector === '[type="submit"]' ? [submit]
             : selector === 'input[name="project_ids[]"]' ? (projects || []).map(value => ({value})) : inputs,
         querySelector: () => ({value: reported}),
@@ -260,25 +263,48 @@ test('malformed date response remains blocked until retry succeeds', async () =>
     assert.equal(h.submit.disabled, true);
 });
 
-test('attention and registration reject inverted and equal endpoints before submit or Excel', () => {
+test('attention and registration reject inverted endpoints before submit or Excel', () => {
     for (const calendar of [true, false]) {
         for (const beneficiary of [true, false]) {
             for (const pair of [[0, 1], [2, 3]]) {
-                for (const end of ['2026-07-01', '2026-07-05']) {
-                    const h = harness({calendar, beneficiary});
-                    const [from, to] = pair;
-                    h.inputs[from].value = '2026-07-05';
-                    h.inputs[to].value = end;
-                    h.inputs[to].dispatchEvent(new Event('change'));
-                    assert.equal(h.orderError.hidden, false);
-                    assert.match(h.inputs[to].validity, /de (atención|registro) «Desde» debe ser anterior a «Hasta»/);
-                    if (calendar) assert.equal(h.pickers[to].altInput.validity, h.inputs[to].validity);
-                    let prevented = false;
-                    h.form.events.submit({preventDefault() {prevented = true;}});
-                    assert.equal(prevented, true);
-                    assert.equal(blockedClick(h), true);
-                    assert.equal((calendar ? h.pickers[to].altInput : h.inputs[to]).reportedInvalid, true);
-                }
+                const h = harness({calendar, beneficiary});
+                const [from, to] = pair;
+                h.inputs[from].value = '2026-07-05';
+                h.inputs[to].value = '2026-07-01';
+                h.inputs[to].dispatchEvent(new Event('change'));
+                assert.equal(h.orderError.hidden, false);
+                assert.match(h.inputs[to].validity, /de (atención|registro) «Hasta» no puede ser anterior a «Desde»/);
+                if (calendar) assert.equal(h.pickers[to].altInput.validity, h.inputs[to].validity);
+                let prevented = false;
+                h.form.events.submit({preventDefault() {prevented = true;}});
+                assert.equal(prevented, true);
+                assert.equal(blockedClick(h), true);
+                assert.equal((calendar ? h.pickers[to].altInput : h.inputs[to]).reportedInvalid, true);
+            }
+        }
+    }
+});
+
+test('all report date pairs allow a single day for submitting and exporting, with or without the calendar', () => {
+    for (const calendar of [true, false]) {
+        for (const beneficiary of [true, false]) {
+            for (const [from, to] of [[0, 1], [2, 3]]) {
+                const h = harness({calendar, beneficiary});
+                h.inputs[from].value = h.inputs[to].value = '2026-07-15';
+                h.inputs[to].dispatchEvent(new Event('change'));
+                assert.equal(h.orderError.hidden, true);
+                assert.equal(h.inputs[to].validity, '');
+                if (calendar) assert.equal(h.pickers[to].altInput.validity, '');
+                let prevented = false;
+                h.form.events.submit({preventDefault() {prevented = true;}});
+                assert.equal(prevented, false);
+                assert.equal(blockedClick(h), false);
+                h.inputs[to].value = '2026-07-14';
+                h.inputs[to].dispatchEvent(new Event('change'));
+                assert.equal(h.orderError.hidden, false);
+                h.inputs[to].value = '2026-07-15';
+                h.inputs[to].dispatchEvent(new Event('change'));
+                assert.equal(h.orderError.hidden, true, 'Correcting an inverted range to a single day clears the error.');
             }
         }
     }

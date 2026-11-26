@@ -173,13 +173,33 @@ class ReportPeriodDateFiltersTest extends TestCase
         foreach ([[$fields[0], $fields[1]], [$fields[2], $fields[3]]] as [$from, $to]) {
             $this->getJson(route($route, ['reported' => '', $from => '2026-08-20', $to => '2026-08-10']))->assertUnprocessable()->assertJsonValidationErrors($to);
             foreach ([$route, $export] as $endpoint) {
-                foreach (['2026-07-14', '2026-07-15'] as $end) {
-                    $response = $this->getJson(route($endpoint, ['reported' => '', $from => '2026-07-15', $to => $end]))
-                        ->assertUnprocessable()->assertJsonValidationErrors($to);
-                    $this->assertStringContainsString('de '.($from === $fields[0] ? 'atención' : 'registro').' «Desde» debe ser anterior a «Hasta».', $response->json('errors.'.$to.'.0'));
-                    $this->assertStringNotContainsString('validation.', $response->getContent());
-                }
+                $response = $this->getJson(route($endpoint, ['reported' => '', $from => '2026-07-15', $to => '2026-07-14']))
+                    ->assertUnprocessable()->assertJsonValidationErrors($to);
+                $this->assertStringContainsString('de '.($from === $fields[0] ? 'atención' : 'registro').' «Hasta» no puede ser anterior a «Desde».', $response->json('errors.'.$to.'.0'));
+                $this->assertStringNotContainsString('validation.', $response->getContent());
             }
+        }
+    }
+
+    #[DataProvider('reports')]
+    public function test_same_day_ranges_include_the_entire_day_in_pages_and_exports(string $route, string $export, string $dates, array $fields, string $count): void
+    {
+        $template = Report::firstOrFail();
+        foreach (['2026-11-24 23:59:59', '2026-11-25 00:00:00', '2026-11-25 23:59:59', '2026-11-26 00:00:00'] as $registered) {
+            $report = $template->replicate();
+            $report->reporting_period = '2026-11';
+            $report->report_date = substr($registered, 0, 10);
+            $report->save();
+            $person = $report->beneficiaries()->create(['full_name' => 'Persona de prueba', 'age' => 10, 'sex' => 'Mujer']);
+            $person->forceFill(['created_at' => $registered])->save();
+        }
+        $params = ['reported' => '', 'reporting_period' => ['2026-11']];
+        foreach ([[$fields[0], $fields[1]], [$fields[2], $fields[3]], $fields] as $names) {
+            $filters = $params + array_fill_keys($names, '2026-11-25');
+            $this->get(route($route, $filters))->assertOk()
+                ->assertSee('data-date-allow-equal="1"', false)
+                ->assertViewHas('summary', fn ($summary) => $summary[$count] === 2);
+            $this->get(route($export, $filters))->assertOk()->assertDownload();
         }
     }
 }

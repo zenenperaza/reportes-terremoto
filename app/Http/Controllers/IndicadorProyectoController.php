@@ -125,6 +125,7 @@ class IndicadorProyectoController extends Controller
     {
         $data = $request->validate([
             'estatus' => ['required', 'boolean'],
+            'excluir_reporte_beneficiarios' => ['sometimes', 'boolean'],
             'meta_cuantitativa' => ['nullable', 'integer', 'min:0'],
             'meta_cualitativa' => ['nullable', 'string'],
         ]);

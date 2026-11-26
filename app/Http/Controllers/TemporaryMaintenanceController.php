@@ -18,7 +18,7 @@ class TemporaryMaintenanceController extends Controller
 
         abort_if(request()->has('nly'), 422, 'El parámetro correcto es only. Corrija la dirección antes de ejecutar el mantenimiento.');
 
-        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto', 'actualizacion-buzon', 'indicadores-resumen', 'nacionalidad-beneficiarios', 'actualizacion-beneficiarios', 'actualizacion-buzon-registros', 'actualizacion-buzon-listados', 'actualizacion-buzon-publico', 'fecha-nacimiento-beneficiarios', 'actualizacion-buzon-registros-excel', 'codigos-resumen-por-proyecto', 'buzon-grupo-edad'], true),
+        abort_unless(in_array(request('only'), [null, '', 'cache', 'excel', 'permisos-beneficiarios', 'edicion-cruzada-grupos', 'periodos', 'indicadores-asociados', 'informes-servicios', 'mantenimiento-en-vivo', 'notificaciones', 'actualizacion-sia', 'actualizacion-informes', 'lugares-proyecto', 'actualizacion-buzon', 'indicadores-resumen', 'nacionalidad-beneficiarios', 'actualizacion-beneficiarios', 'actualizacion-buzon-registros', 'actualizacion-buzon-listados', 'actualizacion-buzon-publico', 'fecha-nacimiento-beneficiarios', 'actualizacion-buzon-registros-excel', 'codigos-resumen-por-proyecto', 'buzon-grupo-edad', 'exclusion-indicador-por-proyecto'], true),
             422, 'Modo de mantenimiento no reconocido.');
         $permissionsOnly = request('only') === 'permisos-beneficiarios';
         $groupEditingOnly = request('only') === 'edicion-cruzada-grupos';
@@ -41,6 +41,9 @@ class TemporaryMaintenanceController extends Controller
         $buzonRecordsExcelOnly = request('only') === 'actualizacion-buzon-registros-excel';
         $summaryProjectCodesOnly = request('only') === 'codigos-resumen-por-proyecto';
         $buzonAgeGroupOnly = request('only') === 'buzon-grupo-edad';
+        $projectIndicatorExclusionOnly = request('only') === 'exclusion-indicador-por-proyecto';
+        abort_if($projectIndicatorExclusionOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
+            422, 'El modo exclusion-indicador-por-proyecto no se puede combinar con otras opciones.');
         abort_if($buzonAgeGroupOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
             422, 'El modo buzon-grupo-edad no se puede combinar con otras opciones.');
         abort_if($summaryProjectCodesOnly && request()->hasAny(['only_cache', 'import_excel', 'apply', 'decisions']),
@@ -711,6 +714,27 @@ class TemporaryMaintenanceController extends Controller
             }
         }
 
+        $projectIndicatorExclusionMigration = ['name' => 'migrate', 'parameters' => [
+            '--path' => 'database/migrations/2026_11_26_120000_scope_beneficiary_exclusion_to_project_indicators.php', '--force' => true,
+        ]];
+        if ($projectIndicatorExclusionOnly) {
+            foreach ($this->projectIndicatorExclusionFiles() as $file) {
+                abort_unless($this->deploymentFileExists($file), 422, 'Suba el archivo '.$file.' antes de continuar.');
+            }
+            abort_unless(\Illuminate\Support\Facades\Schema::hasColumns('indicadores', ['id', 'excluir_reporte_beneficiarios'])
+                && \Illuminate\Support\Facades\Schema::hasColumns('indicador_proyecto', ['id', 'indicador_id', 'proyecto_id'])
+                && \Illuminate\Support\Facades\Schema::hasColumn('buzon_entries', 'age_group'), 422,
+                'Este modo requiere los indicadores por proyecto y el grupo de edad del Buzón ya instalados. No se ejecutaron comandos.');
+            foreach ($this->projectIndicatorExclusionMarkers() as $file => $markers) foreach ($markers as $marker) {
+                abort_unless($this->deploymentFileContains($file, $marker), 422,
+                    'El archivo '.$file.' no contiene la actualización esperada. Suba su versión actual antes de continuar.');
+            }
+            abort_if($this->deploymentFileContains('resources/views/indicadores/form.blade.php', 'name="excluir_reporte_beneficiarios"'),
+                422, 'Suba el formulario de Indicadores actualizado: la exclusión ya no se configura en el catálogo general.');
+            abort_unless($this->projectIndicatorExclusionRuntimeAvailable(), 422,
+                'Suba los modelos actualizados y los formularios con Grupo de edad primero. No se ejecutaron comandos.');
+        }
+
         $cacheCommands = [
             ['name' => 'optimize:clear', 'parameters' => []],
             ['name' => 'cache:clear', 'parameters' => []],
@@ -874,6 +898,7 @@ class TemporaryMaintenanceController extends Controller
         $includeExcel = $excelOnly || request()->boolean('import_excel');
 
         $selectedMigrations = match (true) {
+            $projectIndicatorExclusionOnly => [$projectIndicatorExclusionMigration],
             $buzonAgeGroupOnly => [$buzonAgeGroupMigration],
             $summaryProjectCodesOnly => [$summaryProjectCodesMigration],
             $buzonRecordsExcelOnly => [$buzonExportMigration],
@@ -1130,6 +1155,20 @@ class TemporaryMaintenanceController extends Controller
                 'La migración ya aplicada se omite. No se ejecutan todas las migraciones pendientes. Suba todos los archivos actualizados, no solo este controlador; no sobrescriba .env ni storage ni cambie APP_KEY. Al finalizar recargue con Ctrl + F5 y pruebe la fecha manual, los listados y guardar, editar, filtrar y exportar opiniones NNA y Adultos antes de retirar el mantenimiento manualmente.',
             ];
         }
+        if ($projectIndicatorExclusionOnly) {
+            $results = [
+                'EXCLUSIÓN DE INDICADORES POR PROYECTO Y AJUSTES DE FORMULARIOS: se comprueban los archivos, modelos y estructura previa, se ejecuta únicamente la nueva migración de exclusión por proyecto y se reconstruyen las cachés.',
+                'Excluir para reportes de beneficiarios se configura en Editar indicador del proyecto, no en el catálogo general. El mismo indicador puede excluirse en un proyecto e incluirse en otro de forma independiente.',
+                'La migración agrega excluir_reporte_beneficiarios en indicador_proyecto y copia una sola vez las exclusiones actuales del catálogo a sus asignaciones existentes, incluidas las inactivas. Se conservan los IDs, metas, estados y fechas de actualización. El campo anterior se conserva como referencia, pero ya no controla los reportes.',
+                'Después de migrar puede marcar o desmarcar cada asignación. Las nuevas asignaciones no heredan automáticamente la exclusión del catálogo. Repetir este modo omite la migración aplicada y no restaura decisiones modificadas posteriormente.',
+                'El Informe de beneficiarios, sus filtros, fechas disponibles, totales, Excel y Marcar como reportado respetan la exclusión por proyecto, al igual que los conteos de beneficiarios del Panel. Los registros permanecen disponibles en Registros de actividades. Se mantiene el alcance actual de Informes generales y por indicadores.',
+                'Incluye consultar y exportar un solo día: Desde y Hasta pueden ser iguales, tanto en fechas de atención como de registro, en Beneficiarios, Informes generales y por indicadores. Se incluye todo el día seleccionado y se siguen rechazando rangos invertidos.',
+                'Incluye Grupo de edad primero en los formularios interno y público del Buzón, antes de la retroalimentación. Se conserva el valor guardado y la opción No indicado; no se reclasifican opiniones. No se repite la migración del Buzón.',
+                'No se ejecutan seeders, importaciones, correcciones geográficas, respaldos automáticos ni otras migraciones. No se crean, eliminan, unen ni modifican registros, beneficiarios u opiniones durante este mantenimiento; solo se traslada la configuración de exclusión.',
+                'No se modifican permisos, asignaciones de usuarios a proyectos, períodos ni cierres. No se activa ni se cancela el mantenimiento; se conservan bloqueos y avisos programados.',
+                'Suba todos los archivos modificados y nuevos, no solo este controlador. No sobrescriba .env ni storage ni cambie APP_KEY. Al finalizar recargue con Ctrl + F5 y pruebe la exclusión independiente, el filtro de un solo día y los formularios del Buzón antes de retirar el mantenimiento manualmente.',
+            ];
+        }
         $exitCode = 1;
 
         try {
@@ -1159,6 +1198,11 @@ class TemporaryMaintenanceController extends Controller
                 $results[] = 'No se confirmó la columna age_group. Revise la migración antes de registrar nuevas opiniones.';
                 $exitCode = 1;
             }
+            if ($exitCode === 0 && $projectIndicatorExclusionOnly
+                && ! \Illuminate\Support\Facades\Schema::hasColumn('indicador_proyecto', 'excluir_reporte_beneficiarios')) {
+                $results[] = 'No se confirmó la exclusión por proyecto. Revise la migración antes de cambiar esta configuración.';
+                $exitCode = 1;
+            }
             if ($exitCode === 0 && class_exists(PermissionRegistrar::class)) {
                 app(PermissionRegistrar::class)->forgetCachedPermissions();
                 $results[] = 'PERMISSION CACHE: caché de roles y permisos limpiada correctamente.';
@@ -1171,6 +1215,49 @@ class TemporaryMaintenanceController extends Controller
         } catch (Throwable $exception) {
             return response('<pre>ERROR: '.e($exception->getMessage()).'</pre>', 500)->header('Cache-Control', 'no-store');
         }
+    }
+
+    protected function projectIndicatorExclusionFiles(): array
+    {
+        return array_values(array_unique(array_merge([
+            'database/migrations/2026_11_26_120000_scope_beneficiary_exclusion_to_project_indicators.php',
+            'app/Http/Controllers/TemporaryMaintenanceController.php', 'routes/maintenance.php',
+            'app/Models/Proyecto.php', 'app/Http/Controllers/IndicadorController.php',
+            'resources/views/indicadores/form.blade.php', 'public/css/buzon-feedback.css',
+            'resources/views/buzon/partials/demographic-radios.blade.php',
+        ], array_keys($this->projectIndicatorExclusionMarkers()))));
+    }
+
+    protected function projectIndicatorExclusionMarkers(): array
+    {
+        return [
+            'app/Models/Indicador.php' => ['protected $fillable', 'withPivot'],
+            'app/Models/IndicadorProyecto.php' => ['excluir_reporte_beneficiarios'],
+            'app/Http/Controllers/IndicadorProyectoController.php' => ['excluir_reporte_beneficiarios'],
+            'app/Http/Controllers/BeneficiaryReportController.php' => ["whereDoesntHave('indicadorProyecto',", 'after_or_equal:from', 'after_or_equal:included_from'],
+            'app/Http/Controllers/DashboardController.php' => ["whereDoesntHave('indicadorProyecto',"],
+            'app/Http/Controllers/GeneralReportController.php' => ['after_or_equal:attention_from', 'after_or_equal:registered_from'],
+            'resources/views/proyectos/indicadores/edit.blade.php' => ['excluir_reporte_beneficiarios', 'No afecta al mismo indicador en otros proyectos.'],
+            'resources/views/beneficiaries/summary.blade.php' => ['data-date-allow-equal="1"'],
+            'resources/views/general-reports/partials/filters-and-summary.blade.php' => ['data-date-allow-equal="1"'],
+            'public/js/report-period-dates.js' => ['dateAllowEqual'],
+            'resources/views/buzon/form.blade.php' => ["'fieldName' => 'age_group'"],
+            'resources/views/buzon/public/form.blade.php' => ["'fieldName' => 'age_group'"],
+        ];
+    }
+
+    protected function projectIndicatorExclusionRuntimeAvailable(): bool
+    {
+        if (! (new \App\Models\IndicadorProyecto)->isFillable('excluir_reporte_beneficiarios')
+            || (new \App\Models\Indicador)->isFillable('excluir_reporte_beneficiarios')
+            || ((new \App\Models\IndicadorProyecto)->getCasts()['excluir_reporte_beneficiarios'] ?? null) !== 'boolean') return false;
+        foreach (['resources/views/buzon/form.blade.php', 'resources/views/buzon/public/form.blade.php'] as $file) {
+            $contents = file_get_contents(base_path($file));
+            $group = strpos($contents, "'fieldName' => 'age_group'");
+            $feedback = strpos($contents, "'buzon.partials.feedback-type'");
+            if ($group === false || $feedback === false || $group > $feedback) return false;
+        }
+        return true;
     }
 
     protected function buzonAgeGroupFiles(): array

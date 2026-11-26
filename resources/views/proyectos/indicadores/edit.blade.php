@@ -5,7 +5,7 @@
     <div>
         <p class="eyebrow">Proyecto {{ $indicadorProyecto->proyecto->codigo }}</p>
         <h1>Editar indicador del proyecto</h1>
-        <p class="muted">Actualice las metas y el estado sin modificar el indicador maestro.</p>
+        <p class="muted">Actualice las metas, el estado y la exclusión de reportes de este proyecto sin modificar el indicador maestro.</p>
     </div>
 </section>
 <section class="content-card catalog-form-card">
@@ -28,6 +28,14 @@
             <label class="span-two">Meta cualitativa
                 <textarea name="meta_cualitativa" rows="4" placeholder="Resultado cualitativo esperado">{{ old('meta_cualitativa',$indicadorProyecto->meta_cualitativa) }}</textarea>
             </label>
+        </div>
+        <div>
+            <input type="hidden" name="excluir_reporte_beneficiarios" value="0">
+            <label class="checkbox-label">
+                <input type="checkbox" name="excluir_reporte_beneficiarios" value="1" @checked(old('excluir_reporte_beneficiarios', $indicadorProyecto->excluir_reporte_beneficiarios))>
+                Excluir para reportes de beneficiarios
+            </label>
+            <small>Solo en este proyecto: sus registros no se incluirán en el Informe de beneficiarios, sus totales, exportaciones ni al marcar como reportado. Seguirán disponibles en Registros de actividades. No afecta al mismo indicador en otros proyectos.</small>
         </div>
         <div class="form-actions">
             <a class="button button-secondary" href="{{ $indicadorProyecto->sector_proyecto_id ? route('sector-proyecto.indicadores.index', $indicadorProyecto->sector_proyecto_id) : route('proyectos.indicadores.index', $indicadorProyecto->proyecto_id) }}">Cancelar</a>

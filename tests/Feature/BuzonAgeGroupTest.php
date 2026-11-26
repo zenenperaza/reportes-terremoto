@@ -62,12 +62,15 @@ class BuzonAgeGroupTest extends TestCase
             $this->assertSame(3, $xpath->query('//input[@type="radio" and @name="age_group"]')->length);
             $this->assertSame(0, $xpath->query('//input[@name="age_group" and @required]')->length);
             $this->assertSame(1, $xpath->query('//input[@name="age_group" and @value="" and @checked]')->length);
+            $form = '//form[@data-buzon-entry or @data-public-buzon-form]';
+            $this->assertSame('age_group', $xpath->query($form.'//input[not(@type="hidden") and not(@name="website")]')->item(0)->getAttribute('name'));
         }
         $entry = $this->entry(['age_group' => 'nna']);
         $this->actingAs($this->actor);
         foreach (['buzon.edit', 'buzon.show'] as $route) {
             $xpath = $this->xpath($this->get(route($route, $entry))->assertOk()->getContent());
             $this->assertSame(1, $xpath->query('//input[@name="age_group" and @value="nna" and @checked]')->length);
+            $this->assertSame('age_group', $xpath->query('//form[@data-buzon-entry]//input[not(@type="hidden")]')->item(0)->getAttribute('name'));
         }
     }
 
